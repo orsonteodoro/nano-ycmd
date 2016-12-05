@@ -170,13 +170,8 @@ void do_help(void)
 	kbinput = get_kbinput(edit);
 
 #ifndef NANO_TINY
-	if (kbinput == KEY_WINCH) {
-	    kbinput = ERR;
-	    /* Rewrap if needed, else refresh. */
-	    if (COLS < 76)
-		display_the_help_text(TRUE);
+	if (kbinput == KEY_WINCH)
 	    continue;
-	}
 #endif
 
 #ifndef DISABLE_MOUSE

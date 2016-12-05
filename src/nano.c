@@ -1355,7 +1355,7 @@ void regenerate_screen(void)
     /* Redraw the contents of the windows that need it. */
     total_refresh();
 
-    if (currmenu == MFINDINHELP && (COLS < 76))
+    if (inhelp)
 	display_the_help_text(TRUE);
 }
 
