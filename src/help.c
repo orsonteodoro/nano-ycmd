@@ -159,12 +159,12 @@ void do_help(void)
     beg_of_intro = ptr;
 
     display_the_help_text(FALSE);
+    curs_set(0);
 
     while (TRUE) {
 	edit_refresh();
 
 	lastmessage = HUSH;
-
 	focusing = TRUE;
 
 	kbinput = get_kbinput(edit);
@@ -209,9 +209,11 @@ void do_help(void)
 	    do_search();
 	    bottombars(MHELP);
 	    wnoutrefresh(bottomwin);
+	    curs_set(1);
 	} else if (func == do_research) {
 	    do_research();
 	    currmenu = MHELP;
+	    curs_set(1);
 	} else if (func == do_exit) {
 	    /* Exit from the help viewer. */
 	    close_buffer();
