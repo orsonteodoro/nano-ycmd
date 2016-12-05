@@ -90,6 +90,7 @@ void do_help(void)
 {
     int kbinput = ERR;
     bool old_no_help = ISSET(NO_HELP);
+    bool was_whitespace = ISSET(WHITESPACE_DISPLAY);
     int oldmenu = currmenu;
 	/* The menu we were called from. */
     functionptrtype func;
@@ -131,6 +132,8 @@ void do_help(void)
 	UNSET(NO_HELP);
 	window_init();
     }
+
+    UNSET(WHITESPACE_DISPLAY);
 
     bottombars(MHELP);
     wnoutrefresh(bottomwin);
@@ -237,10 +240,11 @@ void do_help(void)
     } else
 	bottombars(oldmenu);
 
-    /* Ensure that the title is null for proper effect from total_refresh(). */
+    if (was_whitespace)
+	SET(WHITESPACE_DISPLAY);
+
     free(title);
     title = NULL;
-
     inhelp = FALSE;
 
 #ifndef DISABLE_BROWSER
