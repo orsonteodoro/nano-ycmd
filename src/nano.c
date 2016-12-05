@@ -1417,8 +1417,7 @@ void do_toggle(int flag)
     if (flag == NO_HELP || flag == NO_WRAP || flag == NO_COLOR_SYNTAX)
 	enabled = !enabled;
 
-    if (currmenu != MHELP)
-	statusline(HUSH, "%s %s", _(flagtostr(flag)),
+    statusline(HUSH, "%s %s", _(flagtostr(flag)),
 			enabled ? _("enabled") : _("disabled"));
 }
 
