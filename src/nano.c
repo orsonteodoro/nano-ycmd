@@ -1354,6 +1354,9 @@ void regenerate_screen(void)
 
     /* Redraw the contents of the windows that need it. */
     total_refresh();
+
+    if (currmenu == MFINDINHELP && (COLS < 76))
+	display_the_help_text(TRUE);
 }
 
 /* If allow is FALSE, block any SIGWINCH signal.  If allow is TRUE,
@@ -1414,8 +1417,9 @@ void do_toggle(int flag)
     if (flag == NO_HELP || flag == NO_WRAP || flag == NO_COLOR_SYNTAX)
 	enabled = !enabled;
 
-    statusline(HUSH, "%s %s", _(flagtostr(flag)),
-		enabled ? _("enabled") : _("disabled"));
+    if (currmenu != MHELP)
+	statusline(HUSH, "%s %s", _(flagtostr(flag)),
+			enabled ? _("enabled") : _("disabled"));
 }
 
 /* Bleh. */
@@ -1550,7 +1554,7 @@ void unbound_key(int code)
 	    statusline(ALERT, _("Unbound key: M-%c"), toupper(code));
     } else if (code < 0x20)
 	statusline(ALERT, _("Unbound key: ^%c"), code + 0x40);
-    else
+    else if (currmenu != MHELP)
 	statusline(ALERT, _("Unbound key: %c"), code);
 }
 

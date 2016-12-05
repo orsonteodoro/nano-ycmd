@@ -154,7 +154,8 @@ int search_init(bool replacing, bool use_answer)
 #ifndef DISABLE_TABCOMP
 		TRUE,
 #endif
-		replacing ? MREPLACE : MWHEREIS, backupstring,
+		inhelp ? MFINDINHELP : (replacing ? MREPLACE : MWHEREIS),
+		backupstring,
 #ifndef DISABLE_HISTORIES
 		&search_history,
 #endif

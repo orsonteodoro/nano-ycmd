@@ -463,7 +463,7 @@ bool open_buffer(const char *filename, bool undoable)
     if (new_buffer) {
 	make_new_buffer();
 
-	if (has_valid_path(realname)) {
+	if (!inhelp && has_valid_path(realname)) {
 #ifndef NANO_TINY
 	    if (ISSET(LOCKING) && filename[0] != '\0') {
 		/* When not overriding an existing lock, discard the buffer. */
@@ -482,7 +482,7 @@ bool open_buffer(const char *filename, bool undoable)
     /* If the filename isn't blank, and we are not in NOREAD_MODE,
      * open the file.  Otherwise, treat it as a new file. */
     rc = (filename[0] != '\0' && !ISSET(NOREAD_MODE)) ?
-		open_file(realname, new_buffer, FALSE, &f) : -2;
+		open_file(realname, new_buffer, inhelp, &f) : -2;
 
     /* If we have a file, and we're loading into a new buffer, update
      * the filename. */
@@ -550,7 +550,8 @@ void replace_buffer(const char *filename)
 void display_buffer(void)
 {
     /* Update the titlebar, since the filename may have changed. */
-    titlebar(NULL);
+    if (!inhelp)
+	titlebar(NULL);
 
 #ifndef DISABLE_COLOR
     /* Make sure we're using the buffer's associated colors. */
@@ -590,9 +591,10 @@ void switch_to_prevnext_buffer(bool to_next)
     display_buffer();
 
     /* Indicate the switch on the statusbar. */
-    statusline(HUSH, _("Switched to %s"),
-		((openfile->filename[0] == '\0') ?
-		_("New Buffer") : openfile->filename));
+    if (!inhelp)
+	statusline(HUSH, _("Switched to %s"),
+			((openfile->filename[0] == '\0') ?
+			_("New Buffer") : openfile->filename));
 
 #ifdef DEBUG
     dump_filestruct(openfile->current);
@@ -907,6 +909,9 @@ void read_file(FILE *f, int fd, const char *filename, bool undoable, bool checkw
      * file we inserted. */
     openfile->placewewant = xplustabs();
 
+    if (inhelp)
+	return;
+
     if (!writable)
 	statusline(ALERT, _("File '%s' is unwritable"), filename);
 #ifndef NANO_TINY
@@ -999,7 +1004,7 @@ int open_file(const char *filename, bool newfie, bool quiet, FILE **f)
 	if (*f == NULL) {
 	    statusline(ALERT, _("Error reading %s: %s"), filename, strerror(errno));
 	    close(fd);
-	} else
+	} else if (!inhelp)
 	    statusbar(_("Reading File"));
     }
 

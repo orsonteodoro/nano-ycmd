@@ -657,6 +657,9 @@ int do_prompt(bool allow_tabs,
 #endif
     /* Save a possible current statusbar x position. */
     size_t was_statusbar_x = statusbar_x;
+    char *saved_prompt = prompt;
+	/* In case we need prompt again before completing previous one,
+	 * above variables become useful. */
 
     bottombars(menu);
 
@@ -682,7 +685,7 @@ int do_prompt(bool allow_tabs,
 			refresh_func);
 
     free(prompt);
-    prompt = NULL;
+    prompt = saved_prompt;
 
 #ifndef NANO_TINY
     if (retval == KEY_WINCH)

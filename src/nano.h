@@ -557,6 +557,7 @@ enum
 #define MGOTODIR		(1<<12)
 #define MYESNO			(1<<13)
 #define MLINTER			(1<<14)
+#define MFINDINHELP		(1<<15)
 /* This is an abbreviation for all menus except Help and YesNo. */
 #define MMOST  (MMAIN|MWHEREIS|MREPLACE|MREPLACEWITH|MGOTOLINE|MWRITEFILE|MINSERTFILE|\
 		MEXTCMD|MBROWSER|MWHEREISFILE|MGOTODIR|MSPELL|MLINTER)
