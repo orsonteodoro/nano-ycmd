@@ -1354,9 +1354,6 @@ void regenerate_screen(void)
 
     /* Redraw the contents of the windows that need it. */
     total_refresh();
-
-    if (inhelp)
-	display_the_help_text(TRUE);
 }
 
 /* If allow is FALSE, block any SIGWINCH signal.  If allow is TRUE,

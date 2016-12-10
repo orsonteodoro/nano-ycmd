@@ -3101,7 +3101,10 @@ void total_refresh(void)
 {
     total_redraw();
     titlebar(title);
-    edit_refresh();
+    if (inhelp)
+	display_the_help_text(TRUE);
+    else
+	edit_refresh();
     bottombars(currmenu);
 }
 
