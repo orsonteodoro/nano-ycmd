@@ -40,6 +40,9 @@ const char *beg_of_intro = NULL;
 	/* The point in the help text where the introductory paragraphs
 	 * begin. */
 
+static size_t location;
+	/* The offset (in bytes) of the topleft of the shown help text. */
+
 char *tempfilename = NULL;
 	/* Name of the safe temporary file that we will use for wrapping
 	 * and writing the help text. */
@@ -47,9 +50,8 @@ char *tempfilename = NULL;
 /* Writes the hard wrapped help text in the temp file and displays it. */
 void display_the_help_text(bool redisplaying)
 {
-    int line_size;
+    int line_size, sum = 0;
     const char *ptr = beg_of_intro;
-	/* The current line of the help text. */
     FILE *fp = fopen(tempfilename, "w+b");
 
     if (fp == NULL) {
@@ -83,6 +85,17 @@ void display_the_help_text(bool redisplaying)
 	open_buffer(tempfilename, FALSE);
 
     display_buffer();
+
+    /* FIXME: edittop should already be pointing at top of file. */
+    openfile->edittop = openfile->fileage;
+
+    /* Move to the position in the file where we were before. */
+    while (sum < location) {
+	sum += strlen(openfile->edittop->data);
+	openfile->edittop = openfile->edittop->next;
+    }
+
+    openfile->current = openfile->edittop;
 }
 
 /* Our main help-viewer function. */
@@ -96,6 +109,7 @@ void do_help(void)
     functionptrtype func;
 	/* The function of the key the user typed in. */
     FILE *fp;
+    filestruct *line;
     int line_size;
     int saved_margin = 0;
 	/* For avoiding the line numbers on the help screen. */
@@ -123,6 +137,7 @@ void do_help(void)
 
     /* Set help_text as the string to display. */
     help_init();
+    location = 0;
 
     assert(help_text != NULL);
 
@@ -218,8 +233,16 @@ void do_help(void)
 	    break;
 	} else
 	    unbound_key(kbinput);
-    }
 
+	location = 0;
+	line = openfile->fileage;
+
+	/* Count how far (in bytes) edittop is into the file. */
+	while (line != openfile->edittop) {
+	    location += strlen(line->data);
+	    line = line->next;
+	}
+    }
 
     /* We're exiting from the help screen. So, restore the flags and the
      * original menu, refresh the entire screen and deallocate the memory. */
