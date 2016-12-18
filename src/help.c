@@ -90,8 +90,10 @@ void display_the_help_text(bool redisplaying)
     openfile->edittop = openfile->fileage;
 
     /* Move to the position in the file where we were before. */
-    while (sum < location) {
+    while (TRUE) {
 	sum += strlen(openfile->edittop->data);
+	if (sum > location)
+	   break;
 	openfile->edittop = openfile->edittop->next;
     }
 
