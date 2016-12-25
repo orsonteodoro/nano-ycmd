@@ -101,8 +101,6 @@ void display_the_help_text(bool redisplaying)
 void do_help(void)
 {
     int kbinput = ERR;
-    bool old_no_help = ISSET(NO_HELP);
-    bool was_whitespace = ISSET(WHITESPACE_DISPLAY);
     int oldmenu = currmenu;
 	/* The menu we were called from. */
     functionptrtype func;
@@ -110,13 +108,15 @@ void do_help(void)
     FILE *fp;
     filestruct *line;
     int line_size;
-    int saved_margin = 0;
+    int saved_margin = margin;
 	/* For avoiding the line numbers on the help screen. */
     const char *ptr;
 	/* The current line of the help text. */
     char *saved_answer = answer != NULL ? strdup(answer) : NULL;
 	/* In case user chooses help at prompt, save the string entered,
 	 * if any, by the user at the prompt. */
+    unsigned stash[sizeof(flags) / sizeof(flags[0])];
+	/* A storage place for the current flag settings. */
 
     inhelp = TRUE;
 
@@ -140,9 +140,11 @@ void do_help(void)
 
     assert(help_text != NULL);
 
+    /* Save the settings of all flags. */
+    memcpy(stash, flags, sizeof(flags));
+
+    /* Ensure that the help screen's shortcut list will be displayed. */
     if (ISSET(NO_HELP)) {
-	/* Make sure that the help screen's shortcut list will actually
-	 * be displayed. */
 	UNSET(NO_HELP);
 	window_init();
     }
@@ -150,15 +152,17 @@ void do_help(void)
     UNSET(WHITESPACE_DISPLAY);
     UNSET(NOREAD_MODE);
 
+    /* When searching, do it forward, case insensitive, and without regexes. */
+    UNSET(BACKWARDS_SEARCH);
+    UNSET(CASE_SENSITIVE);
+    UNSET(USE_REGEXP);
+
     bottombars(MHELP);
     wnoutrefresh(bottomwin);
 
 #ifdef ENABLE_LINENUMBERS
-    if (ISSET(LINE_NUMBERS)) {
-	saved_margin = margin;
-	margin = 0;
-	UNSET(LINE_NUMBERS);
-    }
+    UNSET(LINE_NUMBERS);
+    margin = 0;
 #endif
 
     /* Extract the title from the head of the help text. */
@@ -241,27 +245,20 @@ void do_help(void)
 	}
     }
 
-    /* We're exiting from the help screen. So, restore the flags and the
-     * original menu, refresh the entire screen and deallocate the memory. */
+    /* Restore the settings of all flags. */
+    memcpy(flags, stash, sizeof(flags));
 
 #ifdef ENABLE_LINENUMBERS
-    if (saved_margin != 0) {
-	margin = saved_margin;
-	SET(LINE_NUMBERS);
-    }
+    margin = saved_margin;
 #endif
 
-    if (old_no_help) {
+    if (ISSET(NO_HELP)) {
 	blank_bottombars();
 	wnoutrefresh(bottomwin);
 	currmenu = oldmenu;
-	SET(NO_HELP);
 	window_init();
     } else
 	bottombars(oldmenu);
-
-    if (was_whitespace)
-	SET(WHITESPACE_DISPLAY);
 
     free(title);
     title = NULL;
