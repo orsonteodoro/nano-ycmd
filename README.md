@@ -111,6 +111,10 @@ string_replace was released under LGPL by Pádraig Brady.  It is a seperate libr
 
 No good offerings with license compatiblity with GPL3 for a string_replace in C.  You may use replacement of string_replace but keep the function signature the same.  You may commit a replacement for string_replace that is GPL3 if you want.  I tested glib and it doesn't work.  string_replace by brady turned out to be robust.
 
+####How long did it take to make this?
+
+About 2-3 days.
+
 ####What could I do to help?
 
 Add better user interface or user interaction.  Emacs-ycmd is a good example.
