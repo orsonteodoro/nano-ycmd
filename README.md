@@ -101,7 +101,7 @@ It is GPL version 3.
 ######What other dependencies were involved?
 
 NXJSON which is released under GPL 3 by Yaroslav Stavnichiy.  Eventually compiled in the nano executible.
-string_replace was released under LGPL by Pádraig Brady.  It is a seperate library because of licensing.  It maybe replaced with your own or you include this one.
+string_replace was released under LGPL by Pádraig Brady.  It is a seperate library because of licensing.  It maybe replaced with your own or you include this one.  If you choose to use the same libstring_replace.so produced in the third_party instead of rolling your own, you need to follow the terms of the LGPL (which ever version you choose).
 
 ####Why do we depend on the string_replace library provided by https://github.com/pixelb/libs?
 
