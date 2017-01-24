@@ -1,6 +1,6 @@
 .PHONY : clean all install
 
-CFLAGS = -O2 -fPIC
+CFLAGS = -fPIC
 LDFLAGS = -shared
 
 SOURCES = string_replace.c
@@ -20,4 +20,4 @@ clean:
 	rm -f $(OBJECTS) $(TARGET)
 
 install:
-	install -m 0664 libstring_replace.so  $(prefix)/usr/lib
+	install -m 0755 libstring_replace.so  $(prefix)/usr/lib
