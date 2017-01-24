@@ -21,6 +21,7 @@
  *                                                                        *
  **************************************************************************/
 
+
 #ifdef USE_NETTLE
 #include <nettle/base64.h>
 #include <nettle/hmac.h>
@@ -52,7 +53,6 @@
 
 #include "nxjson.h"
 #include "proto.h"
-#include <string_replace.h>
 #include "ycmd.h"
 #include "nano.h"
 #include "proto.h"
@@ -74,6 +74,9 @@ char *_ne_read_response_body_full(ne_request *request);
 void escape_json(char **buffer);
 void ycmd_generate_secret_raw(char *secret);
 char *ycmd_generate_secret_base64(char *secret);
+
+//A function signature to use.  Either it can come from an external library or object code.
+extern char* string_replace(const char* src, const char* find, const char* replace);
 
 YCMD_GLOBALS ycmd_globals;
 
