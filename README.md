@@ -17,7 +17,7 @@ ycmd allows to you use IntelliSense for C# sources using omnisharp/omnisharp-ros
 
 ####How do I use this code completion feature?
 
-Just type and press CTRL-<LETTER>.  Use CTRL-X to exit the code completion selections.
+Just type and press CTRL-LETTER.  Use CTRL-X to exit the code completion selections.
 
 ####What languages supported?
 python, javascript, typescript, rust, go
