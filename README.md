@@ -121,7 +121,7 @@ After the UX has been polished.
 
 ####How do I add changes?
 1. Create a repository on your account
-2. git clone https://github.com/orsonteodoro/nano.git
+2. git clone https://github.com/orsonteodoro/ycmd-nano.git
 3. cd into folder
 4. git checkout -b myfeaturename
 5. make changes
