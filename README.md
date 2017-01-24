@@ -3,8 +3,8 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 
 ####Branches
 
-The master branch contains the official nano source code.
-The ymcd-code-completion contains a modification to nano to have ycmd support?
+* The master branch contains the official nano source code.
+* The ymcd-code-completion contains a modification to nano to have ycmd support?
 
 ####Dependencies
 * ycmd >= commits later than year 2015, with new hmac computation
