@@ -26,6 +26,9 @@
 #include <string.h>
 #include <strings.h>
 #include "assert.h"
+#ifdef ENABLE_YCMD
+#include "ycmd.h"
+#endif
 
 /* Global variables. */
 #ifndef NANO_TINY
@@ -646,6 +649,10 @@ void shortcut_init(void)
 #endif
 #endif /* !DISABLE_HELP */
 
+#ifdef ENABLE_YCMD
+    const char *nano_ycmd_msg = N_("Select code completer choice");
+#endif
+
 #ifndef DISABLE_HELP
 #define IFSCHELP(help) help
 #else
@@ -1033,6 +1040,62 @@ void shortcut_init(void)
 #endif
 #endif
 
+#ifdef ENABLE_YCMD
+    add_to_funcs(do_code_completion_a, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_b, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_c, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_d, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_e, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_f, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_g, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_h, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_i, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_j, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_k, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_l, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_m, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_n, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_o, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_p, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_q, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_r, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_s, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_t, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_u, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_v, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_w, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_x, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_y, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_code_completion_z, MCODECOMPLETION,
+	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+#endif
+
+
 #ifndef DISABLE_COLOR
     add_to_funcs(do_page_up, MLINTER,
 	/* TRANSLATORS: Try to keep the next two strings at most 20 characters. */
@@ -1281,6 +1344,35 @@ void shortcut_init(void)
     add_to_sclist(MMOST, "Del", 0, do_delete, 0);
     add_to_sclist(MMOST, "^H", 0, do_backspace, 0);
     add_to_sclist(MMOST, "Bsp", KEY_BACKSPACE, do_backspace, 0);
+
+#ifdef ENABLE_YCMD
+    add_to_sclist(MCODECOMPLETION, "^A", 0, do_code_completion_a, 0);
+    add_to_sclist(MCODECOMPLETION, "^B", 0, do_code_completion_b, 0);
+    add_to_sclist(MCODECOMPLETION, "^C", 0, do_code_completion_c, 0);
+    add_to_sclist(MCODECOMPLETION, "^D", 0, do_code_completion_d, 0);
+    add_to_sclist(MCODECOMPLETION, "^E", 0, do_code_completion_e, 0);
+    add_to_sclist(MCODECOMPLETION, "^F", 0, do_code_completion_f, 0);
+    add_to_sclist(MCODECOMPLETION, "^G", 0, do_code_completion_g, 0);
+    add_to_sclist(MCODECOMPLETION, "^H", 0, do_code_completion_h, 0);
+    add_to_sclist(MCODECOMPLETION, "^I", 0, do_code_completion_i, 0);
+    add_to_sclist(MCODECOMPLETION, "^J", 0, do_code_completion_j, 0);
+    add_to_sclist(MCODECOMPLETION, "^K", 0, do_code_completion_k, 0);
+    add_to_sclist(MCODECOMPLETION, "^L", 0, do_code_completion_l, 0);
+    add_to_sclist(MCODECOMPLETION, "^M", 0, do_code_completion_m, 0);
+    add_to_sclist(MCODECOMPLETION, "^N", 0, do_code_completion_n, 0);
+    add_to_sclist(MCODECOMPLETION, "^O", 0, do_code_completion_o, 0);
+    add_to_sclist(MCODECOMPLETION, "^P", 0, do_code_completion_p, 0);
+    add_to_sclist(MCODECOMPLETION, "^Q", 0, do_code_completion_q, 0);
+    add_to_sclist(MCODECOMPLETION, "^R", 0, do_code_completion_r, 0);
+    add_to_sclist(MCODECOMPLETION, "^S", 0, do_code_completion_s, 0);
+    add_to_sclist(MCODECOMPLETION, "^T", 0, do_code_completion_t, 0);
+    add_to_sclist(MCODECOMPLETION, "^U", 0, do_code_completion_u, 0);
+    add_to_sclist(MCODECOMPLETION, "^V", 0, do_code_completion_v, 0);
+    add_to_sclist(MCODECOMPLETION, "^W", 0, do_code_completion_w, 0);
+    add_to_sclist(MCODECOMPLETION, "^X", 0, do_code_completion_x, 0);
+    add_to_sclist(MCODECOMPLETION, "^Y", 0, do_code_completion_y, 0);
+    add_to_sclist(MCODECOMPLETION, "^Z", 0, do_code_completion_z, 0);
+#endif
 
 #ifdef DEBUG
     print_sclist();
@@ -1676,6 +1768,10 @@ int strtomenu(const char *input)
 	return MWHEREISFILE;
     else if (!strcasecmp(input, "gotodir"))
 	return MGOTODIR;
+#endif
+#ifdef ENABLE_YCMD
+    else if (!strcasecmp(input, "codecompletion"))
+	return MCODECOMPLETION;
 #endif
     return -1;
 }

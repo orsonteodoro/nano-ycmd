@@ -41,6 +41,9 @@
 #ifndef NANO_TINY
 #include <sys/ioctl.h>
 #endif
+#ifdef ENABLE_YCMD
+#include "ycmd.h"
+#endif
 
 #ifndef DISABLE_MOUSE
 static int oldinterval = -1;
@@ -1641,6 +1644,11 @@ int do_input(bool allow_funcs)
 	}
     }
 
+#if ENABLE_YCMD
+    if (!have_shortcut)
+        ycmd_event_file_ready_to_parse(openfile->current_x,openfile->current_y,openfile->filename,openfile->fileage);
+#endif
+
     if (!have_shortcut)
 	pletion_line = NULL;
     else {
@@ -2645,6 +2653,10 @@ int main(int argc, char **argv)
 
     display_buffer();
 
+#ifdef ENABLE_YCMD
+    ycmd_init();
+#endif
+
     while (TRUE) {
 #ifdef ENABLE_LINENUMBERS
 	int needed_margin = digits(openfile->filebot->lineno) + 1;
@@ -2664,7 +2676,11 @@ int main(int argc, char **argv)
 	    editwincols = COLS;
 	}
 
+#ifdef ENABLE_YCMD
+	if (currmenu != MMAIN && currmenu != MCODECOMPLETION)
+#else
 	if (currmenu != MMAIN)
+#endif
 	    display_main_list();
 
 	lastmessage = HUSH;

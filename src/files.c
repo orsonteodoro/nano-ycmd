@@ -21,6 +21,7 @@
  **************************************************************************/
 
 #include "proto.h"
+#include "ycmd.h"
 
 #include <stdio.h>
 #include <string.h>
@@ -569,6 +570,10 @@ void display_buffer(void)
 
     /* Update the content of the edit window straightaway. */
     edit_refresh();
+
+#ifdef ENABLE_YCMD
+    ycmd_event_file_ready_to_parse(openfile->current_x,openfile->current_y,openfile->filename, openfile->fileage);
+#endif
 }
 
 #ifndef DISABLE_MULTIBUFFER
@@ -589,6 +594,10 @@ void switch_to_prevnext_buffer(bool to_next)
 
 #ifdef DEBUG
     fprintf(stderr, "filename is %s\n", openfile->filename);
+#endif
+
+#ifdef ENABLE_YCMD
+    ycmd_event_buffer_visit(openfile->current_x,openfile->current_y,openfile->filename, openfile->fileage);
 #endif
 
     /* Update the screen to account for the current buffer. */
@@ -622,6 +631,10 @@ void switch_to_next_buffer_void(void)
 bool close_buffer(void)
 {
     assert(openfile != NULL);
+
+#ifdef ENABLE_YCMD
+    ycmd_event_buffer_unload(openfile->current_x,openfile->current_y,openfile->filename, openfile->fileage);
+#endif
 
     /* If only one file buffer is open, get out. */
     if (openfile == openfile->next)

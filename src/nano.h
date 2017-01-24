@@ -467,7 +467,11 @@ typedef struct subnfunc {
 	/* The actual function to call. */
     int menus;
 	/* In what menus this function applies. */
+#ifdef ENABLE_YCMD
+    char *desc;
+#else
     const char *desc;
+#endif
 	/* The function's short description, for example "Where Is". */
 #ifndef DISABLE_HELP
     const char *help;
@@ -564,6 +568,7 @@ enum
 #define MGOTODIR		(1<<12)
 #define MYESNO			(1<<13)
 #define MLINTER			(1<<14)
+#define MCODECOMPLETION		(1<<15)
 /* This is an abbreviation for all menus except Help and YesNo. */
 #define MMOST  (MMAIN|MWHEREIS|MREPLACE|MREPLACEWITH|MGOTOLINE|MWRITEFILE|MINSERTFILE|\
 		MEXTCMD|MBROWSER|MWHEREISFILE|MGOTODIR|MSPELL|MLINTER)

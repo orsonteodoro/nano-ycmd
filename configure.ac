@@ -210,6 +210,81 @@ else
     AC_DEFINE(NDEBUG, 1, [Shut up assert warnings :-)])
 fi
 
+AC_ARG_VAR([YCMD_PATH],[Define the path to ycmd directory])
+AC_ARG_VAR([PYTHON_PATH],[Define the full path to your python executible for ycmd (optional)])
+AC_ARG_VAR([GOCODE_PATH],[Define the full path to your gocode executible for go language support in ycmd (optional)])
+AC_ARG_VAR([GODEF_PATH],[Define the full path to your godef executible for go language support in ycmd (optional)])
+AC_ARG_VAR([RUST_SRC_PATH],[Define the full path to the rust src source code folder for rust language support in ycmd (opitonal)])
+AC_ARG_VAR([RACERD_PATH],[Define the full path to the racerd for racerd for rust language support in ycmd (optional)])
+AC_ARG_WITH(openssl,AS_HELP_STRING([--with-openssl], [Enable openssl support for ycmd]))
+AC_ARG_WITH(nettle,AS_HELP_STRING([--with-nettle], [Enable nettle support for ycmd]))
+AC_ARG_ENABLE(ycmd,
+AS_HELP_STRING([--enable-ycmd], [Enable code completion support via ycmd]))
+have_ycmd=no
+if test "x$enable_ycmd" = xyes; then
+    AC_MSG_RESULT([PYTHON_PATH is $PYTHON_PATH])
+    AC_MSG_RESULT([GOCODE_PATH is $GOCODE_PATH])
+    AC_MSG_RESULT([GODEF_PATH is $GODEF_PATH])
+    AC_MSG_RESULT([RUST_SRC_PATH is $RUST_SRC_PATH])
+    AC_MSG_RESULT([RACERD_PATH is $RACERD_PATH])
+
+    PKG_CHECK_MODULES([GLIB], [glib-2.0], [
+        GLIB_LIB=$GLIB_LIBS
+        CPPFLAGS="$GLIB_CFLAGS $CPPFLAGS"
+        GLIB_LIB_NAME=glib-2.0
+    ], [:])
+
+    if test "x$with_openssl" = xyes; then
+        PKG_CHECK_MODULES([OPENSSL], [openssl], [
+            OPENSSL_LIB=$OPENSSL_LIBS
+            CPPFLAGS="$OPENSSL_CFLAGS $CPPFLAGS"
+            OPENSSL_LIB_NAME=openssl
+        ], [:])
+        have_openssl=yes
+    elif test "x$with_nettle" = xyes; then
+        PKG_CHECK_MODULES([NETTLE], [nettle], [
+            NETTLE_LIB=$NETTLE_LIBS
+            CPPFLAGS="$NETTLE_CFLAGS $CPPFLAGS"
+            NETTLE_LIB_NAME=nettle
+        ], [:])
+        have_nettle=yes
+    else
+	AC_MSG_ERROR([You must choose a crypto library: nettle, openssl])
+    fi
+    PKG_CHECK_MODULES([NEON], [neon], [
+        NEON_LIB=$NEON_LIBS
+        CPPFLAGS="$NEON_CFLAGS $CPPFLAGS"
+        NEON_LIB_NAME=neon
+    ], [:])
+    AC_CHECK_FILE([$YCMD_PATH/hmac_utils.py], [ycmd_found=yes], [ycmd_found=no])
+    AC_MSG_CHECKING([ycmd])
+    if test "x$ycmd_found" = xno ; then
+        AC_MSG_RESULT([no])
+	AC_MSG_ERROR([Your ycmd is possibly old or you haven't installed it or forgot to set the YCMD_PATH environmental variable to point to the path of ycmd])
+    else
+        AC_MSG_RESULT([yes])
+	have_ycmd=yes
+    fi
+
+    AC_CHECK_FILE([$PYTHON_PATH], [python_found=yes], [python_found=no])
+    AC_MSG_CHECKING([python])
+    if test "x$python_found" = xno ; then
+        AC_MSG_RESULT([no])
+	AC_MSG_ERROR([You must set the PYTHON_PATH to your python executible or you may need to install python])
+    else
+        AC_MSG_RESULT([yes])
+    fi
+fi
+AM_CONDITIONAL([HAVE_PYTHON], [test x$PYTHON_PATH != x])
+AM_CONDITIONAL([HAVE_GOCODE], [test x$GOCODE_PATH != x])
+AM_CONDITIONAL([HAVE_GODEF], [test x$GODEF_PATH != x])
+AM_CONDITIONAL([HAVE_RUST_SRC], [test  x$RUST_SRC_PATH != x])
+AM_CONDITIONAL([HAVE_RACERD], [test x$RACERD_PATH != x])
+AM_CONDITIONAL([HAVE_YCMD], [test x$have_ycmd = xyes])
+
+AM_CONDITIONAL([HAVE_OPENSSL], [test x$have_openssl = xyes])
+AM_CONDITIONAL([HAVE_NETTLE], [test x$have_nettle = xyes])
+
 AC_ARG_ENABLE(tiny,
 AS_HELP_STRING([--enable-tiny], [Disable features for the sake of size]))
 if test "x$enable_tiny" = xyes; then
@@ -743,6 +818,13 @@ else
 fi
 AM_CONDITIONAL(BUILDING_FROM_GIT, test x$from_git = xyes)
 
+AS_IF([test "x$have_ycmd" = xyes], [
+    AC_CONFIG_FILES([
+        third_party/Makefile
+        third_party/pixelbeat.org/Makefile
+    ])
+])
+
 AC_CONFIG_FILES([
 Makefile
 doc/Makefile
@@ -753,5 +835,6 @@ src/Makefile
 syntax/Makefile
 nano.spec
 ])
+
 
 AC_OUTPUT
