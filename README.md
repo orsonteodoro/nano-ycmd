@@ -7,9 +7,9 @@ The master branch contains the official nano source code.
 The ymcd-code-completion contains a modification to nano to have ycmd support?
 
 ####Dependencies
-ycmd >= commits later than year 2015, with new hmac computation
-nettle or "openssl and glib" cryptographic library, to mitigate MITM attack between ycmd and nano text editor
-neon, for http interprocess communication between nano editor and ycmd server
+* ycmd >= commits later than year 2015, with new hmac computation
+* nettle or "openssl and glib" cryptographic library, to mitigate MITM attack between ycmd and nano text editor
+* neon, for http interprocess communication between nano editor and ycmd server
 
 ####Why use ycmd backend over the builtin WORDCOMPLETION?
 
@@ -56,7 +56,8 @@ YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd"
 PYTHON_PATH="/usr/bin/python3.4" 
 
 ######The following are optional environmental variables to pass to the configure script:
-for rust language:
+
+######for rust language:
 RACERD_PATH="/usr/bin/racerd" 
 RUST_SRC_PATH="/usr/share/rust/src" 
 
