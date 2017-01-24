@@ -1,9 +1,5 @@
-# nano
-Unofficial mirror of GNU nano.  The ycmd code completion support for nano is found in the ymcd-code-completion branch.
-
-####Name of the feature set?
-
-ycmd-nano
+# ycmd-nano
+The ycmd code completion support for nano is found in the ymcd-code-completion branch.  An unofficial mirror of GNU nano.
 
 ####Branches
 
@@ -118,6 +114,10 @@ About 2-3 days.
 ####What could I do to help?
 
 Add better user interface or user interaction.  Emacs-ycmd is a good example.
+
+#####When will it be considered ready for review to be included in the official GNU nano?
+
+After the UX has been polished.
 
 ####How do I add changes?
 1. Create a repository on your account
