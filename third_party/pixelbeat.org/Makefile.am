@@ -20,4 +20,4 @@ clean:
 	rm -f $(OBJECTS) $(TARGET)
 
 install:
-	install -m 0755 libstring_replace.so  $(prefix)/usr/lib
+	install -m 0755 libstring_replace.so  $(prefix)/lib
