@@ -539,8 +539,7 @@ int ycmd_rsp_is_healthy(char *filetype)
 	char *path;
 	path = strdup(_path);
 
-	if (include_subservers)
-		string_replace_w(&path, "FILE_TYPE", filetype);
+	string_replace_w(&path, "FILE_TYPE", filetype);
 
 	int status_code = 0;
 	ne_request *request;
