@@ -528,7 +528,6 @@ int ycmd_rsp_is_healthy_simple()
 
 
 
-//include_subservers refers to checking omnisharp server or other completer servers
 int ycmd_rsp_is_healthy(char *filetype)
 {
 	//this function doesn't work
@@ -536,12 +535,12 @@ int ycmd_rsp_is_healthy(char *filetype)
 	fprintf(stderr, "Entering ycmd_rsp_is_healthy()\n");
 #endif
 	char *method = "GET";
-	char *_path = "/healthy?include_subservers=FILE_DATA";
+	char *_path = "/healthy?subserver=FILE_TYPE";
 	char *path;
 	path = strdup(_path);
 
 	if (include_subservers)
-		string_replace_w(&path, "FILE_DATA", filetype);
+		string_replace_w(&path, "FILE_TYPE", filetype);
 
 	int status_code = 0;
 	ne_request *request;
@@ -588,11 +587,11 @@ int ycmd_rsp_is_server_ready(char *filetype)
 	fprintf(stderr, "Entering ycmd_rsp_is_server_ready()\n");
 #endif
 	char *method = "GET";
-	char *_path = "/ready?subserver=FILE_DATA";
+	char *_path = "/ready?subserver=FILE_TYPE";
 	char *path;
 	path = strdup(_path);
 
-	string_replace_w(&path, "FILE_DATA", filetype);
+	string_replace_w(&path, "FILE_TYPE", filetype);
 
 #ifdef DEBUG
 	fprintf(stderr,"ycmd_rsp_is_server_ready path is %s\n",path);
