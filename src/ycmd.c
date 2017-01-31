@@ -90,7 +90,9 @@ void string_replace_w(char **buffer, char *find, char *replace)
 
 void ycmd_init()
 {
+#ifdef DEBUG
 	fprintf(stderr, "Init ycmd.\n");
+#endif
 	ycmd_globals.session = 0;
 	ycmd_globals.scheme = "http";
 	ycmd_globals.hostname = "127.0.0.1";
@@ -205,7 +207,9 @@ void _ycmd_json_replace_file_data(char **json, char *filepath, char *content)
 
 int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, char *eventname, char *content)
 {
+#ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_json_event_notification()\n");
+#endif
 	char *method = "POST";
 	char *path = "/event_notification";
 	//we should use a json library but licensing problems
@@ -237,7 +241,9 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 
 	_ycmd_json_replace_file_data(&json, filepath, content);
 
+#ifdef DEBUG
 	fprintf(stderr, "json body in ycmd_json_event_notification: %s\n", json);
+#endif
 
 	int status_code = 0;
 	ne_request *request;
@@ -249,14 +255,18 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 		ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
 		ne_set_request_body_buffer(request, json, strlen(json));
 
+#ifdef DEBUG
 		fprintf(stderr,"Getting server response\n");
+#endif
 
 		int ret = ne_begin_request(request);
 		if (ret >= 0)
 		{
 			char *response = _ne_read_response_body_full(request);
 			ne_end_request(request);
+#ifdef DEBUG
 			fprintf(stderr,"Server response: %s\n", response);
+#endif
 
 			free(response);
 		}
@@ -267,7 +277,9 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 
 	free(json);
 
+#ifdef DEBUG
 	fprintf(stderr, "Status code in ycmd_json_event_notification is %d\n", status_code);
+#endif
 
 	return status_code == 200;
 }
@@ -275,7 +287,9 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 //returned value must be free()
 char *_ne_read_response_body_full(ne_request *request)
 {
+#ifdef DEBUG
 	fprintf(stderr, "Entering _ne_read_response_body_full()\n");
+#endif
 	char *response_body;
 	response_body = NULL;
 
@@ -286,9 +300,13 @@ char *_ne_read_response_body_full(ne_request *request)
 	ssize_t readlen = 0;
 	while(666)
 	{
+#ifdef DEBUG
 		//fprintf(stderr, "looping\n");
+#endif
 		readlen = ne_read_response_block(request, response_body+nread, chunksize);
+#ifdef DEBUG
 		//fprintf(stderr, "readlen %d\n",readlen);
+#endif
 		if (readlen <= 0)
 			break;
 
@@ -296,12 +314,16 @@ char *_ne_read_response_body_full(ne_request *request)
 		char *response_body_new = realloc(response_body, nread+chunksize);
 		if (response_body_new == NULL)
 		{
+#ifdef DEBUG
 			fprintf(stderr, "realloc failed in _ne_read_response_body_full\n");
+#endif
 			break;
 		}
 		response_body = response_body_new;
 	}
+#ifdef DEBUG
 	fprintf(stderr, "Done _ne_read_response_body_full\n");
+#endif
 
 	return response_body;
 }
@@ -309,7 +331,9 @@ char *_ne_read_response_body_full(ne_request *request)
 //get the list of possible completions
 int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath, char *content, char *completertarget)
 {
+#ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_req_completions_suggestions()\n");
+#endif
 
 	char *method = "POST";
 	char *path = "/completions";
@@ -343,7 +367,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 
 	_ycmd_json_replace_file_data(&json, filepath, content);
 
+#ifdef DEBUG
 	fprintf(stderr, "json body in ycmd_req_completions_suggestions: %s\n", json);
+#endif
 
 	struct subnfunc *func = allfuncs;
 
@@ -372,7 +398,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 		{
 			response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
+#ifdef DEBUG
 			fprintf(stderr,"Server response (SUGGESTIONS): %s\n", response_body);
+#endif
 		}
 
 		//output should look like:
@@ -389,7 +417,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 			int i = 0;
 			int j = 0;
 			int maxlist = MAIN_VISIBLE;
+#ifdef DEBUG
 			fprintf(stderr,"maxlist = %d, cols = %d\n", maxlist, COLS);
+#endif
 
 			for (i = i; i < completions->length && j < maxlist && j < 26 && func; i++, j++) //26 for 26 letters A-Z
 			{
@@ -406,7 +436,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 					if (func->desc != NULL)
 						free((void *)func->desc);
 					func->desc = strdup(insertion_text->text_value);
+#ifdef DEBUG
 					fprintf(stderr,">Added completion entry to nano toolbar: %s\n", insertion_text->text_value);
+#endif
 					found_cc_entry = 1;
 					func = func->next;
 				}
@@ -416,7 +448,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 				if (func->desc != NULL)
 					free((void *)func->desc);
 				func->desc = strdup("");
+#ifdef DEBUG
 				fprintf(stderr,">Deleting unused entry: %d\n", i);
+#endif
 			}
 			//apply_column = nx_json_get(pjson, "completion_start_column")->int_value;
 
@@ -425,7 +459,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 
 		if (found_cc_entry)
 		{
+#ifdef DEBUG
 			fprintf(stderr,"Showing completion bar.\n");
+#endif
 			bottombars(MCODECOMPLETION);
 			statusline(HUSH, "Code completion triggered");
 		}
@@ -436,7 +472,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 
 	free(json);
 
+#ifdef DEBUG
 	fprintf(stderr, "Status code in ycmd_req_completions_suggestions is %d\n", status_code);
+#endif
 
 	return status_code == 200;
 }
@@ -444,7 +482,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 int ycmd_rsp_is_healthy_simple()
 {
 	//this function works
+#ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_rsp_is_healthy_simple()\n");
+#endif
 	char *method = "GET";
 	char *path = "/healthy";
 
@@ -462,7 +502,9 @@ int ycmd_rsp_is_healthy_simple()
 		{
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
+#ifdef DEBUG
 			fprintf(stderr, "Server response: %s\n", response_body); //should just say: true
+#endif
 			free(response_body);
 		}
 
@@ -471,10 +513,14 @@ int ycmd_rsp_is_healthy_simple()
 	}
 	else
 	{
+#ifdef DEBUG
 		fprintf(stderr, "Create request failed in ycmd_rsp_is_healthy_simple\n");
+#endif
 	}
 
+#ifdef DEBUG
 	fprintf(stderr, "Status code in ycmd_rsp_is_healthy_simple is %d\n", status_code);
+#endif
 
 	return status_code == 200;
 }
@@ -485,7 +531,9 @@ int ycmd_rsp_is_healthy_simple()
 int ycmd_rsp_is_healthy(int include_subservers)
 {
 	//this function doesn't work
+#ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_rsp_is_healthy()\n");
+#endif
 	char *method = "GET";
 	char *_path = "/healthy?include_subservers=FILE_DATA";
 	char *path;
@@ -510,7 +558,9 @@ int ycmd_rsp_is_healthy(int include_subservers)
 		{
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
+#ifdef DEBUG
 			fprintf(stderr, "Server response: %s\n", response_body); //should just say: true
+#endif
 			free(response_body);
 		}
 
@@ -519,12 +569,16 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	}
 	else
 	{
+#ifdef DEBUG
 		fprintf(stderr, "Create request failed in ycmd_rsp_is_healthy\n");
+#endif
 	}
 
 	free(path);
 
+#ifdef DEBUG
 	fprintf(stderr, "Status code in ycmd_rsp_is_healthy is %d\n", status_code);
+#endif
 
 	return status_code == 200;
 }
@@ -532,7 +586,9 @@ int ycmd_rsp_is_healthy(int include_subservers)
 //include_subservers refers to checking omnisharp server or other completer servers
 int ycmd_rsp_is_server_ready(int include_subservers)
 {
+#ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_rsp_is_server_ready()\n");
+#endif
 	char *method = "GET";
 	char *_path = "/ready?include_subservers=FILE_DATA";
 	char *path;
@@ -543,7 +599,9 @@ int ycmd_rsp_is_server_ready(int include_subservers)
 	else
 		string_replace_w(&path, "FILE_DATA", "0");
 
+#ifdef DEBUG
 	fprintf(stderr,"ycmd_rsp_is_server_ready path is %s\n",path);
+#endif
 
 	int status_code = 0;
 
@@ -557,19 +615,25 @@ int ycmd_rsp_is_server_ready(int include_subservers)
 	}
 	else
 	{
+#ifdef DEBUG
 		fprintf(stderr, "Create request failed in ycmd_rsp_is_server_ready\n");
+#endif
 	}
 
 	free(path);
 
+#ifdef DEBUG
 	fprintf(stderr, "Status code in ycmd_rsp_is_server_ready is %d\n", status_code);
+#endif
 
 	return status_code == 200;
 }
 
 int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnum, char *filepath, char *content)
 {
+#ifdef DEBUG
 	fprintf(stderr, "Entering _ycmd_req_simple_request()\n");
+#endif
 	char *_json = "{"
 		"        \"line_num\": LINE_NUM,"
 		"        \"column_num\": COLUMN_NUM,"
@@ -614,7 +678,9 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 		{
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
+#ifdef DEBUG
 			fprintf(stderr, "Server response: %s",response_body);
+#endif
 			free(response_body);
 		}
 
@@ -624,14 +690,18 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 
 	free(json);
 
+#ifdef DEBUG
 	fprintf(stderr, "Status code in _ycmd_req_simple_request is %d\n", status_code);
+#endif
 
 	return status_code == 200;
 }
 
 void ycmd_req_load_extra_conf_file(int linenum, int columnnum, char *filepath, char *filedata)
 {
+#ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_req_load_extra_conf_file()\n");
+#endif
 	char *method = "POST";
 	char *path = "/load_extra_conf_file";
 
@@ -640,7 +710,9 @@ void ycmd_req_load_extra_conf_file(int linenum, int columnnum, char *filepath, c
 
 void ycmd_req_ignore_extra_conf_file(int linenum, int columnnum, char *filepath, char *filedata)
 {
+#ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_req_ignore_extra_conf_file()\n");
+#endif
 	char *method = "POST";
 	char *path = "/ignore_extra_conf_file";
 
@@ -649,7 +721,9 @@ void ycmd_req_ignore_extra_conf_file(int linenum, int columnnum, char *filepath,
 
 void ycmd_req_semantic_completion_available(int linenum, int columnnum, char *filepath, char *filedata)
 {
+#ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_req_semantic_completion_available()\n");
+#endif
 	char *method = "POST";
 	char *path = "/semantic_completer_available";
 
@@ -664,7 +738,9 @@ int find_unused_localhost_port()
 	ycmd_globals.tcp_socket = socket(AF_INET, SOCK_STREAM, 0);
 	if (ycmd_globals.tcp_socket == -1)
 	{
+#ifdef DEBUG
 		fprintf(stderr,"Failed to create socket.\n");
+#endif
 		return -1;
 	}
 
@@ -680,19 +756,25 @@ int find_unused_localhost_port()
 		{
 			close(ycmd_globals.tcp_socket);
 
+#ifdef DEBUG
 			fprintf(stderr,"Failed to obtain unused socket.\n");
+#endif
 			return -1;
 		}
 
 		port = address.sin_port;
 		close(ycmd_globals.tcp_socket);
+#ifdef DEBUG
 		fprintf(stderr,"Found unused port at %d.\n", port);
+#endif
 
 		return port;
 	}
 	else
 	{
+#ifdef DEBUG
 		fprintf(stderr,"Failed to find unused port.\n");
+#endif
 	}
 
 	close(ycmd_globals.tcp_socket);
@@ -706,16 +788,22 @@ void ycmd_destroy()
 
 void ycmd_start_server()
 {
+#ifdef DEBUG
 	fprintf(stderr, "Starting ycmd server.\n");
+#endif
 	ycmd_globals.port = find_unused_localhost_port();
 
 	if (ycmd_globals.port == -1)
 	{
+#ifdef DEBUG
 		fprintf(stderr,"Failed to find unused port.\n");
+#endif
 		return;
 	}
 
+#ifdef DEBUG
 	fprintf(stderr, "Server will be running on http://localhost:%d\n", ycmd_globals.port);
+#endif
 
 	ne_sock_init();
 
@@ -726,31 +814,43 @@ void ycmd_start_server()
 	ycmd_generate_secret_raw(ycmd_globals.secret_key_raw);
 	secret = ycmd_generate_secret_base64(ycmd_globals.secret_key_raw);
 	ycmd_globals.secret_key_base64 = strdup(secret);
+#ifdef DEBUG
 	fprintf(stderr, "HMAC secret is: %s\n", ycmd_globals.secret_key_base64);
 
 	fprintf(stderr,"1JSON file contents: %s\n",ycmd_globals.json);
+#endif
 
 	string_replace_w(&json, "HMAC_SECRET", ycmd_globals.secret_key_base64);
+#ifdef DEBUG
 	fprintf(stderr,"2JSON file contents: %s\n",ycmd_globals.json);
+#endif
 	string_replace_w(&json, "GOCODE_PATH", GOCODE_PATH);
 	string_replace_w(&json, "GODEF_PATH", GODEF_PATH);
 	string_replace_w(&json, "RUST_SRC_PATH", RUST_SRC_PATH);
 	string_replace_w(&json, "RACERD_PATH", RACERD_PATH);
 	string_replace_w(&json, "PYTHON_PATH", PYTHON_PATH);
 
+#ifdef DEBUG
 	fprintf(stderr,"JSON file contents: %s\n",ycmd_globals.json);
 
 	fprintf(stderr,"Attempting to create temp file\n");
+#endif
 	strcpy(ycmd_globals.tmp_options_filename,"/tmp/nanoXXXXXX");
 	int fdtemp = mkstemp(ycmd_globals.tmp_options_filename);
+#ifdef DEBUG
 	fprintf(stderr, "tempname is %s\n", ycmd_globals.tmp_options_filename);
+#endif
 	FILE *f = fdopen(fdtemp,"w+");
+#ifdef DEBUG
 	fprintf(f, "%s", ycmd_globals.json);
+#endif
 	fclose(f);
 
 	//fork
 	int pid = fork();
+#ifdef DEBUG
 	fprintf(stderr,"pid is %d.\n",pid);
+#endif
 	if (pid == 0)
 	{
 		//child
@@ -764,6 +864,7 @@ void ycmd_start_server()
 		snprintf(idle_suicide_seconds_value,DIGITS_MAX,"%d",IDLE_SUICIDE_SECONDS);
 		snprintf(ycmd_path,PATH_MAX,"%s",YCMD_PATH);
 
+#ifdef DEBUG
 		fprintf(stderr, "PYTHON_PATH is %s\n",PYTHON_PATH);
 		fprintf(stderr, "YCMD_PATH is %s\n",YCMD_PATH);
 		fprintf(stderr, "port_value %s\n", port_value);
@@ -772,11 +873,14 @@ void ycmd_start_server()
 		fprintf(stderr, "generated server command: %s %s %s %s %s %s %s %s\n", PYTHON_PATH, YCMD_PATH, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value);
 
 		fprintf(stderr, "Child process is going to start the server...\n");
+#endif
 
 		//after execl executes, the server will delete the tmpfile
 		execl(PYTHON_PATH, PYTHON_PATH, ycmd_path, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value, "--stdout", "/dev/null", "--stderr", "/dev/null", NULL);
 
+#ifdef DEBUG
 		fprintf(stderr, "Child process server exit on abnormal condition.  Exiting child process...\n");
+#endif
 		//continue if fail
 
 		if (access(ycmd_globals.tmp_options_filename, F_OK) == 0)
@@ -787,26 +891,36 @@ void ycmd_start_server()
 	else
 	{
 		//parent
+#ifdef DEBUG
 		fprintf(stderr, "Parent process is waiting for server to load...\n");
+#endif
 		//parent
 	}
 
+#ifdef DEBUG
 	fprintf(stderr, "Parent process creating neon session...\n");
+#endif
 	ycmd_globals.session = ne_session_create(ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port);
 
 	int tries = 3;
 	int i;
 
 	/*
+#ifdef DEBUG
 	fprintf(stderr, "Parent process checking server status...\n");
+#endif
 	if (ycmd_rsp_is_server_ready(1))
 	{
+#ifdef DEBUG
 		fprintf(stderr,"ycmd server is up.\n");
+#endif
 		ycmd_globals.running = 1;
 	}
 	else
 	{
+#ifdef DEBUG
 		fprintf(stderr,"ycmd server is down.\n");
+#endif
 		ycmd_stop_server();
 	}
 	*/
@@ -814,16 +928,22 @@ void ycmd_start_server()
 	/*
 	for (i = 0; i < tries; i++)
 	{
+#ifdef DEBUG
 		fprintf(stderr, "Parent process: checking ycmd server health by communicating with it...\n");
+#endif
 		if (ycmd_rsp_is_healthy_simple())
 		{
+#ifdef DEBUG
 			fprintf(stderr,"ycmd server is up.\n");
+#endif
 			ycmd_globals.running = 1;
 			break;
 		}
 		else
 		{
+#ifdef DEBUG
 			fprintf(stderr,"ycmd server is down retrying.\n");
+#endif
 			sleep(3);
 		}
 	}*/
@@ -831,30 +951,37 @@ void ycmd_start_server()
 
 	for (i = 0; i < tries; i++)
 	{
+#ifdef DEBUG
 		fprintf(stderr, "Parent process: checking if child PID is still alive...\n");
+#endif
 		if (waitpid(pid,0,WNOHANG) == 0)
 		{
+#ifdef DEBUG
 			fprintf(stderr,"ycmd server is up.\n");
+#endif
 			ycmd_globals.running = 1;
 			break;
 		}
 		else
 		{
+#ifdef DEBUG
 			fprintf(stderr,"ycmd server is down retrying.\n");
+#endif
 			sleep(3);
 		}
 	}
 
 	if (!ycmd_globals.running)
 	{
+#ifdef DEBUG
 		fprintf(stderr, "Check your ycmd or recompile nano with the proper settings...\n");
+#endif
 		ycmd_stop_server();
 	}
 }
 
 void ycmd_stop_server()
 {
-	fprintf(stderr, "Stopping ycmd server\n");
 	ne_session_destroy(ycmd_globals.session);
 	close(ycmd_globals.tcp_socket);
 	free(ycmd_globals.json);
@@ -880,9 +1007,13 @@ void ycmd_generate_secret_raw(char *secret)
 	size_t nread = fread(secret, 1, SECRET_KEY_LENGTH, random_file);
 	if (nread != SECRET_KEY_LENGTH)
 	{
+#ifdef DEBUG
 		fprintf(stderr, "Failed to obtain 16 bytes of data for the secret key.\n");
+#endif
 	}
+#ifdef DEBUG
 	fprintf(stderr, "read %d bytes of /dev/random\n", (int)nread);
+#endif
 	fclose(random_file);
 }
 
@@ -891,14 +1022,18 @@ char *ycmd_generate_secret_base64(char *secret)
 #ifdef USE_NETTLE
 	static char b64_secret[BASE64_ENCODE_RAW_LENGTH(SECRET_KEY_LENGTH)];
 	base64_encode_raw((unsigned char *)b64_secret, SECRET_KEY_LENGTH, (unsigned char *)secret);
+#ifdef DEBUG
 	fprintf(stderr,"base64 secret is %s\n",b64_secret);
+#endif
 	return b64_secret;
 #elif USE_OPENSSL
 	static char b64_secret[80];
         gchar *_b64_secret = g_base64_encode((unsigned char *)secret, SECRET_KEY_LENGTH);
 	strcpy(b64_secret, _b64_secret);
 	free (_b64_secret);
+#ifdef DEBUG
 	fprintf(stderr,"base64 secret is %s\n",b64_secret);
+#endif
 	return b64_secret;
 #else
 #error "You need to define a crypto library to use."
@@ -908,7 +1043,9 @@ char *ycmd_generate_secret_base64(char *secret)
 char *ycmd_compute_request(char *method, char *path, char *body)
 {
 #ifdef USE_NETTLE
+#ifdef DEBUG
 	fprintf(stderr, "ycmd_compute_request entered\n");
+#endif
 	char join[HMAC_SIZE*3];
 	static char hmac_request[HMAC_SIZE];
 	struct hmac_sha256_ctx hmac_ctx;
@@ -927,7 +1064,9 @@ char *ycmd_compute_request(char *method, char *path, char *body)
 
 	static char b64_request[BASE64_ENCODE_RAW_LENGTH(HMAC_SIZE)];
 	base64_encode_raw((unsigned char *)b64_request, HMAC_SIZE, (unsigned char *)hmac_request);
+#ifdef DEBUG
 	fprintf(stderr,"base64 hmac is %s\n",b64_request);
+#endif
 	return b64_request;
 #elif USE_OPENSSL
         unsigned char join[HMAC_SIZE*3];
@@ -941,7 +1080,9 @@ char *ycmd_compute_request(char *method, char *path, char *body)
         gchar *_b64_request = g_base64_encode(digest_join, HMAC_SIZE);
 	strcpy(b64_request, _b64_request);
 	free (_b64_request);
+#ifdef DEBUG
 	fprintf(stderr,"base64 hmac is %s\n",b64_request);
+#endif
 	return b64_request;
 #else
 #error "You need to define a crypto library to use."
@@ -951,7 +1092,9 @@ char *ycmd_compute_request(char *method, char *path, char *body)
 char *ycmd_compute_response(char *response_body)
 {
 #ifdef USE_NETTLE
+#ifdef DEBUG
 	fprintf(stderr, "ycmd_compute_response entered\n");
+#endif
 	static char hmac_response[HMAC_SIZE];
 	struct hmac_sha256_ctx hmac_ctx;
 
@@ -961,7 +1104,9 @@ char *ycmd_compute_response(char *response_body)
 
 	static char b64_response[BASE64_ENCODE_RAW_LENGTH(HMAC_SIZE)];
 	base64_encode_raw((unsigned char *)b64_response, HMAC_SIZE, (unsigned char *)hmac_response);
+#ifdef DEBUG
 	fprintf(stderr,"base64 hmac is %s\n",b64_response);
+#endif
 	return b64_response;
 #elif USE_OPENSSL
         unsigned char *response_digest = HMAC(EVP_sha256(), ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH,(unsigned char *) response_body,strlen(response_body), NULL, NULL);
@@ -970,7 +1115,9 @@ char *ycmd_compute_response(char *response_body)
         gchar *_b64_response = g_base64_encode(response_digest, HMAC_SIZE);
 	strcpy(b64_response, _b64_response);
 	free (_b64_response);
+#ifdef DEBUG
 	fprintf(stderr,"base64 hmac is %s\n",b64_response);
+#endif
 	return b64_response;
 #else
 #error "You need to define a crypto library to use."
@@ -1000,7 +1147,9 @@ void escape_json(char **buffer)
 //consumer must free it
 char *get_all_content(filestruct *fileage)
 {
+#ifdef DEBUG
 	fprintf(stderr, "Assembling content...\n");
+#endif
 	char *buffer;
 	buffer = NULL;
 
@@ -1009,7 +1158,9 @@ char *get_all_content(filestruct *fileage)
 
 	if (node == NULL)
 	{
+#ifdef DEBUG
 		fprintf(stderr, "Node is null\n");
+#endif
 		return NULL;
 	}
 
@@ -1026,7 +1177,9 @@ char *get_all_content(filestruct *fileage)
 		int len2 = strlen(buffer);
 		char *newbuffer = realloc(buffer, len2+len+2);
 		if (newbuffer == NULL) {
+#ifdef DEBUG
 			fprintf(stderr, "*newbuffer is null\n");
+#endif
 			break;
 		}
 		buffer = newbuffer;
@@ -1035,7 +1188,9 @@ char *get_all_content(filestruct *fileage)
 		node = node->next;
 	}
 
+#ifdef DEBUG
 	//fprintf(stderr, "Content is: %s\n", buffer);
+#endif
 	escape_json(&buffer);
 
 	return buffer;
@@ -1043,7 +1198,9 @@ char *get_all_content(filestruct *fileage)
 
 void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, filestruct *fileage)
 {
+#ifdef DEBUG
 	fprintf(stderr,"ycmd_event_file_ready_to_parse called\n");
+#endif
 
 	char *content = get_all_content(fileage);
 	if (ycmd_globals.running)
@@ -1056,7 +1213,9 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 
 void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, filestruct *fileage)
 {
+#ifdef DEBUG
 	fprintf(stderr,"Entering ycmd_event_buffer_unload.\n");
+#endif
 
 	char *content = get_all_content(fileage);
 	if (ycmd_globals.running)
@@ -1066,7 +1225,9 @@ void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, filest
 
 void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, filestruct *fileage)
 {
+#ifdef DEBUG
 	fprintf(stderr,"Entering ycmd_event_buffer_visit.\n");
+#endif
 
 	char *content = get_all_content(fileage);
 	if (ycmd_globals.running)
@@ -1076,7 +1237,9 @@ void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, filestr
 
 void ycmd_event_current_identifier_finished(int columnnum, int linenum, char *filepath, filestruct *fileage)
 {
+#ifdef DEBUG
 	fprintf(stderr,"Entering ycmd_event_current_identifier_finished.\n");
+#endif
 
 	char *content = get_all_content(fileage);
 	if (ycmd_globals.running)
@@ -1086,7 +1249,9 @@ void ycmd_event_current_identifier_finished(int columnnum, int linenum, char *fi
 
 void do_code_completion(char letter)
 {
+#ifdef DEBUG
 	fprintf(stderr,"Entered do_code_completion.\n");
+#endif
 	struct subnfunc *func = allfuncs;
 	int maxlist = MAIN_VISIBLE;
 
@@ -1101,10 +1266,14 @@ void do_code_completion(char letter)
 	int j;
 	for (i = 'A', j = 0; j < maxlist && i <= 'Z' && func; i++, j++, func = func->next)
 	{
+#ifdef DEBUG
 		fprintf(stderr,">Scanning %c.\n", i);
+#endif
 		if (i == letter)
 		{
+#ifdef DEBUG
 			fprintf(stderr,">Chosen %c.\n", i);
+#endif
 			if (strcmp(func->desc,"") == 0)
 				break;
 
@@ -1116,7 +1285,9 @@ void do_code_completion(char letter)
 				memcpy(buffer, buffer+len, len2-len);
 				buffer[len2-len] = 0;
 
+#ifdef DEBUG
 				fprintf(stderr,"Replacing text %s with %s.\n",ycmd_globals.killmatch,buffer);
+#endif
 
 				do_output(buffer,strlen(buffer),FALSE);
 				free((void *)func->desc);
