@@ -546,6 +546,13 @@ void say_there_is_no_help(void)
 /* Make nano exit gracefully. */
 void finish(void)
 {
+#ifdef ENABLE_YCMD
+#ifdef DEBUG
+    fprintf(stderr,"finish called.\n");
+#endif
+    ycmd_destroy();
+#endif
+
     /* Blank the statusbar and (if applicable) the shortcut list,
      * and move the cursor to the last line of the screen. */
     blank_statusbar();

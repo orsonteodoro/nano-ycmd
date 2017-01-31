@@ -97,7 +97,8 @@ void ycmd_init()
 	ycmd_globals.scheme = "http";
 	ycmd_globals.hostname = "127.0.0.1";
 	ycmd_globals.port = 0;
-	ycmd_globals.killmatch = NULL;
+	ycmd_globals.kill_match = NULL;
+	ycmd_globals.child_pid=-1;
 
 	ycmd_start_server();
 }
@@ -427,9 +428,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 				const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
 				if (i == 0)
 				{
-					if (ycmd_globals.killmatch != NULL)
-						free(ycmd_globals.killmatch);
-					ycmd_globals.killmatch = strdup(insertion_text->text_value);
+					if (ycmd_globals.kill_match != NULL)
+						free(ycmd_globals.kill_match);
+					ycmd_globals.kill_match = strdup(insertion_text->text_value);
 				}
 				else
 				{
@@ -479,6 +480,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	return status_code == 200;
 }
 
+//preconditon: server must be up and initalized
 int ycmd_rsp_is_healthy_simple()
 {
 	//this function works
@@ -496,7 +498,6 @@ int ycmd_rsp_is_healthy_simple()
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, "");
 		ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
 
-		ne_request_dispatch(request);
 		int ret = ne_begin_request(request);
 		if (ret >= 0)
 		{
@@ -528,7 +529,7 @@ int ycmd_rsp_is_healthy_simple()
 
 
 //include_subservers refers to checking omnisharp server or other completer servers
-int ycmd_rsp_is_healthy(int include_subservers)
+int ycmd_rsp_is_healthy(char *filetype)
 {
 	//this function doesn't work
 #ifdef DEBUG
@@ -540,9 +541,7 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	path = strdup(_path);
 
 	if (include_subservers)
-		string_replace_w(&path, "FILE_DATA", "1");
-	else
-		string_replace_w(&path, "FILE_DATA", "0");
+		string_replace_w(&path, "FILE_DATA", filetype);
 
 	int status_code = 0;
 	ne_request *request;
@@ -552,7 +551,6 @@ int ycmd_rsp_is_healthy(int include_subservers)
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, "");
 		ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
 
-		ne_request_dispatch(request);
 		int ret = ne_begin_request(request);
 		if (ret >= 0)
 		{
@@ -584,20 +582,17 @@ int ycmd_rsp_is_healthy(int include_subservers)
 }
 
 //include_subservers refers to checking omnisharp server or other completer servers
-int ycmd_rsp_is_server_ready(int include_subservers)
+int ycmd_rsp_is_server_ready(char *filetype)
 {
 #ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_rsp_is_server_ready()\n");
 #endif
 	char *method = "GET";
-	char *_path = "/ready?include_subservers=FILE_DATA";
+	char *_path = "/ready?subserver=FILE_DATA";
 	char *path;
 	path = strdup(_path);
 
-	if (include_subservers)
-		string_replace_w(&path, "FILE_DATA", "1");
-	else
-		string_replace_w(&path, "FILE_DATA", "0");
+	string_replace_w(&path, "FILE_DATA", filetype);
 
 #ifdef DEBUG
 	fprintf(stderr,"ycmd_rsp_is_server_ready path is %s\n",path);
@@ -783,7 +778,10 @@ int find_unused_localhost_port()
 
 void ycmd_destroy()
 {
-
+#ifdef DEBUG
+	fprintf(stderr, "Called ycmd_destroy.\n");
+#endif
+	ycmd_stop_server();
 }
 
 void ycmd_start_server()
@@ -817,12 +815,12 @@ void ycmd_start_server()
 #ifdef DEBUG
 	fprintf(stderr, "HMAC secret is: %s\n", ycmd_globals.secret_key_base64);
 
-	fprintf(stderr,"1JSON file contents: %s\n",ycmd_globals.json);
+	fprintf(stderr,"JSON file contents: %s\n",ycmd_globals.json);
 #endif
 
 	string_replace_w(&json, "HMAC_SECRET", ycmd_globals.secret_key_base64);
 #ifdef DEBUG
-	fprintf(stderr,"2JSON file contents: %s\n",ycmd_globals.json);
+	fprintf(stderr,"JSON file contents: %s\n",ycmd_globals.json);
 #endif
 	string_replace_w(&json, "GOCODE_PATH", GOCODE_PATH);
 	string_replace_w(&json, "GODEF_PATH", GODEF_PATH);
@@ -900,9 +898,10 @@ void ycmd_start_server()
 #ifdef DEBUG
 	fprintf(stderr, "Parent process creating neon session...\n");
 #endif
+	ycmd_globals.child_pid = pid;
 	ycmd_globals.session = ne_session_create(ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port);
 
-	int tries = 3;
+	int tries = 10;
 	int i;
 
 	/*
@@ -925,30 +924,6 @@ void ycmd_start_server()
 	}
 	*/
 
-	/*
-	for (i = 0; i < tries; i++)
-	{
-#ifdef DEBUG
-		fprintf(stderr, "Parent process: checking ycmd server health by communicating with it...\n");
-#endif
-		if (ycmd_rsp_is_healthy_simple())
-		{
-#ifdef DEBUG
-			fprintf(stderr,"ycmd server is up.\n");
-#endif
-			ycmd_globals.running = 1;
-			break;
-		}
-		else
-		{
-#ifdef DEBUG
-			fprintf(stderr,"ycmd server is down retrying.\n");
-#endif
-			sleep(3);
-		}
-	}*/
-
-
 	for (i = 0; i < tries; i++)
 	{
 #ifdef DEBUG
@@ -967,7 +942,7 @@ void ycmd_start_server()
 #ifdef DEBUG
 			fprintf(stderr,"ycmd server is down retrying.\n");
 #endif
-			sleep(3);
+			usleep(250000);
 		}
 	}
 
@@ -978,16 +953,53 @@ void ycmd_start_server()
 #endif
 		ycmd_stop_server();
 	}
+	
+	//give time for the server initialize
+	usleep(750000);
+	
+	for (i = 0; i < tries; i++)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Parent process: checking ycmd server health by communicating with it...\n");
+#endif
+		if (ycmd_rsp_is_healthy_simple())
+		{
+#ifdef DEBUG
+			fprintf(stderr,"Client can communicate with server.\n");
+#endif
+			ycmd_globals.connected = 1;
+			break;
+		}
+		else
+		{
+#ifdef DEBUG
+			fprintf(stderr,"Client cannot communicate with server.  Retrying...\n");
+#endif
+			usleep(250000);
+		}
+	}
+
 }
 
 void ycmd_stop_server()
 {
+#ifdef DEBUG
+	fprintf(stderr, "ycmd_stop_server called.\n");
+#endif
 	ne_session_destroy(ycmd_globals.session);
 	close(ycmd_globals.tcp_socket);
 	free(ycmd_globals.json);
 	free(ycmd_globals.secret_key_base64);
 	if (access(ycmd_globals.tmp_options_filename, F_OK) == 0)
 		unlink(ycmd_globals.tmp_options_filename);
+	if (ycmd_globals.child_pid != -1)
+	{
+		kill(ycmd_globals.child_pid, SIGTERM);
+#ifdef DEBUG
+		fprintf(stderr, "Kill called\n");
+#endif
+	}
+	ycmd_globals.child_pid = -1;
 
 	ycmd_globals.running = 0;
 }
@@ -1198,6 +1210,9 @@ char *get_all_content(filestruct *fileage)
 
 void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, filestruct *fileage)
 {
+	if (!ycmd_globals.connected)
+		return;
+
 #ifdef DEBUG
 	fprintf(stderr,"ycmd_event_file_ready_to_parse called\n");
 #endif
@@ -1213,6 +1228,9 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 
 void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, filestruct *fileage)
 {
+	if (!ycmd_globals.connected)
+		return;
+
 #ifdef DEBUG
 	fprintf(stderr,"Entering ycmd_event_buffer_unload.\n");
 #endif
@@ -1225,6 +1243,9 @@ void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, filest
 
 void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, filestruct *fileage)
 {
+	if (!ycmd_globals.connected)
+		return;
+
 #ifdef DEBUG
 	fprintf(stderr,"Entering ycmd_event_buffer_visit.\n");
 #endif
@@ -1237,6 +1258,9 @@ void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, filestr
 
 void ycmd_event_current_identifier_finished(int columnnum, int linenum, char *filepath, filestruct *fileage)
 {
+	if (!ycmd_globals.connected)
+		return;
+
 #ifdef DEBUG
 	fprintf(stderr,"Entering ycmd_event_current_identifier_finished.\n");
 #endif
@@ -1249,6 +1273,9 @@ void ycmd_event_current_identifier_finished(int columnnum, int linenum, char *fi
 
 void do_code_completion(char letter)
 {
+	if (!ycmd_globals.connected)
+		return;
+
 #ifdef DEBUG
 	fprintf(stderr,"Entered do_code_completion.\n");
 #endif
@@ -1280,20 +1307,20 @@ void do_code_completion(char letter)
 			if (func->desc != NULL)
 			{
 				char *buffer = strdup(func->desc);
-				int len = strlen(ycmd_globals.killmatch);
+				int len = strlen(ycmd_globals.kill_match);
 				int len2 = strlen(func->desc);
 				memcpy(buffer, buffer+len, len2-len);
 				buffer[len2-len] = 0;
 
 #ifdef DEBUG
-				fprintf(stderr,"Replacing text %s with %s.\n",ycmd_globals.killmatch,buffer);
+				fprintf(stderr,"Replacing text %s with %s.\n",ycmd_globals.kill_match,buffer);
 #endif
 
 				do_output(buffer,strlen(buffer),FALSE);
 				free((void *)func->desc);
 				func->desc = strdup("");
-				free(ycmd_globals.killmatch);
-				ycmd_globals.killmatch = NULL;
+				free(ycmd_globals.kill_match);
+				ycmd_globals.kill_match = NULL;
 				free(buffer);
 				blank_statusbar();
 			}

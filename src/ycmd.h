@@ -68,10 +68,12 @@ typedef struct _ycmd_globals {
 	char *secret_key_base64;
 	char secret_key_raw[SECRET_KEY_LENGTH];
 	char tmp_options_filename[PATH_MAX];
-	char *killmatch;
+	char *kill_match;
+	pid_t child_pid;
 } YCMD_GLOBALS;
 
 extern void ycmd_init();
+extern void ycmd_destroy();
 
 extern void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, filestruct *fileage);
 extern void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, filestruct *fileage);
