@@ -65,6 +65,7 @@ typedef struct _ycmd_globals {
 	ne_session *session;
 	char *json;
 	int running;
+	int connected;
 	char *secret_key_base64;
 	char secret_key_raw[SECRET_KEY_LENGTH];
 	char tmp_options_filename[PATH_MAX];
