@@ -1,6 +1,8 @@
 # nano-ycmd
 The ycmd code completion support for nano is found in the ymcd-code-completion branch.  An unofficial mirror of GNU nano.
 
+![Alt text](csharp-ynano-example.png?raw=true "CSharp IntelliSense with OmniSharp and ycmd.")
+
 ####Branches
 
 * The master branch contains upstreams nano source code untouched.
