@@ -2,9 +2,9 @@ AM_CPPFLAGS = -DLOCALEDIR=\"$(localedir)\" -DSYSCONFDIR=\"$(sysconfdir)\"
 
 if HAVE_YCMD
 AM_CPPFLAGS += -DENABLE_YCMD -DYCMD_PATH=\"@YCMD_PATH@\" @GLIB_CFLAGS@
-AM_CFLAGS = -I../third_party/pixelbeat.org
+AM_CFLAGS =
 AM_CPPFLAGS += -DPYTHON_PATH=\"@PYTHON_PATH@\"
-AM_LDFLAGS = -L../third_party/pixelbeat.org
+AM_LDFLAGS =
 if HAVE_NETTLE
 AM_CFLAGS += @NETTLE_CFLAGS@
 AM_CPPFLAGS += -DUSE_NETTLE
@@ -79,7 +79,7 @@ if HAVE_OPENSSL
 nano_LDADD += @OPENSSL_LIBS@ @GLIB_LIBS@
 endif
 if HAVE_YCMD
-nano_LDADD += @GLIB_LIBS@ -lstring_replace
+nano_LDADD += @GLIB_LIBS@
 endif
 
 

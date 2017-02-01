@@ -2,10 +2,6 @@ AUTOMAKE_OPTIONS = gnu no-dependencies
 
 SUBDIRS =
 
-if HAVE_YCMD
-SUBDIRS += third_party
-endif
-
 SUBDIRS += doc m4 po src
 
 if USE_COLOR

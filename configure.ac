@@ -818,13 +818,6 @@ else
 fi
 AM_CONDITIONAL(BUILDING_FROM_GIT, test x$from_git = xyes)
 
-AS_IF([test "x$have_ycmd" = xyes], [
-    AC_CONFIG_FILES([
-        third_party/Makefile
-        third_party/pixelbeat.org/Makefile
-    ])
-])
-
 AC_CONFIG_FILES([
 Makefile
 doc/Makefile
