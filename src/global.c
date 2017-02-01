@@ -1042,57 +1042,57 @@ void shortcut_init(void)
 
 #ifdef ENABLE_YCMD
     add_to_funcs(do_code_completion_a, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_b, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_c, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_d, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_e, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_f, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_g, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_h, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_i, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_j, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_k, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_l, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_m, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_n, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_o, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_p, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_q, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_r, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_s, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_t, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_u, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_v, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_w, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_x, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_y, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_z, MCODECOMPLETION,
-	NULL, IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
 #endif
 
 
