@@ -1,4 +1,4 @@
-# ycmd-nano
+# nano-ycmd
 The ycmd code completion support for nano is found in the ymcd-code-completion branch.  An unofficial mirror of GNU nano.
 
 ####Branches
@@ -87,7 +87,7 @@ Nah, I just have it working.  The UX could be improved.
 
 GPL version 3
 
-######What license is ycmd-nano feature set released under?
+######What license is nano-ycmd feature set released under?
 
 It is GPL version 3.
 
@@ -107,9 +107,20 @@ Add better user interface or user interaction.  Emacs-ycmd is a good example.
 
 After the UX has been polished.
 
+#####Can I install both vanilla nano and nano-ycmd along side each other?
+
+Yes you can, but you need to change the src/Makefile.am.  Rerun autogen.sh.  Do configure again specifying features then make.  Just keep the binary only.  I recommend installing both since nano-ycmd is still a work in progress.
+
+#####What is up with the debug spew?
+
+If you compiled nano-ycmd with --enable-debug then you can redirect the stderr to a file to inspect it later.  You should use --disable-debug if you are not a developer.
+
+For example:
+nano 2>/tmp/out.txt
+
 ####How do I add changes?
 1. Create a repository on your account
-2. git clone https://github.com/orsonteodoro/ycmd-nano.git
+2. git clone https://github.com/orsonteodoro/nano-ycmd.git
 3. cd into folder
 4. git checkout -b myfeaturename
 5. make changes
