@@ -166,7 +166,6 @@ void ycmd_init()
 	ycmd_globals.scheme = "http";
 	ycmd_globals.hostname = "127.0.0.1";
 	ycmd_globals.port = 0;
-	ycmd_globals.kill_match = NULL;
 	ycmd_globals.child_pid=-1;
 
 	ycmd_start_server();
@@ -495,23 +494,14 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 			{
 				const nx_json *candidate = nx_json_item(completions, i);
 				const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
-				if (i == 0)
-				{
-					if (ycmd_globals.kill_match != NULL)
-						free(ycmd_globals.kill_match);
-					ycmd_globals.kill_match = strdup(insertion_text->text_value);
-				}
-				else
-				{
-					if (func->desc != NULL)
-						free((void *)func->desc);
-					func->desc = strdup(insertion_text->text_value);
+				if (func->desc != NULL)
+					free((void *)func->desc);
+				func->desc = strdup(insertion_text->text_value);
 #ifdef DEBUG
-					fprintf(stderr,">Added completion entry to nano toolbar: %s\n", insertion_text->text_value);
+				fprintf(stderr,">Added completion entry to nano toolbar: %s\n", insertion_text->text_value);
 #endif
-					found_cc_entry = 1;
-					func = func->next;
-				}
+				found_cc_entry = 1;
+				func = func->next;
 			}
 			for (i = j; i < maxlist && i < 26 && func; i++, func = func->next)
 			{
@@ -522,7 +512,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 				fprintf(stderr,">Deleting unused entry: %d\n", i);
 #endif
 			}
-			//apply_column = nx_json_get(pjson, "completion_start_column")->int_value;
+			ycmd_globals.apply_column = nx_json_get(pjson, "completion_start_column")->int_value;
 
 			nx_json_free(pjson);
 		}
@@ -1423,6 +1413,8 @@ void do_code_completion(char letter)
 		func = func->next;
 	}
 
+	int nbackspaces = openfile->current_x-(ycmd_globals.apply_column-1);
+
 	int i;
 	int j;
 	for (i = 'A', j = 0; j < maxlist && i <= 'Z' && func; i++, j++, func = func->next)
@@ -1440,22 +1432,22 @@ void do_code_completion(char letter)
 
 			if (func->desc != NULL)
 			{
-				char *buffer = strdup(func->desc);
-				int len = strlen(ycmd_globals.kill_match);
-				int len2 = strlen(func->desc);
-				memcpy(buffer, buffer+len, len2-len);
-				buffer[len2-len] = 0;
-
 #ifdef DEBUG
-				fprintf(stderr,"Replacing text %s with %s.\n",ycmd_globals.kill_match,buffer);
+				fprintf(stderr,"Choosing %s for replacing text\n",func->desc);
 #endif
 
-				do_output(buffer,strlen(buffer),FALSE);
+				while(nbackspaces)
+				{
+					do_backspace();
+					nbackspaces--;
+				}
+
+				openfile->current_x = ycmd_globals.apply_column-1;
+
+				do_output(func->desc,strlen(func->desc), FALSE);
+
 				free((void *)func->desc);
 				func->desc = strdup("");
-				free(ycmd_globals.kill_match);
-				ycmd_globals.kill_match = NULL;
-				free(buffer);
 				blank_statusbar();
 			}
 

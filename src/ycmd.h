@@ -69,8 +69,8 @@ typedef struct _ycmd_globals {
 	char *secret_key_base64;
 	char secret_key_raw[SECRET_KEY_LENGTH];
 	char tmp_options_filename[PATH_MAX];
-	char *kill_match;
 	pid_t child_pid;
+	size_t apply_column;
 } YCMD_GLOBALS;
 
 extern void ycmd_init();
