@@ -428,8 +428,8 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	char line_num[DIGITS_MAX];
 	char column_num[DIGITS_MAX];
 
-	snprintf(line_num, DIGITS_MAX, "%d", linenum);
-	snprintf(column_num, DIGITS_MAX, "%d", columnnum);
+	snprintf(line_num, DIGITS_MAX, "%d", linenum+1);
+	snprintf(column_num, DIGITS_MAX, "%d", columnnum+1);
 
 	string_replace_w(&json, "LINE_NUM", line_num);
 	string_replace_w(&json, "COLUMN_NUM", column_num);
@@ -716,8 +716,8 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	char line_num[DIGITS_MAX];
 	char column_num[DIGITS_MAX];
 
-	snprintf(line_num, DIGITS_MAX, "%d", linenum);
-	snprintf(column_num, DIGITS_MAX, "%d", columnnum);
+	snprintf(line_num, DIGITS_MAX, "%d", linenum+1);
+	snprintf(column_num, DIGITS_MAX, "%d", columnnum+1);
 
 	string_replace_w(&json, "LINE_NUM", line_num);
 	string_replace_w(&json, "COLUMN_NUM", column_num);
