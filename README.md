@@ -73,14 +73,6 @@ make
 
 The -g adds debugging information for developers but not needed for regular users. 
 
-######How do I run nano with libstring_replace.so?
-
-LD_LIBRARY_PATH="../third_party/pixelbeat.org"  ./nano hello.cs
-
-or place the libstring_replace.so found in the third_party/pixelbeat.org in your /usr/lib folder and just run nano.
-
-Remember that libstring_replace.so is licensed under LGPL (any version).
-
 ######Why does the user experience suck?
 We are working on that.  Feel free to merge your changes.
 
@@ -101,12 +93,7 @@ It is GPL version 3.
 
 ######What other dependencies were involved?
 
-NXJSON which is released under GPL 3 by Yaroslav Stavnichiy.  Eventually compiled in the nano executible.
-string_replace was released under LGPL by Pádraig Brady.  It is a seperate library because of licensing.  It maybe replaced with your own or you include this one.  If you choose to use the same libstring_replace.so produced in the third_party instead of rolling your own, you need to follow the terms of the LGPL (which ever version you choose).
-
-####Why do we depend on the string_replace library provided by https://github.com/pixelb/libs?
-
-No good offerings with license compatiblity with GPL3 for a string_replace in C.  You may use replacement of string_replace but keep the function signature the same.  You may commit a replacement for string_replace that is GPL3 if you want.  I tested glib and it doesn't work.  string_replace by brady turned out to be not problematic compared to others.
+NXJSON which is released under GPL 3 by Yaroslav Stavnichiy.
 
 ####How long did it take to make this?
 
