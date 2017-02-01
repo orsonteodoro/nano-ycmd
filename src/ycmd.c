@@ -80,11 +80,80 @@ extern char* string_replace(const char* src, const char* find, const char* repla
 
 YCMD_GLOBALS ycmd_globals;
 
+void *_expand(void *ptr, size_t new_size)
+{
+	void *out;
+	out = realloc(ptr, new_size);
+	if (out == NULL)
+	{
+#ifdef DEBUG
+		fprintf(stderr,"Error\n");
+		exit(-1);
+#endif
+	}
+	return out;
+}
+
+//There was no gpl3+ string replace so I made one from scratch.
+char *string_replace_gpl3(char *buffer, char *find, char *replace)
+{
+	char *out;
+	int lenb = strlen(buffer);
+	int lenf = strlen(find);
+	int lenr = strlen(replace);
+	int cf;
+	int i = 0;
+	int j = 0;
+	int k = 0;
+	int oi = 0;
+	char *p;
+
+	out = malloc(1);
+	out[0] = 0;
+
+	p = buffer;
+	int outlen = 1;
+
+	for (i=0;i<lenb;)
+	{
+		cf = 0;
+		for(j=0;j<lenf && i+j < lenb;j++)
+		{
+			if ( p[i+j] == find[j] )
+				cf++;
+		}
+		if (cf == lenf)
+		{
+#ifdef DEBUG
+		        fprintf(stderr, "string_replace_gpl3 found: %s\n", find);
+#endif
+			out=_expand(out, outlen+=lenr);
+			for(k=0;k<lenr;k++)
+				out[oi++] = replace[k];
+			i+=lenf;
+		}
+		else
+		{
+			out=_expand(out, outlen+=1);
+			out[oi++]=p[i];
+			i++;
+		}
+	}
+	out[oi]=0;
+
+#ifdef DEBUG
+	fprintf(stderr, "string_replace_gpl3: %s\n", out);
+#endif
+
+	return out;
+}
+
+//A wrapper function that takes any string_replace.
 void string_replace_w(char **buffer, char *find, char *replace)
 {
 	char *b;
 	b = *buffer;
-	*buffer = string_replace(*buffer, find, replace);
+	*buffer = string_replace_gpl3(*buffer, find, replace);
 	free(b);
 }
 
@@ -422,7 +491,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 			fprintf(stderr,"maxlist = %d, cols = %d\n", maxlist, COLS);
 #endif
 
-			for (i = i; i < completions->length && j < maxlist && j < 26 && func; i++, j++) //26 for 26 letters A-Z
+			for (i = 0; i < completions->length && j < maxlist && j < 26 && func; i++, j++) //26 for 26 letters A-Z
 			{
 				const nx_json *candidate = nx_json_item(completions, i);
 				const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
@@ -528,18 +597,21 @@ int ycmd_rsp_is_healthy_simple()
 
 
 
-int ycmd_rsp_is_healthy(char *filetype)
+int ycmd_rsp_is_healthy(int include_subservers)
 {
 	//this function doesn't work
 #ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_rsp_is_healthy()\n");
 #endif
 	char *method = "GET";
-	char *_path = "/healthy?subserver=FILE_TYPE";
+	char *_path = "/healthy?include_subservers=VALUE";
 	char *path;
 	path = strdup(_path);
 
-	string_replace_w(&path, "FILE_TYPE", filetype);
+	if (include_subservers)
+		string_replace_w(&path, "VALUE", "1");
+	else
+		string_replace_w(&path, "VALUE", "0");
 
 	int status_code = 0;
 	ne_request *request;
@@ -898,8 +970,9 @@ void ycmd_start_server()
 #endif
 	ycmd_globals.child_pid = pid;
 	ycmd_globals.session = ne_session_create(ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port);
+	ne_set_read_timeout(ycmd_globals.session,1);
 
-	int tries = 10;
+	int tries = 4;
 	int i;
 
 	/*
@@ -1136,21 +1209,84 @@ char *ycmd_compute_response(char *response_body)
 
 void escape_json(char **buffer)
 {
-	//#escape already escaped
-	string_replace_w(buffer, "\\", "\\\\");
+	int i = 0;
+	int len = strlen(*buffer);
+	char *out;
 
-	//#escape unscaped characters
-	string_replace_w(buffer, "\n", "\\n");
-	string_replace_w(buffer, "	", "\\t"); //tab
-	string_replace_w(buffer, "\"", "\\\"");
-	string_replace_w(buffer, "\b", "\\b");
-	string_replace_w(buffer, "\f", "\\f");
-	string_replace_w(buffer, "\v", "\\v");
-	string_replace_w(buffer, "\b", "\\b");
-	string_replace_w(buffer, "\r", "\\r");
-	string_replace_w(buffer, "\'", "\\\'");
+	out = malloc(1);
+	out[0] = '\0';
+	int outlen;
+	outlen = 1;
 
-	//string_replace_w(buffer, "\0", "\\0");
+	int j = 0;
+	char *p = *buffer;
+	for (i = 0; i < len; i++)
+	{
+		switch(p[i])
+		{
+			//details about json sequences in page 3-4: https://www.ietf.org/rfc/rfc4627.txt
+
+			//not all commented out because it breaks test cases (ycmd.c and solutiondetection.py)
+			
+			//escape already escaped
+			case '\\': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='\\'; break; //x5c
+
+			//c escape sequences
+			case '\b': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='b'; break; //x08
+			case '\t': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='t'; break; //x09
+			case '\n': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='n'; break; //x0a
+			case '\v': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='v'; break; //x0b
+			case '\f': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='f'; break; //x0c
+			case '\r': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='r'; break; //x0d
+			case '\"': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='\"'; break; //x22 "
+			case '/': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='/'; break; //x2f
+
+			//escape control characters
+			case '\x01': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='1'; break;
+			case '\x02': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='2'; break;
+			case '\x03': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='3'; break;
+			case '\x04': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='4'; break;
+			case '\x05': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='5'; break;
+			case '\x06': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='6'; break;
+			case '\x07': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='7'; break;
+			
+			//duplicate cases for c escape sequences
+			//case '\x08': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='8'; break;
+			//case '\x09': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='9'; break;
+			//case '\x0a': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='a'; break;
+			//case '\x0b': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='b'; break;
+			//case '\x0c': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='c'; break;
+			//case '\x0d': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='d'; break;
+
+			case '\x0e': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='e'; break;
+			case '\x0f': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='f'; break;
+
+			case '\x10': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='0'; break;
+			case '\x11': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='1'; break;
+			case '\x12': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='2'; break;
+			case '\x13': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='3'; break;
+			case '\x14': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='4'; break;
+			case '\x15': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='5'; break;
+			case '\x16': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='6'; break;
+			case '\x17': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='7'; break;
+			case '\x18': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='8'; break;
+			case '\x19': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='9'; break;
+			case '\x1a': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='a'; break;
+			case '\x1b': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='b'; break;
+			case '\x1c': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='c'; break;
+			case '\x1d': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='d'; break;
+			case '\x1e': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='e'; break;
+			case '\x1f': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='f'; break;
+
+			//delete character
+			//case '\x7f': out=_expand(out, outlen+=6); out[j++]='\\'; out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='7'; out[j++]='f'; break;
+			default: out=_expand(out, outlen+=1); out[j++] = p[i]; break;
+		}
+	}
+	out[j] = 0;
+
+	*buffer=out;
+	free(p);
 }
 
 //assemble the entire file of unsaved buffers
