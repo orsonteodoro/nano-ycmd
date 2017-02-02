@@ -120,6 +120,10 @@ If you compiled nano-ycmd with --enable-debug then you can redirect the stderr t
 For example:
 nano 2>/tmp/out.txt
 
+####Special thanks goes to....
+
+marchelzo and twkm from freenode ##C channel for the clear excess stdin fix.
+
 ####How do I add changes?
 1. Create a repository on your account
 2. git clone https://github.com/orsonteodoro/nano-ycmd.git
