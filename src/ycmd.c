@@ -1036,12 +1036,10 @@ void ycmd_start_server()
 		return;
 	}
 
-	usleep(250000);
-
 	statusline(HUSH, "Letting the server initialize.  Wait....");
 
 	//give time for the server initialize
-	usleep(5000000);
+	usleep(750000);
 
 	statusline(HUSH, "Checking server health....");
 
@@ -1054,20 +1052,20 @@ void ycmd_start_server()
 #endif
 		if (ycmd_rsp_is_healthy_simple())
 		{
-#ifdef DEBUG
 			statusline(HUSH, "Connected....");
+#ifdef DEBUG
 			fprintf(stderr,"Client can communicate with server.\n");
 #endif
 			ycmd_globals.connected = 1;
 		}
 		else
 		{
-#ifdef DEBUG
 			statusline(HUSH, "Connect failed....");
+#ifdef DEBUG
 			fprintf(stderr,"Client cannot communicate with server.  Retrying...\n");
 #endif
 			ycmd_globals.connected = 0;
-			usleep(1000000);
+			usleep(250000);
 		}
 	}
 }
