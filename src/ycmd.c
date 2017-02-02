@@ -653,7 +653,7 @@ int ycmd_rsp_is_healthy(int include_subservers)
 		int ret = ne_begin_request(request);
 		if (ret >= 0)
 		{
-			
+
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
 #ifdef DEBUG
@@ -884,9 +884,6 @@ int find_unused_localhost_port()
 
 void ycmd_destroy()
 {
-#ifdef DEBUG
-	fprintf(stderr, "ss4.\n");
-#endif
 	if (ycmd_globals.secret_key_base64)
 		free(ycmd_globals.secret_key_base64);
 
@@ -915,14 +912,7 @@ void ycmd_start_server()
 	fprintf(stderr, "Server will be running on http://localhost:%d\n", ycmd_globals.port);
 #endif
 
-#ifdef DEBUG
-	fprintf(stderr, "s1\n");
-#endif
-
 	ycmd_globals.json = ycmd_create_default_json();
-#ifdef DEBUG
-	fprintf(stderr, "s2\n");
-#endif
 
 	string_replace_w(&ycmd_globals.json, "HMAC_SECRET", ycmd_globals.secret_key_base64);
 	string_replace_w(&ycmd_globals.json, "GOCODE_PATH", GOCODE_PATH);
@@ -942,9 +932,7 @@ void ycmd_start_server()
 	fprintf(stderr, "tempname is %s\n", ycmd_globals.tmp_options_filename);
 #endif
 	FILE *f = fdopen(fdtemp,"w+");
-#ifdef DEBUG
 	fprintf(f, "%s", ycmd_globals.json);
-#endif
 	fclose(f);
 
 	//fork
@@ -1281,7 +1269,7 @@ void escape_json(char **buffer)
 			//details about json sequences in page 3-4: https://www.ietf.org/rfc/rfc4627.txt
 
 			//not all commented out because it breaks test cases (ycmd.c and solutiondetection.py)
-			
+
 			//escape already escaped
 			case '\\': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='\\'; break; //x5c
 
@@ -1303,7 +1291,7 @@ void escape_json(char **buffer)
 			case '\x05': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='5'; break;
 			case '\x06': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='6'; break;
 			case '\x07': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='7'; break;
-			
+
 			//duplicate cases for c escape sequences
 			//case '\x08': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='8'; break;
 			//case '\x09': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='9'; break;
