@@ -493,7 +493,6 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	int status_code = 0;
 	ne_request *request;
 	request = ne_request_create(ycmd_globals.session, method, path);
-	if (request)
 	{
 		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
 		char *response_body;
@@ -569,8 +568,8 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 		}
 
 		free(response_body);
-		ne_request_destroy(request);
 	}
+	ne_request_destroy(request);
 
 	free(json);
 
@@ -642,7 +641,6 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	int status_code = 0;
 	ne_request *request;
 	request = ne_request_create(ycmd_globals.session, method, path);
-	if (request)
 	{
 		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,1);
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, "");
@@ -661,14 +659,8 @@ int ycmd_rsp_is_healthy(int include_subservers)
 		}
 
 		status_code = ne_get_status(request)->code;
-		ne_request_destroy(request);
 	}
-	else
-	{
-#ifdef DEBUG
-		fprintf(stderr, "Create request failed in ycmd_rsp_is_healthy\n");
-#endif
-	}
+	ne_request_destroy(request);
 
 	free(path);
 
@@ -700,19 +692,12 @@ int ycmd_rsp_is_server_ready(char *filetype)
 
 	ne_request *request;
 	request = ne_request_create(ycmd_globals.session, method, path);
-	if (request)
 	{
 		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,1);
 		ne_request_dispatch(request);
 		status_code = ne_get_status(request)->code;
-		ne_request_destroy(request);
 	}
-	else
-	{
-#ifdef DEBUG
-		fprintf(stderr, "Create request failed in ycmd_rsp_is_server_ready\n");
-#endif
-	}
+	ne_request_destroy(request);
 
 	free(path);
 
@@ -756,7 +741,6 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	int status_code = 0;
 	ne_request *request;
 	request = ne_request_create(ycmd_globals.session, method, path);
-	if (request)
 	{
 		ne_add_request_header(request,"content-type","application/json");
 		if (strcmp(method, "POST") == 0)
@@ -784,8 +768,8 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 		}
 
 		status_code = ne_get_status(request)->code;
-		ne_request_destroy(request);
 	}
+	ne_request_destroy(request);
 
 	free(json);
 
