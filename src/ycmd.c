@@ -420,8 +420,6 @@ char *_ne_read_response_body_full(ne_request *request)
 			break;
 		}
 
-		readlen = ne_read_response_block(request, response_body+nread, chunksize);
-
 		nread+=readlen;
 		char *response_body_new = realloc(response_body, nread+chunksize);
 		if (response_body_new == NULL)
