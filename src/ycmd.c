@@ -1136,6 +1136,7 @@ void ycmd_generate_secret_raw(char *secret)
 	fclose(random_file);
 	blank_statusbar();
 
+	//this section is credited to marchelzo and twkm from freenode ##C channel for flushing stdin excessive characters after user adds entropy.
 	total_refresh();
 	statusline(HUSH, "Please stop typing.  Clearing input buffer...");
 	nodelay(stdscr, TRUE);  while (getch() != ERR); nodelay(stdscr, FALSE);
