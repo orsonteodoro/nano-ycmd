@@ -43,12 +43,16 @@
 #include <ne_request.h>
 #include <ne_session.h>
 #include <netinet/ip.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/select.h>
 #include <sys/socket.h>
 #include <sys/stat.h>
+#include <sys/time.h>
 #include <sys/types.h>
 #include <sys/wait.h>
+#include <termios.h>
 #include <unistd.h>
 
 #include "nxjson.h"
@@ -74,6 +78,7 @@ char *_ne_read_response_body_full(ne_request *request);
 void escape_json(char **buffer);
 void ycmd_generate_secret_raw(char *secret);
 char *ycmd_generate_secret_base64(char *secret);
+void ycmd_restart_server();
 
 //A function signature to use.  Either it can come from an external library or object code.
 extern char* string_replace(const char* src, const char* find, const char* replace);
@@ -167,8 +172,28 @@ void ycmd_init()
 	ycmd_globals.hostname = "127.0.0.1";
 	ycmd_globals.port = 0;
 	ycmd_globals.child_pid=-1;
+	ycmd_globals.secret_key_base64 = NULL;
+	ycmd_globals.json = NULL;
 
-	ycmd_start_server();
+	ycmd_generate_secret_raw(ycmd_globals.secret_key_raw);
+	ycmd_globals.secret_key_base64 = strdup(ycmd_generate_secret_base64(ycmd_globals.secret_key_raw));
+#ifdef DEBUG
+	fprintf(stderr, "HMAC secret is: %s\n", ycmd_globals.secret_key_base64);
+#endif
+
+	ne_sock_init();
+
+	int tries = 10;
+	int i = 0;
+	for(i = 0; i < tries && ycmd_globals.connected == 0; i++)
+		ycmd_restart_server();
+
+	if (!ycmd_globals.connected)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Check your ycmd or recompile nano with the proper settings...\n");
+#endif
+	}
 }
 
 //needs to be freed
@@ -317,8 +342,8 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	int status_code = 0;
 	ne_request *request;
 	request = ne_request_create(ycmd_globals.session, method, path);
-	if (request)
 	{
+		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
 		ne_add_request_header(request,"content-type","application/json");
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, json);
 		ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
@@ -341,8 +366,8 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 		}
 
 		status_code = ne_get_status(request)->code;
-		ne_request_destroy(request);
 	}
+        ne_request_destroy(request);
 
 	free(json);
 
@@ -370,14 +395,32 @@ char *_ne_read_response_body_full(ne_request *request)
 	while(666)
 	{
 #ifdef DEBUG
-		//fprintf(stderr, "looping\n");
+		fprintf(stderr, "looping\n");
 #endif
-		readlen = ne_read_response_block(request, response_body+nread, chunksize);
+		if (ne_get_status(request)->klass == 2)
+		{
+			readlen = ne_read_response_block(request, response_body+nread, chunksize);
+		}
+		else
+		{
 #ifdef DEBUG
-		//fprintf(stderr, "readlen %d\n",readlen);
+			fprintf(stderr, "Request is not success.  Discarding request. (2)\n");
+#endif
+			ne_discard_response(request);
+			break;
+		}
+#ifdef DEBUG
+		fprintf(stderr, "readlen %d\n",readlen);
 #endif
 		if (readlen <= 0)
+		{
+#ifdef DEBUG
+			fprintf(stderr,"%s\n",ne_get_error(ycmd_globals.session));
+#endif
 			break;
+		}
+
+		readlen = ne_read_response_block(request, response_body+nread, chunksize);
 
 		nread+=readlen;
 		char *response_body_new = realloc(response_body, nread+chunksize);
@@ -454,6 +497,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	request = ne_request_create(ycmd_globals.session, method, path);
 	if (request)
 	{
+		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
 		char *response_body;
 		//int apply_column = -1;
 
@@ -552,8 +596,8 @@ int ycmd_rsp_is_healthy_simple()
 	int status_code = 0;
 	ne_request *request;
 	request = ne_request_create(ycmd_globals.session, method, path);
-	if (request)
 	{
+		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,1);
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, "");
 		ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
 
@@ -569,14 +613,8 @@ int ycmd_rsp_is_healthy_simple()
 		}
 
 		status_code = ne_get_status(request)->code;
-		ne_request_destroy(request);
 	}
-	else
-	{
-#ifdef DEBUG
-		fprintf(stderr, "Create request failed in ycmd_rsp_is_healthy_simple\n");
-#endif
-	}
+        ne_request_destroy(request);
 
 #ifdef DEBUG
 	fprintf(stderr, "Status code in ycmd_rsp_is_healthy_simple is %d\n", status_code);
@@ -608,12 +646,14 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	request = ne_request_create(ycmd_globals.session, method, path);
 	if (request)
 	{
+		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,1);
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, "");
 		ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
 
 		int ret = ne_begin_request(request);
 		if (ret >= 0)
 		{
+			
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
 #ifdef DEBUG
@@ -664,6 +704,7 @@ int ycmd_rsp_is_server_ready(char *filetype)
 	request = ne_request_create(ycmd_globals.session, method, path);
 	if (request)
 	{
+		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,1);
 		ne_request_dispatch(request);
 		status_code = ne_get_status(request)->code;
 		ne_request_destroy(request);
@@ -722,8 +763,13 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 		ne_add_request_header(request,"content-type","application/json");
 		if (strcmp(method, "POST") == 0)
 		{
+			ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
 			char *ycmd_b64_hmac = ycmd_compute_request(method, path, json);
 			ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
+		}
+		else
+		{
+			ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,1);
 		}
 
 		ne_set_request_body_buffer(request, json, strlen(json));
@@ -839,6 +885,12 @@ int find_unused_localhost_port()
 void ycmd_destroy()
 {
 #ifdef DEBUG
+	fprintf(stderr, "ss4.\n");
+#endif
+	if (ycmd_globals.secret_key_base64)
+		free(ycmd_globals.secret_key_base64);
+
+#ifdef DEBUG
 	fprintf(stderr, "Called ycmd_destroy.\n");
 #endif
 	ycmd_stop_server();
@@ -863,30 +915,21 @@ void ycmd_start_server()
 	fprintf(stderr, "Server will be running on http://localhost:%d\n", ycmd_globals.port);
 #endif
 
-	ne_sock_init();
+#ifdef DEBUG
+	fprintf(stderr, "s1\n");
+#endif
 
-	char *json;
 	ycmd_globals.json = ycmd_create_default_json();
-	json = ycmd_globals.json;
-	char *secret;
-	ycmd_generate_secret_raw(ycmd_globals.secret_key_raw);
-	secret = ycmd_generate_secret_base64(ycmd_globals.secret_key_raw);
-	ycmd_globals.secret_key_base64 = strdup(secret);
 #ifdef DEBUG
-	fprintf(stderr, "HMAC secret is: %s\n", ycmd_globals.secret_key_base64);
-
-	fprintf(stderr,"JSON file contents: %s\n",ycmd_globals.json);
+	fprintf(stderr, "s2\n");
 #endif
 
-	string_replace_w(&json, "HMAC_SECRET", ycmd_globals.secret_key_base64);
-#ifdef DEBUG
-	fprintf(stderr,"JSON file contents: %s\n",ycmd_globals.json);
-#endif
-	string_replace_w(&json, "GOCODE_PATH", GOCODE_PATH);
-	string_replace_w(&json, "GODEF_PATH", GODEF_PATH);
-	string_replace_w(&json, "RUST_SRC_PATH", RUST_SRC_PATH);
-	string_replace_w(&json, "RACERD_PATH", RACERD_PATH);
-	string_replace_w(&json, "PYTHON_PATH", PYTHON_PATH);
+	string_replace_w(&ycmd_globals.json, "HMAC_SECRET", ycmd_globals.secret_key_base64);
+	string_replace_w(&ycmd_globals.json, "GOCODE_PATH", GOCODE_PATH);
+	string_replace_w(&ycmd_globals.json, "GODEF_PATH", GODEF_PATH);
+	string_replace_w(&ycmd_globals.json, "RUST_SRC_PATH", RUST_SRC_PATH);
+	string_replace_w(&ycmd_globals.json, "RACERD_PATH", RACERD_PATH);
+	string_replace_w(&ycmd_globals.json, "PYTHON_PATH", PYTHON_PATH);
 
 #ifdef DEBUG
 	fprintf(stderr,"JSON file contents: %s\n",ycmd_globals.json);
@@ -962,9 +1005,6 @@ void ycmd_start_server()
 	ycmd_globals.session = ne_session_create(ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port);
 	ne_set_read_timeout(ycmd_globals.session,1);
 
-	int tries = 4;
-	int i;
-
 	/*
 #ifdef DEBUG
 	fprintf(stderr, "Parent process checking server status...\n");
@@ -985,40 +1025,41 @@ void ycmd_start_server()
 	}
 	*/
 
-	for (i = 0; i < tries; i++)
+#ifdef DEBUG
+	fprintf(stderr, "Parent process: checking if child PID is still alive...\n");
+#endif
+	if (waitpid(pid,0,WNOHANG) == 0)
 	{
+		statusline(HUSH, "Server just ran....");
 #ifdef DEBUG
-		fprintf(stderr, "Parent process: checking if child PID is still alive...\n");
+		fprintf(stderr,"ycmd server is up.\n");
 #endif
-		if (waitpid(pid,0,WNOHANG) == 0)
-		{
+		ycmd_globals.running = 1;
+	}
+	else
+	{
+		statusline(HUSH, "Server didn't ran....");
 #ifdef DEBUG
-			fprintf(stderr,"ycmd server is up.\n");
+		fprintf(stderr,"ycmd failed to load server.\n");
 #endif
-			ycmd_globals.running = 1;
-			break;
-		}
-		else
-		{
-#ifdef DEBUG
-			fprintf(stderr,"ycmd server is down retrying.\n");
-#endif
-			usleep(250000);
-		}
+		ycmd_globals.running = 0;
+
+		ycmd_stop_server();
+		return;
 	}
 
-	if (!ycmd_globals.running)
-	{
-#ifdef DEBUG
-		fprintf(stderr, "Check your ycmd or recompile nano with the proper settings...\n");
-#endif
-		ycmd_stop_server();
-	}
-	
+	usleep(250000);
+
+	statusline(HUSH, "Letting the server initialize.  Wait....");
+
 	//give time for the server initialize
-	usleep(750000);
-	
-	for (i = 0; i < tries; i++)
+	usleep(5000000);
+
+	statusline(HUSH, "Checking server health....");
+
+	int i;
+	int tries = 5;
+	for (i = 0; i < tries && ycmd_globals.connected == 0; i++)
 	{
 #ifdef DEBUG
 		fprintf(stderr, "Parent process: checking ycmd server health by communicating with it...\n");
@@ -1026,20 +1067,21 @@ void ycmd_start_server()
 		if (ycmd_rsp_is_healthy_simple())
 		{
 #ifdef DEBUG
+			statusline(HUSH, "Connected....");
 			fprintf(stderr,"Client can communicate with server.\n");
 #endif
 			ycmd_globals.connected = 1;
-			break;
 		}
 		else
 		{
 #ifdef DEBUG
+			statusline(HUSH, "Connect failed....");
 			fprintf(stderr,"Client cannot communicate with server.  Retrying...\n");
 #endif
-			usleep(250000);
+			ycmd_globals.connected = 0;
+			usleep(1000000);
 		}
 	}
-
 }
 
 void ycmd_stop_server()
@@ -1047,15 +1089,17 @@ void ycmd_stop_server()
 #ifdef DEBUG
 	fprintf(stderr, "ycmd_stop_server called.\n");
 #endif
+	ne_close_connection(ycmd_globals.session);
 	ne_session_destroy(ycmd_globals.session);
 	close(ycmd_globals.tcp_socket);
-	free(ycmd_globals.json);
-	free(ycmd_globals.secret_key_base64);
+
+	if (ycmd_globals.json)
+		free(ycmd_globals.json);
 	if (access(ycmd_globals.tmp_options_filename, F_OK) == 0)
 		unlink(ycmd_globals.tmp_options_filename);
 	if (ycmd_globals.child_pid != -1)
 	{
-		kill(ycmd_globals.child_pid, SIGTERM);
+		kill(ycmd_globals.child_pid, SIGKILL);
 #ifdef DEBUG
 		fprintf(stderr, "Kill called\n");
 #endif
@@ -1063,6 +1107,7 @@ void ycmd_stop_server()
 	ycmd_globals.child_pid = -1;
 
 	ycmd_globals.running = 0;
+	ycmd_globals.connected = 0;
 }
 
 void ycmd_restart_server()
@@ -1076,6 +1121,7 @@ void ycmd_restart_server()
 void ycmd_generate_secret_raw(char *secret)
 {
 	FILE *random_file;
+	statusline(HUSH, "Obtaining secret random key.  I need more entropy.  Type on the keyboard or move the mouse.");
 	random_file = fopen("/dev/random", "r");
 	size_t nread = fread(secret, 1, SECRET_KEY_LENGTH, random_file);
 	if (nread != SECRET_KEY_LENGTH)
@@ -1088,6 +1134,23 @@ void ycmd_generate_secret_raw(char *secret)
 	fprintf(stderr, "read %d bytes of /dev/random\n", (int)nread);
 #endif
 	fclose(random_file);
+	blank_statusbar();
+
+	total_refresh();
+	statusline(HUSH, "Please stop typing.  Clearing input buffer...");
+	nodelay(stdscr, TRUE);  while (getch() != ERR); nodelay(stdscr, FALSE);
+	total_refresh();
+	statusline(HUSH, "Please stop typing.  Clearing input buffer...");
+
+	usleep(1000000*5);
+	fflush(stdin);
+
+	total_refresh();
+	statusline(HUSH, "Please stop typing.  Clearing input buffer...");
+	nodelay(stdscr, TRUE); while (getch() != ERR); nodelay(stdscr, FALSE);
+	total_refresh();
+
+	statusline(HUSH, "Input buffer cleared.");
 }
 
 char *ycmd_generate_secret_base64(char *secret)
