@@ -1,12 +1,20 @@
 # nano-ycmd
-The ycmd code completion support for nano is found in the ymcd-code-completion branch.  An unofficial mirror of GNU nano.
+The ycmd code completion support for nano is found in the ymcd-code-completion branch.
 
 ![Alt text](csharp-ynano-example.png?raw=true "CSharp IntelliSense with OmniSharp and ycmd.")
 
 ####Branches
 
-* The master branch contains upstreams nano source code untouched.
-* The ymcd-code-completion contains a modification to nano to have ycmd support?
+* The master branch contains upstreams gnu nano source code untouched.
+* The ymcd-code-completion contains a modification to gnu nano that has ycmd support.
+
+####Which commits are working?  Which one should I clone?
+
+The latest may be broken.
+
+You can use the following which have been tested:
+* 37097e480a50e30fd93addd2f1ad927494914273 (recently tested)
+* 2ecfa5d164685738655e4408791d1013e08d27f0 (old)
 
 ####Dependencies
 * ycmd >= commits later than year 2015, with new hmac computation
@@ -123,14 +131,6 @@ nano 2>/tmp/out.txt
 ####Special thanks goes to....
 
 marchelzo and twkm from freenode ##C channel for the clear excess stdin fix.
-
-####Which commits are working?  Which one should I clone?
-
-The latest may be broken.
-
-You can use the following which have been tested:
-* 37097e480a50e30fd93addd2f1ad927494914273 (recent tested)
-* 2ecfa5d164685738655e4408791d1013e08d27f0 (old)
 
 ####How do I add changes?
 1. Create a repository on your account
