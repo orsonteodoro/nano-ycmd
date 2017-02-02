@@ -126,10 +126,11 @@ marchelzo and twkm from freenode ##C channel for the clear excess stdin fix.
 
 ####Which commits are working?  Which one should I clone?
 
-Right now the latest is broken.
+The latest may be broken.
 
-You can use the following:
-2ecfa5d164685738655e4408791d1013e08d27f0
+You can use the following which have been tested:
+* 37097e480a50e30fd93addd2f1ad927494914273 (recent tested)
+* 2ecfa5d164685738655e4408791d1013e08d27f0 (old)
 
 ####How do I add changes?
 1. Create a repository on your account
