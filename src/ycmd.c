@@ -1039,7 +1039,7 @@ void ycmd_start_server()
 	statusline(HUSH, "Letting the server initialize.  Wait....");
 
 	//give time for the server initialize
-	usleep(750000);
+	usleep(5000000);
 
 	statusline(HUSH, "Checking server health....");
 
@@ -1065,7 +1065,7 @@ void ycmd_start_server()
 			fprintf(stderr,"Client cannot communicate with server.  Retrying...\n");
 #endif
 			ycmd_globals.connected = 0;
-			usleep(250000);
+			usleep(1000000);
 		}
 	}
 }
