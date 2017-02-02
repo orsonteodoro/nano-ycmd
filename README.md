@@ -124,6 +124,13 @@ nano 2>/tmp/out.txt
 
 marchelzo and twkm from freenode ##C channel for the clear excess stdin fix.
 
+####Which commits are working?  Which one should I clone?
+
+Right now the latest is broken.
+
+You can use the following:
+2ecfa5d164685738655e4408791d1013e08d27f0
+
 ####How do I add changes?
 1. Create a repository on your account
 2. git clone https://github.com/orsonteodoro/nano-ycmd.git
