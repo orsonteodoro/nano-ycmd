@@ -79,7 +79,7 @@ RUST_SRC_PATH="/usr/share/rust/src"
 GODEF_PATH="/usr/bin/godef" 
 GOCODE_PATH="/usr/bin/gocode" 
 
-######for c family language:
+######for C / C++ / Objective-C / Objective-C++ language:
 YCMG_PATH="/usr/bin/config_gen.py"
 
 ######How would the result string look like?
