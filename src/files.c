@@ -597,7 +597,7 @@ void switch_to_prevnext_buffer(bool to_next)
 #endif
 
 #ifdef ENABLE_YCMD
-    ycmd_event_buffer_visit(openfile->current_x,openfile->current_y,openfile->filename, openfile->fileage);
+    ycmd_event_buffer_visit(openfile->current_x,(long)openfile->current->lineno,openfile->filename, openfile->fileage);
 #endif
 
     /* Update the screen to account for the current buffer. */
