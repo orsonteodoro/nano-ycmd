@@ -13,7 +13,7 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
-* 1b992e315f763460fcb64b76dbf9d63ff4cede87 (recently tested)
+* 78cbdf678fba94151b7e957be016adc6a8341c2d (recently tested)
 
 ####Dependencies
 * ycmd >= commits later than year 2015, with new hmac computation
@@ -26,6 +26,10 @@ You can use the following which have been tested:
 * Sed, for patching .ycm_extra_conf.py
 * Bash >=4, for `&|` support
 * Unix, Linux, Cygwin for /dev/null and /dev/random support
+
+######What other dependencies were involved?
+
+NXJSON which is released under GPL 3 by Yaroslav Stavnichiy.
 
 ####My distribution doesn't have the required dependencies
 
@@ -43,7 +47,11 @@ Just type and press CTRL-LETTER.  Use CTRL-X to exit the code completion selecti
 python, javascript, typescript, rust, go, C, C++, Objective C, Objective C++
 
 ####Why is my intellisense not working with my C#?
-You didn't set up ycmd correctly.  It needs to see a sln file or project.json file.
+You didn't set up ycmd correctly.  It needs to see a sln file or maybe project.json file if json is supported in ycmd.
+
+####Why does the autocompleter not work with C, C++, Objective C, Objective C++ with a single hello world file?
+
+You may forgot to have a Makefile, makefile GNUmakefile for make, *.pro for qmake, configure for autotools, CMakeLists.txt for cmake or forgot to set the YCMG_PROJECT_PATH to point to your top level project folder.  nano-ycmd will pass it to bear and YCM-Generator to properly create a .ycm_extra_conf.py and compile_commands.json.  The compile_commands.json is for clang compliation database system (http://clang.llvm.org/docs/JSONCompilationDatabase.html).  .ycm_extra_conf.py contains headers and constants that are per project.
 
 ####Why is the master branch old?
 I don't have an update bot yet.
@@ -121,14 +129,6 @@ GPL version 3
 ######What license is nano-ycmd feature set released under?
 
 It is GPL version 3.
-
-######What other dependencies were involved?
-
-NXJSON which is released under GPL 3 by Yaroslav Stavnichiy.
-
-####How long did it take to make this?
-
-About 2-3 days.
 
 ####What could I do to help?
 
