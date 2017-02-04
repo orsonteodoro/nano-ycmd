@@ -13,7 +13,7 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
-* 5d59774b162fdca5cacb45e4b8740fd013ca0bd4 (recently tested)
+* b19e6018f416d24a4c530bf8f02ab76cf0331afe (recently tested)
 
 ####Dependencies
 * ycmd >= commits later than year 2015, with new hmac computation
