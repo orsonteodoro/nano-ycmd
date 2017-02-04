@@ -24,7 +24,7 @@ You can use the following which have been tested:
 * Clang, for C/C++/Objective-C/Objective-C++ code completion.
 * GNU Make, to clean up the project files
 * Sed, for patching .ycm_extra_conf.py
-* Bash, 4 for `&|` support
+* Bash >=4, for `&|` support
 * Unix, Linux, Cygwin for /dev/null and /dev/random support
 
 ####My distribution doesn't have the required dependencies
