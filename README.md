@@ -20,6 +20,17 @@ You can use the following which have been tested:
 * ycmd >= commits later than year 2015, with new hmac computation
 * nettle or "openssl and glib" cryptographic library, to mitigate MITM attack between ycmd and nano text editor
 * neon, for http interprocess communication between nano editor and ycmd server
+* YCM-Generator (https://github.com/rdnetto/YCM-Generator), for C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py
+* Bear (https://github.com/rizsotto/Bear), for C/C++/Objective-C/Objective-C++ support to generate a compile_commands.json.
+* Clang, for C/C++/Objective-C/Objective-C++ code completion.
+* GNU Make, to clean up the project files
+* Sed, for patching .ycm_extra_conf.py
+* Bash, 4 for `&|` support
+* Unix, Linux, Cygwin for /dev/null and /dev/random support
+
+####My distribution doesn't have the required dependencies
+
+You can look at my gentoo package overlay https://github.com/orsonteodoro/oiledmachine-overlay to see how to properly compile them or you can research them to build packages for your distribution.
 
 ####Why use ycmd backend over the builtin WORDCOMPLETION?
 
@@ -30,13 +41,7 @@ ycmd allows to you use IntelliSense for C# sources using omnisharp/omnisharp-ros
 Just type and press CTRL-LETTER.  Use CTRL-X to exit the code completion selections.
 
 ####What languages supported?
-python, javascript, typescript, rust, go
-
-####What languages are currently not supported?
-C, C++, Objective C, Objective C++
-
-####Will you add C family languages support?
-It depends if I have time.  We need to intergrate YCM-Generator.
+python, javascript, typescript, rust, go, C, C++, Objective C, Objective C++
 
 ####Why is my intellisense not working with my C#?
 You didn't set up ycmd correctly.  It needs to see a sln file or project.json file.
@@ -82,6 +87,20 @@ CFLAGS="-g" PYTHON_PATH="/usr/bin/python3.4" RACERD_PATH="/usr/bin/racerd" RUST_
 make
 
 The -g adds debugging information for developers but not needed for regular users. 
+
+######YCM-Generator support
+The following environmental variables are defined when running nano-ycmd:
+
+* YCMG_PROJECT_PATH - This should point to the folder containing the top-level Makefile, configure, CMakeList.txt, 
+* YCMG_FLAGS - This adds extra parameters to config_gen.py.  I recommend using make over autotools specifically `-b make` because more include files are exposed instead of allowing YCM-Generator autodetect.
+
+So to use it in combination of nano-ycmd (ynano), it would look like:
+
+YCMG_FLAGS="-b make" YCMG_PROJECT_PATH="/var/tmp/portage/app-editors/nano-ycmd-9999.20170201/work/nano-ycmd-7611e4eb827980da1057f6768d00bd322fa1c58f" ynano ycmd.c
+
+Also, if you add new libraries or files, you should delete both the .ycm_extra_conf.py and compile_commands.json so that nano-ycmd can regenerate them.
+
+Also, if you change languages, between C, C++, Objective-C, Objective-C++, you should regenerate them.  Currently no hotkey exist to delete and regenerate those files.  nano-ycmd automatically skips generation to save time if they already exist.
 
 ######Why does the user experience suck?
 We are working on that.  Feel free to merge your changes.
