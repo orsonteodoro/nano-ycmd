@@ -1653,7 +1653,7 @@ int do_input(bool allow_funcs)
 
 #if ENABLE_YCMD
     if (!have_shortcut)
-        ycmd_event_file_ready_to_parse(openfile->current_x,openfile->current_y,openfile->filename,openfile->fileage);
+        ycmd_event_file_ready_to_parse(openfile->current_x,(long)openfile->current->lineno,openfile->filename,openfile->fileage);
 #endif
 
     if (!have_shortcut)

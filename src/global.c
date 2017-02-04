@@ -486,7 +486,6 @@ void shortcut_init(void)
     const char *refresh_tag = N_("Refresh");
     /* TRANSLATORS: Try to keep this string at most 12 characters. */
     const char *whereis_next_tag = N_("WhereIs Next");
-
 #ifndef DISABLE_HELP
 #ifndef DISABLE_JUSTIFY
     /* TRANSLATORS: The next long series of strings are shortcut descriptions;
@@ -1093,6 +1092,7 @@ void shortcut_init(void)
 	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_z, MCODECOMPLETION,
 	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+
 #endif
 
 
@@ -1173,9 +1173,9 @@ void shortcut_init(void)
     add_to_sclist(MMAIN, "M-3", 0, do_comment, 0);
 #endif
     add_to_sclist(MMOST, "^B", 0, do_left, 0);
-    add_to_sclist(MMOST, "Left", KEY_LEFT, do_left, 0);
+    add_to_sclist(MMOST|MCODECOMPLETION, "Left", KEY_LEFT, do_left, 0);
     add_to_sclist(MMOST, "^F", 0, do_right, 0);
-    add_to_sclist(MMOST, "Right", KEY_RIGHT, do_right, 0);
+    add_to_sclist(MMOST|MCODECOMPLETION, "Right", KEY_RIGHT, do_right, 0);
 #ifdef ENABLE_UTF8
     if (using_utf8()) {
 	add_to_sclist(MMOST, "^\xE2\x86\x90", CONTROL_LEFT, do_prev_word_void, 0);
@@ -1189,13 +1189,13 @@ void shortcut_init(void)
     add_to_sclist(MMOST, "M-Space", 0, do_prev_word_void, 0);
     add_to_sclist(MMOST, "^Space", 0, do_next_word_void, 0);
     add_to_sclist((MMOST & ~MBROWSER), "^A", 0, do_home, 0);
-    add_to_sclist((MMOST & ~MBROWSER), "Home", KEY_HOME, do_home, 0);
+    add_to_sclist((MMOST|MCODECOMPLETION & ~MBROWSER), "Home", KEY_HOME, do_home, 0);
     add_to_sclist((MMOST & ~MBROWSER), "^E", 0, do_end, 0);
-    add_to_sclist((MMOST & ~MBROWSER), "End", KEY_END, do_end, 0);
+    add_to_sclist((MMOST|MCODECOMPLETION & ~MBROWSER), "End", KEY_END, do_end, 0);
     add_to_sclist(MMAIN|MHELP|MBROWSER, "^P", 0, do_up_void, 0);
-    add_to_sclist(MMAIN|MHELP|MBROWSER, "Up", KEY_UP, do_up_void, 0);
+    add_to_sclist(MMAIN|MHELP|MBROWSER|MCODECOMPLETION, "Up", KEY_UP, do_up_void, 0);
     add_to_sclist(MMAIN|MHELP|MBROWSER, "^N", 0, do_down_void, 0);
-    add_to_sclist(MMAIN|MHELP|MBROWSER, "Down", KEY_DOWN, do_down_void, 0);
+    add_to_sclist(MMAIN|MHELP|MBROWSER|MCODECOMPLETION, "Down", KEY_DOWN, do_down_void, 0);
 #ifdef ENABLE_UTF8
     if (using_utf8()) {
 	add_to_sclist(MMAIN, "^\xE2\x86\x91", CONTROL_UP, do_prev_block, 0);
@@ -1337,13 +1337,13 @@ void shortcut_init(void)
     add_to_sclist(MHELP, "End", KEY_END, do_last_line, 0);
 #endif
     add_to_sclist(MMOST, "^I", 0, do_tab, 0);
-    add_to_sclist(MMOST, "Tab", TAB_CODE, do_tab, 0);
+    add_to_sclist(MMOST|MCODECOMPLETION, "Tab", TAB_CODE, do_tab, 0);
     add_to_sclist(MMOST, "^M", 0, do_enter, 0);
-    add_to_sclist(MMOST, "Enter", KEY_ENTER, do_enter, 0);
+    add_to_sclist(MMOST|MCODECOMPLETION, "Enter", KEY_ENTER, do_enter, 0);
     add_to_sclist(MMOST, "^D", 0, do_delete, 0);
-    add_to_sclist(MMOST, "Del", 0, do_delete, 0);
+    add_to_sclist(MMOST|MCODECOMPLETION, "Del", 0, do_delete, 0);
     add_to_sclist(MMOST, "^H", 0, do_backspace, 0);
-    add_to_sclist(MMOST, "Bsp", KEY_BACKSPACE, do_backspace, 0);
+    add_to_sclist(MMOST|MCODECOMPLETION, "Bsp", KEY_BACKSPACE, do_backspace, 0);
 
 #ifdef ENABLE_YCMD
     add_to_sclist(MCODECOMPLETION, "^A", 0, do_code_completion_a, 0);
@@ -1372,6 +1372,9 @@ void shortcut_init(void)
     add_to_sclist(MCODECOMPLETION, "^X", 0, do_code_completion_x, 0);
     add_to_sclist(MCODECOMPLETION, "^Y", 0, do_code_completion_y, 0);
     add_to_sclist(MCODECOMPLETION, "^Z", 0, do_code_completion_z, 0);
+
+    add_to_sclist(MCODECOMPLETION, "^Space", 0, do_end_code_completion, 0);
+
 #endif
 
 #ifdef DEBUG

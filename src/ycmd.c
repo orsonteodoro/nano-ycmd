@@ -196,6 +196,173 @@ void ycmd_init()
 	}
 }
 
+//generates a compile_commands.json for clang completer
+void bear_generate(char *project_path)
+{
+	char file_path[PATH_MAX];
+	char command[PATH_MAX*2];
+	int ret;
+
+	snprintf(file_path, PATH_MAX, "%s/compile_commands.json", project_path);
+
+	if (access(file_path, F_OK) == 0)
+	{
+		statusline(HUSH, "Using previously generated compile_commands.json file.");
+	}
+	else
+	{
+		statusline(HUSH, "Please wait.  Generating a compile_commands.json file.");
+		snprintf(command, PATH_MAX*2, "cd \"%s\"; make clean > /dev/null", project_path);
+		system(command);
+
+		snprintf(command, PATH_MAX*2, "cd \"%s\"; bear make > /dev/null", project_path);
+		ret = system(command);
+
+		if (ret == 0)
+		{
+			statusline(HUSH, "Sucessfully generated a compile_commands.json file.");
+			//usleep(1000000);
+		}
+		else
+		{
+			statusline(HUSH, "Failed generating a compile_commands.json file.");
+			//usleep(1000000);
+		}
+	}
+	blank_statusbar();
+}
+
+//generates a .ycm_extra_conf.py for c family completer
+//language must be: c, c++, objective-c, objective-c++
+void ycm_generate(char *filepath, char *content)
+{
+	char path_project[PATH_MAX];
+	char path_extra_conf[PATH_MAX];
+	char command[PATH_MAX*2];
+	char build_system[20];
+	char flags[PATH_MAX];
+
+	build_system[0]=0;
+
+	char *ycmg_project_path = getenv("YCMG_PROJECT_PATH");
+	if (ycmg_project_path && strcmp(ycmg_project_path, "(null)") != 0)
+	{
+#ifdef DEBUG
+		fprintf(stderr,"ycmg_project_path is not null\n");
+#endif
+		snprintf(path_project, PATH_MAX, "%s", ycmg_project_path);
+	}
+	else
+	{
+#ifdef DEBUG
+		fprintf(stderr,"ycmg_project_path is null\n");
+#endif
+		getcwd(path_project, PATH_MAX);
+	}
+
+	char *ycmg_flags = getenv("YCMG_FLAGS");
+	if (!ycmg_flags || strcmp(ycmg_flags,"(null)") == 0)
+	{
+#ifdef DEBUG
+		fprintf(stderr,"ycmg_flags is null\n");
+#endif
+		snprintf(flags, PATH_MAX, "");
+	}
+	else
+	{
+#ifdef DEBUG
+		fprintf(stderr,"ycmg_flags is not null\n");
+#endif
+		snprintf(flags, PATH_MAX, "%s",ycmg_flags);
+	}
+
+	snprintf(path_extra_conf, PATH_MAX, "%s/.ycm_extra_conf.py", path_project);
+
+	//generate bear's json first because ycm-generator deletes the Makefiles
+	bear_generate(path_project);
+
+	if (access(path_extra_conf, F_OK) == 0)
+	{
+		statusline(HUSH, "Using previously generated .ycm_extra_conf.py.");
+		//usleep(3000000);
+	}
+	else
+	{
+		statusline(HUSH, "Please wait.  Generating a .ycm_extra_conf.py file.");
+		snprintf(command, PATH_MAX*2, "\"%s\" -f %s \"%s\" >/dev/null", YCMG_PATH, flags, path_project);
+#ifdef DEBUG
+		fprintf(stderr, command);
+#endif
+		int ret = system(command);
+		if (ret == 0)
+		{
+			statusline(HUSH, "Sucessfully generated a .ycm_extra_conf.py file.");
+			//usleep(3000000);
+
+
+			snprintf(command, PATH_MAX*2, "sed -i -e \"s|compilation_database_folder = ''|compilation_database_folder = '%s'|g\" \"%s\"", path_project, path_extra_conf);
+			int ret2 = system(command);
+			if (ret2 == 0)
+			{
+				statusline(HUSH, "Patching .ycm_extra_conf.py file with compile_commands.json was a success.");
+				//usleep(3000000);
+			}
+			else
+			{
+				statusline(HUSH, "Failed patching .ycm_extra_conf.py with compile_commands.json.");
+				//usleep(3000000);
+			}
+
+			char language[10];
+			if (strstr(filepath,".mm"))
+				sprintf(language, "objective-c++");
+			else if (strstr(filepath,".m"))
+				sprintf(language, "objective-c");
+			else if (strstr(filepath,".cpp") || strstr(filepath,".C") || strstr(filepath,".cxx"))
+				sprintf(language, "c++");
+			else if (strstr(filepath,".c"))
+				sprintf(language, "c");
+			else if (strstr(filepath,".hpp"))
+				sprintf(language, "c++");
+			else if (strstr(filepath,".h"))
+			{
+				if (strstr(content, "using namespace") || strstr(content, "iostream") || strstr(content, "\tclass ") || strstr(content, " class ")
+					|| strstr(content, "private:") || strstr(content, "public:") || strstr(content, "protected:"))
+					sprintf(language, "c++");
+				else
+					sprintf(language, "c");
+			}
+
+			//inject clang includes to find stdio.h and others
+			snprintf(command, PATH_MAX*2,
+				"V=$(echo | clang -v -E -x %s - |& sed  -r  -e ':a' -e 'N' -e '$!ba' -e \"s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g\" -e \"s|[ \\n]+|\',\'|g\");"
+				"sed -i -e \"s|'-x'|'$V','-x'|g\" \"%s\"",
+				language, path_extra_conf);
+#ifdef DEBUG
+			fprintf(stderr, command);
+#endif
+			ret2 = system(command);
+			if (ret2 == 0)
+			{
+				statusline(HUSH, "Patching .ycm_extra_conf.py file with clang includes was a success.");
+				//usleep(3000000);
+			}
+			else
+			{
+				statusline(HUSH, "Failed patching .ycm_extra_conf.py with clang includes.");
+				//usleep(3000000);
+			}
+		}
+		else
+		{
+			statusline(HUSH, "Failed to generate a .ycm_extra_conf.py file.");
+			//usleep(3000000);
+		}
+	}
+	blank_statusbar();
+}
+
+
 //needs to be freed
 char *ycmd_create_default_json()
 {
@@ -250,6 +417,33 @@ char *ycmd_create_default_json()
 	static char *json;
 	json = strdup(_json);
 	return json;
+}
+
+void ycmd_gen_extra_conf(char *filepath, char *content)
+{
+	char command[PATH_MAX*2];
+	char cwd[PATH_MAX];
+
+	getcwd(cwd, PATH_MAX);
+	sprintf(command, "find %s -name \"*.mm\" -o -name \"*.m\" -o -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.c\" -o -name \"*.hpp\" -o -name \"*.h\" | egrep \"*\" > /dev/null", cwd);
+	int ret = system(command);
+
+	if (ret == 0)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected c family\n");
+#endif
+		ycm_generate(filepath, content);
+		ycmd_globals.clang_completer = 1;
+	}
+	else
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Not c family\n");
+#endif
+		ycmd_globals.clang_completer = 0;
+	}
+
 }
 
 void _ycmd_json_replace_file_data(char **json, char *filepath, char *content)
@@ -325,8 +519,8 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	char line_num[DIGITS_MAX];
 	char column_num[DIGITS_MAX];
 
-	snprintf(line_num, DIGITS_MAX, "%d", linenum+1);
-	snprintf(column_num, DIGITS_MAX, "%d", columnnum+1);
+	snprintf(line_num, DIGITS_MAX, "%d", linenum);
+	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
 
 	string_replace_w(&json, "COLUMN_NUM", column_num);
 	string_replace_w(&json, "EVENT_NAME", eventname);
@@ -406,7 +600,7 @@ char *_ne_read_response_body_full(ne_request *request)
 #ifdef DEBUG
 			fprintf(stderr, "Request is not success.  Discarding request. (2)\n");
 #endif
-			ne_discard_response(request);
+			//ne_discard_response(request);
 			break;
 		}
 #ifdef DEBUG
@@ -468,8 +662,8 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	char line_num[DIGITS_MAX];
 	char column_num[DIGITS_MAX];
 
-	snprintf(line_num, DIGITS_MAX, "%d", linenum+1);
-	snprintf(column_num, DIGITS_MAX, "%d", columnnum+1);
+	snprintf(line_num, DIGITS_MAX, "%d", linenum);
+	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
 
 	string_replace_w(&json, "LINE_NUM", line_num);
 	string_replace_w(&json, "COLUMN_NUM", column_num);
@@ -496,7 +690,6 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	{
 		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
 		char *response_body;
-		//int apply_column = -1;
 
 		ne_add_request_header(request,"content-type","application/json");
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, json);
@@ -516,7 +709,6 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 		//output should look like:
 		//{"errors": [], "completion_start_column": 22, "completions": [{"insertion_text": "Wri", "extra_menu_info": "[ID]"}, {"insertion_text": "WriteLine", "extra_menu_info": "[ID]"}]}
 
-		//int apply_column = 0;
 		status_code = ne_get_status(request)->code;
 		int found_cc_entry = 0;
 		if (strstr(response_body, "completion_start_column"))
@@ -730,8 +922,8 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	char line_num[DIGITS_MAX];
 	char column_num[DIGITS_MAX];
 
-	snprintf(line_num, DIGITS_MAX, "%d", linenum+1);
-	snprintf(column_num, DIGITS_MAX, "%d", columnnum+1);
+	snprintf(line_num, DIGITS_MAX, "%d", linenum);
+	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
 
 	string_replace_w(&json, "LINE_NUM", line_num);
 	string_replace_w(&json, "COLUMN_NUM", column_num);
@@ -780,7 +972,9 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	return status_code == 200;
 }
 
-void ycmd_req_load_extra_conf_file(int linenum, int columnnum, char *filepath, char *filedata)
+//filepath should be the .ycm_extra_conf.py file
+//should load before parsing
+void ycmd_req_load_extra_conf_file(char *filepath)
 {
 #ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_req_load_extra_conf_file()\n");
@@ -788,10 +982,11 @@ void ycmd_req_load_extra_conf_file(int linenum, int columnnum, char *filepath, c
 	char *method = "POST";
 	char *path = "/load_extra_conf_file";
 
-	_ycmd_req_simple_request(method, path, linenum, columnnum, filepath, filedata);
+	_ycmd_req_simple_request(method, path, 0, 0, filepath, "");
 }
 
-void ycmd_req_ignore_extra_conf_file(int linenum, int columnnum, char *filepath, char *filedata)
+//filepath should be the .ycm_extra_conf.py file
+void ycmd_req_ignore_extra_conf_file(char *filepath)
 {
 #ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_req_ignore_extra_conf_file()\n");
@@ -799,7 +994,7 @@ void ycmd_req_ignore_extra_conf_file(int linenum, int columnnum, char *filepath,
 	char *method = "POST";
 	char *path = "/ignore_extra_conf_file";
 
-	_ycmd_req_simple_request(method, path, linenum, columnnum, filepath, filedata);
+	_ycmd_req_simple_request(method, path, 0, 0, filepath, "");
 }
 
 void ycmd_req_semantic_completion_available(int linenum, int columnnum, char *filepath, char *filedata)
@@ -1000,7 +1195,7 @@ void ycmd_start_server()
 #endif
 	if (waitpid(pid,0,WNOHANG) == 0)
 	{
-		statusline(HUSH, "Server just ran....");
+		statusline(HUSH, "Server just ran...");
 #ifdef DEBUG
 		fprintf(stderr,"ycmd server is up.\n");
 #endif
@@ -1008,7 +1203,7 @@ void ycmd_start_server()
 	}
 	else
 	{
-		statusline(HUSH, "Server didn't ran....");
+		statusline(HUSH, "Server didn't ran...");
 #ifdef DEBUG
 		fprintf(stderr,"ycmd failed to load server.\n");
 #endif
@@ -1018,12 +1213,12 @@ void ycmd_start_server()
 		return;
 	}
 
-	statusline(HUSH, "Letting the server initialize.  Wait....");
+	statusline(HUSH, "Letting the server initialize.  Wait...");
 
 	//give time for the server initialize
 	usleep(5000000);
 
-	statusline(HUSH, "Checking server health....");
+	statusline(HUSH, "Checking server health...");
 
 	int i;
 	int tries = 5;
@@ -1034,7 +1229,7 @@ void ycmd_start_server()
 #endif
 		if (ycmd_rsp_is_healthy_simple())
 		{
-			statusline(HUSH, "Connected....");
+			statusline(HUSH, "Connected...");
 #ifdef DEBUG
 			fprintf(stderr,"Client can communicate with server.\n");
 #endif
@@ -1042,7 +1237,7 @@ void ycmd_start_server()
 		}
 		else
 		{
-			statusline(HUSH, "Connect failed....");
+			statusline(HUSH, "Connect failed...");
 #ifdef DEBUG
 			fprintf(stderr,"Client cannot communicate with server.  Retrying...\n");
 #endif
@@ -1050,6 +1245,8 @@ void ycmd_start_server()
 			usleep(1000000);
 		}
 	}
+
+	//load conf
 }
 
 void ycmd_stop_server()
@@ -1376,8 +1573,11 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 	char *content = get_all_content(fileage);
 	if (ycmd_globals.running)
 	{
+		ycmd_gen_extra_conf(filepath, content);
+		ycmd_req_load_extra_conf_file(filepath);
 		ycmd_json_event_notification(columnnum, linenum, filepath, "FileReadyToParse", content);
 		ycmd_req_completions_suggestions(linenum, columnnum, filepath, content, "filetype_default");
+		ycmd_req_ignore_extra_conf_file(filepath);
 	}
 	free(content);
 }
@@ -1476,7 +1676,7 @@ void do_code_completion(char letter)
 
 				openfile->current_x = ycmd_globals.apply_column-1;
 
-				do_output(func->desc,strlen(func->desc), FALSE);
+				do_output(func->desc,strlen(func->desc)+(ycmd_globals.clang_completer?1:0), FALSE);
 
 				free((void *)func->desc);
 				func->desc = strdup("");
@@ -1618,4 +1818,12 @@ void do_code_completion_y(void)
 void do_code_completion_z(void)
 {
 	do_code_completion('Z');
+}
+
+void do_end_code_completion(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Escaped pressed\n");
+#endif
+	bottombars(MMAIN);
 }

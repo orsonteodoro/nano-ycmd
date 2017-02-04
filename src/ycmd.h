@@ -71,6 +71,7 @@ typedef struct _ycmd_globals {
 	char tmp_options_filename[PATH_MAX];
 	pid_t child_pid;
 	size_t apply_column;
+	int clang_completer; //used to fix off by one error for column number
 } YCMD_GLOBALS;
 
 extern void ycmd_init();
@@ -109,5 +110,6 @@ extern void do_code_completion_w(void);
 extern void do_code_completion_x(void);
 extern void do_code_completion_y(void);
 extern void do_code_completion_z(void);
+extern void do_end_code_completion(void);
 
 #endif
