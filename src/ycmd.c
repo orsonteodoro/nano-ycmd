@@ -1676,7 +1676,7 @@ void do_code_completion(char letter)
 
 				openfile->current_x = ycmd_globals.apply_column-1;
 
-				do_output(func->desc,strlen(func->desc)+(ycmd_globals.clang_completer?1:0), FALSE);
+				do_output(func->desc,strlen(func->desc), FALSE);
 
 				free((void *)func->desc);
 				func->desc = strdup("");
