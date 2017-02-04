@@ -216,6 +216,7 @@ AC_ARG_VAR([GOCODE_PATH],[Define the full path to your gocode executible for go 
 AC_ARG_VAR([GODEF_PATH],[Define the full path to your godef executible for go language support in ycmd (optional)])
 AC_ARG_VAR([RUST_SRC_PATH],[Define the full path to the rust src source code folder for rust language support in ycmd (opitonal)])
 AC_ARG_VAR([RACERD_PATH],[Define the full path to the racerd for racerd for rust language support in ycmd (optional)])
+AC_ARG_VAR([YCMG_PATH],[Define the full path to YCM-Generator for C / C++ / Objective-C / Objective C++ language support in ycmd (optional)])
 AC_ARG_WITH(openssl,AS_HELP_STRING([--with-openssl], [Enable openssl support for ycmd]))
 AC_ARG_WITH(nettle,AS_HELP_STRING([--with-nettle], [Enable nettle support for ycmd]))
 AC_ARG_ENABLE(ycmd,
@@ -227,6 +228,7 @@ if test "x$enable_ycmd" = xyes; then
     AC_MSG_RESULT([GODEF_PATH is $GODEF_PATH])
     AC_MSG_RESULT([RUST_SRC_PATH is $RUST_SRC_PATH])
     AC_MSG_RESULT([RACERD_PATH is $RACERD_PATH])
+    AC_MSG_RESULT([YCMG_PATH is $YCMG_PATH])
 
     PKG_CHECK_MODULES([GLIB], [glib-2.0], [
         GLIB_LIB=$GLIB_LIBS
@@ -280,6 +282,7 @@ AM_CONDITIONAL([HAVE_GOCODE], [test x$GOCODE_PATH != x])
 AM_CONDITIONAL([HAVE_GODEF], [test x$GODEF_PATH != x])
 AM_CONDITIONAL([HAVE_RUST_SRC], [test  x$RUST_SRC_PATH != x])
 AM_CONDITIONAL([HAVE_RACERD], [test x$RACERD_PATH != x])
+AM_CONDITIONAL([HAVE_YCMG], [test x$YCMG_PATH != x])
 AM_CONDITIONAL([HAVE_YCMD], [test x$have_ycmd = xyes])
 
 AM_CONDITIONAL([HAVE_OPENSSL], [test x$have_openssl = xyes])
