@@ -69,7 +69,7 @@ or
 YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd"
 PYTHON_PATH="/usr/bin/python3.4" 
 
-######The following are optional environmental variables to pass to the configure script:
+######The following are optional environmental variables to pass to the configure script pass empty "" if you don't want support:
 
 ######for rust language:
 RACERD_PATH="/usr/bin/racerd" 
@@ -79,10 +79,13 @@ RUST_SRC_PATH="/usr/share/rust/src"
 GODEF_PATH="/usr/bin/godef" 
 GOCODE_PATH="/usr/bin/gocode" 
 
+######for c family language:
+YCMG_PATH="/usr/bin/config_gen.py"
+
 ######How would the result string look like?
 
 ./autogen.sh
-CFLAGS="-g" PYTHON_PATH="/usr/bin/python3.4" RACERD_PATH="/usr/bin/racerd" RUST_SRC_PATH="/usr/share/rust/src" GODEF_PATH="/usr/bin/godef" GOCODE_PATH="/usr/bin/gocode" YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd" ./configure --enable-ycmd --with-openssl
+CFLAGS="-g" YCMG_PATH="/usr/bin/config_gen.py" PYTHON_PATH="/usr/bin/python3.4" RACERD_PATH="/usr/bin/racerd" RUST_SRC_PATH="/usr/share/rust/src" GODEF_PATH="/usr/bin/godef" GOCODE_PATH="/usr/bin/gocode" YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd" ./configure --enable-ycmd --with-openssl
 make
 
 The -g adds debugging information for developers but not needed for regular users. 
