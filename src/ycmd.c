@@ -217,6 +217,7 @@ void bear_generate(char *project_path)
 
 		snprintf(command, PATH_MAX*2, "cd \"%s\"; bear make > /dev/null", project_path);
 		ret = system(command);
+		total_refresh();
 
 		if (ret == 0)
 		{
