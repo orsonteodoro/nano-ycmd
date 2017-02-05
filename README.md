@@ -17,7 +17,7 @@ You can use the following which have been tested:
 
 ####Dependencies
 * ycmd >= commits later than year 2015, with new hmac computation
-* nettle or "openssl and glib" cryptographic library, to mitigate MITM attack between ycmd and nano text editor
+* Either nettle, openssl, or "libgcrypt with glib" cryptographic library, to mitigate MITM attack between ycmd and nano text editor
 * neon, for http interprocess communication between nano editor and ycmd server
 * YCM-Generator (https://github.com/rdnetto/YCM-Generator), for C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py
 * Bear (https://github.com/rizsotto/Bear), for C/C++/Objective-C/Objective-C++ support to generate a compile_commands.json.
@@ -63,10 +63,12 @@ I don't see any plugin support in nano.
 
 Your setup may vary depending on if your distro patched ycmd.  In my case, I modified ycmd to use absolute paths.  The vanilla ycmd uses relative path to the thirdparty folder.
 
-######You need a crypto library.  Choose either:
+######You need a crypto library.  Choose one of either:
 --with-openssl
 or
 --with-nettle
+or
+--with-libgcrypt
 
 ######You need to enable ycmd support
 --enable-ycmd
