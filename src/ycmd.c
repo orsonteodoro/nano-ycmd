@@ -27,39 +27,32 @@
 #include <nettle/hmac.h>
 #define SSL_LIB "NETTLE"
 #endif
+
 #ifdef USE_OPENSSL
 #include <openssl/hmac.h>
-#include <glib/gstdio.h>
+#include <openssl/buffer.h>
 #define SSL_LIB "OPENSSL"
 #endif
-#ifndef SSL_LIB
-#error "You must choose a crypto library to use ycmd code completion support.  Currently nettle and openssl are supported."
+
+#ifdef USE_LIBGCRYPT
+#include <gcrypt.h>
+#include <glib.h>
+#define SSL_LIB "LIBGCRYPT"
 #endif
 
-#include <fcntl.h>
-#include <glib.h>
-#include <glib/gregex.h>
-#include <limits.h>
+#ifndef SSL_LIB
+#error "You must choose a crypto library to use ycmd code completion support.  Currently nettle, openssl, libgcrypt are supported."
+#endif
+
 #include <ne_request.h>
-#include <ne_session.h>
 #include <netinet/ip.h>
-#include <stdio.h>
-#include <stdlib.h>
 #include <string.h>
-#include <sys/select.h>
-#include <sys/socket.h>
-#include <sys/stat.h>
-#include <sys/time.h>
-#include <sys/types.h>
 #include <sys/wait.h>
-#include <termios.h>
 #include <unistd.h>
 
 #include "nxjson.h"
 #include "proto.h"
 #include "ycmd.h"
-#include "nano.h"
-#include "proto.h"
 
 //notes:
 //protocol documentation: https://gist.github.com/hydrargyrum/78c6fccc9de622ad9d7b
@@ -175,6 +168,19 @@ void ycmd_init()
 	ycmd_globals.secret_key_base64 = NULL;
 	ycmd_globals.json = NULL;
 
+#ifdef USE_LIBGCRYPT
+	if (!gcry_check_version("1.7.3"))
+	{
+		fprintf(stderr, "Libgcrypt init failed.\n");
+		exit(-1);
+	}
+	gcry_control(GCRYCTL_SUSPEND_SECMEM_WARN);
+	gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
+	//gcry_control(GCRYCTL_INIT_SECMEM, 16384, 0);
+	gcry_control(GCRYCTL_RESUME_SECMEM_WARN);
+	gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
+#endif
+
 	ycmd_generate_secret_raw(ycmd_globals.secret_key_raw);
 	ycmd_globals.secret_key_base64 = strdup(ycmd_generate_secret_base64(ycmd_globals.secret_key_raw));
 #ifdef DEBUG
@@ -240,10 +246,7 @@ void ycm_generate(char *filepath, char *content)
 	char path_project[PATH_MAX];
 	char path_extra_conf[PATH_MAX];
 	char command[PATH_MAX*2];
-	char build_system[20];
 	char flags[PATH_MAX];
-
-	build_system[0]=0;
 
 	char *ycmg_project_path = getenv("YCMG_PROJECT_PATH");
 	if (ycmg_project_path && strcmp(ycmg_project_path, "(null)") != 0)
@@ -267,7 +270,7 @@ void ycm_generate(char *filepath, char *content)
 #ifdef DEBUG
 		fprintf(stderr,"ycmg_flags is null\n");
 #endif
-		snprintf(flags, PATH_MAX, "");
+		flags[0] = 0;
 	}
 	else
 	{
@@ -605,7 +608,7 @@ char *_ne_read_response_body_full(ne_request *request)
 			break;
 		}
 #ifdef DEBUG
-		fprintf(stderr, "readlen %d\n",readlen);
+		fprintf(stderr, "readlen %zd\n",readlen);
 #endif
 		if (readlen <= 0)
 		{
@@ -1325,30 +1328,44 @@ char *ycmd_generate_secret_base64(char *secret)
 #ifdef USE_NETTLE
 	static char b64_secret[BASE64_ENCODE_RAW_LENGTH(SECRET_KEY_LENGTH)];
 	base64_encode_raw((unsigned char *)b64_secret, SECRET_KEY_LENGTH, (unsigned char *)secret);
-#ifdef DEBUG
-	fprintf(stderr,"base64 secret is %s\n",b64_secret);
-#endif
-	return b64_secret;
 #elif USE_OPENSSL
+	BIO *b, *append;
+	BUF_MEM *pp;
+	b = BIO_new(BIO_f_base64());
+	append = BIO_new(BIO_s_mem());
+	b = BIO_push(b, append);
+
+	BIO_set_flags(b, BIO_FLAGS_BASE64_NO_NL);
+	BIO_write(b, secret, SECRET_KEY_LENGTH);
+	BIO_flush(b);
+	BIO_get_mem_ptr(b, &pp);
+
+	static char b64_secret[80];
+	memset(b64_secret, 0, 80);
+	memcpy(b64_secret, pp->data, pp->length);
+	BIO_free_all(b);
+#elif USE_LIBGCRYPT
+	//todo secure memory
 	static char b64_secret[80];
         gchar *_b64_secret = g_base64_encode((unsigned char *)secret, SECRET_KEY_LENGTH);
 	strcpy(b64_secret, _b64_secret);
 	free (_b64_secret);
+#else
+#error "You need to define a crypto library to use."
+#endif
+
 #ifdef DEBUG
 	fprintf(stderr,"base64 secret is %s\n",b64_secret);
 #endif
 	return b64_secret;
-#else
-#error "You need to define a crypto library to use."
-#endif
 }
 
 char *ycmd_compute_request(char *method, char *path, char *body)
 {
-#ifdef USE_NETTLE
 #ifdef DEBUG
 	fprintf(stderr, "ycmd_compute_request entered\n");
 #endif
+#ifdef USE_NETTLE
 	char join[HMAC_SIZE*3];
 	static char hmac_request[HMAC_SIZE];
 	struct hmac_sha256_ctx hmac_ctx;
@@ -1367,10 +1384,6 @@ char *ycmd_compute_request(char *method, char *path, char *body)
 
 	static char b64_request[BASE64_ENCODE_RAW_LENGTH(HMAC_SIZE)];
 	base64_encode_raw((unsigned char *)b64_request, HMAC_SIZE, (unsigned char *)hmac_request);
-#ifdef DEBUG
-	fprintf(stderr,"base64 hmac is %s\n",b64_request);
-#endif
-	return b64_request;
 #elif USE_OPENSSL
         unsigned char join[HMAC_SIZE*3];
         HMAC(EVP_sha256(), ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH,(unsigned char *) method,strlen(method), join, NULL);
@@ -1379,25 +1392,75 @@ char *ycmd_compute_request(char *method, char *path, char *body)
 
         unsigned char *digest_join = HMAC(EVP_sha256(), ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH,(unsigned char *) join,HMAC_SIZE*3, NULL, NULL);
 
+	BIO *b, *append;
+	BUF_MEM *pp;
+	b = BIO_new(BIO_f_base64());
+	append = BIO_new(BIO_s_mem());
+	b = BIO_push(b, append);
+
+	BIO_set_flags(b, BIO_FLAGS_BASE64_NO_NL);
+	BIO_write(b, digest_join, HMAC_SIZE);
+	BIO_flush(b);
+	BIO_get_mem_ptr(b, &pp);
+
 	static char b64_request[80];
-        gchar *_b64_request = g_base64_encode(digest_join, HMAC_SIZE);
+	memset(b64_request, 0, 80);
+	memcpy(b64_request, pp->data, pp->length);
+	BIO_free_all(b);
+#elif USE_LIBGCRYPT
+        unsigned char join[HMAC_SIZE*3];
+	size_t length;
+
+	gcry_mac_hd_t hd;
+	gcry_mac_open(&hd, GCRY_MAC_HMAC_SHA256, 0/*GCRY_MAC_FLAG_SECURE*/, NULL);
+	gcry_mac_setkey(hd, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH);
+
+	gcry_mac_write(hd, method, strlen(method));
+	length = HMAC_SIZE;
+	gcry_mac_read(hd, join, &length);
+
+	gcry_mac_reset(hd);
+
+	gcry_mac_write(hd, path, strlen(path));
+	length = HMAC_SIZE;
+	gcry_mac_read(hd, join+HMAC_SIZE, &length);
+
+	gcry_mac_reset(hd);
+
+	gcry_mac_write(hd, body, strlen(body));
+	length = HMAC_SIZE;
+	gcry_mac_read(hd, join+2*HMAC_SIZE, &length);
+
+	gcry_mac_reset(hd);
+
+	unsigned char digest_join[HMAC_SIZE];
+	gcry_mac_write(hd, join, HMAC_SIZE*3);
+	length = HMAC_SIZE;
+	gcry_mac_read(hd, digest_join, &length);
+
+	gcry_mac_close(hd);
+
+	//todo secure memory
+	static char b64_request[80];
+        gchar *_b64_request = g_base64_encode((unsigned char *)digest_join, HMAC_SIZE);
 	strcpy(b64_request, _b64_request);
 	free (_b64_request);
+#else
+#error "You need to define a crypto library to use."
+#endif
+
 #ifdef DEBUG
 	fprintf(stderr,"base64 hmac is %s\n",b64_request);
 #endif
 	return b64_request;
-#else
-#error "You need to define a crypto library to use."
-#endif
 }
 
 char *ycmd_compute_response(char *response_body)
 {
-#ifdef USE_NETTLE
 #ifdef DEBUG
 	fprintf(stderr, "ycmd_compute_response entered\n");
 #endif
+#ifdef USE_NETTLE
 	static char hmac_response[HMAC_SIZE];
 	struct hmac_sha256_ctx hmac_ctx;
 
@@ -1407,24 +1470,49 @@ char *ycmd_compute_response(char *response_body)
 
 	static char b64_response[BASE64_ENCODE_RAW_LENGTH(HMAC_SIZE)];
 	base64_encode_raw((unsigned char *)b64_response, HMAC_SIZE, (unsigned char *)hmac_response);
-#ifdef DEBUG
-	fprintf(stderr,"base64 hmac is %s\n",b64_response);
-#endif
-	return b64_response;
 #elif USE_OPENSSL
         unsigned char *response_digest = HMAC(EVP_sha256(), ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH,(unsigned char *) response_body,strlen(response_body), NULL, NULL);
 
+	BIO *b, *append;
+	BUF_MEM *pp;
+	b = BIO_new(BIO_f_base64());
+	append = BIO_new(BIO_s_mem());
+	b = BIO_push(b, append);
+
+	BIO_set_flags(b, BIO_FLAGS_BASE64_NO_NL);
+	BIO_write(b, response_digest, HMAC_SIZE);
+	BIO_flush(b);
+	BIO_get_mem_ptr(b, &pp);
+
 	static char b64_response[80];
-        gchar *_b64_response = g_base64_encode(response_digest, HMAC_SIZE);
+	memset(b64_response, 0, 80);
+	memcpy(b64_response, pp->data, pp->length);
+	BIO_free_all(b);
+#elif USE_LIBGCRYPT
+	gcry_mac_hd_t hd;
+	gcry_mac_open(&hd, GCRY_MAC_HMAC_SHA256, 0/*GCRY_MAC_FLAG_SECURE*/, NULL);
+	gcry_mac_setkey(hd, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH);
+
+	char response_digest[HMAC_SIZE];
+	gcry_mac_write(hd, response_body, strlen(response_body));
+	size_t length = HMAC_SIZE;
+	gcry_mac_read(hd, response_digest, &length);
+
+	gcry_mac_close(hd);
+
+	//todo secure memory
+	static char b64_response[80];
+        gchar *_b64_response = g_base64_encode((unsigned char *)response_digest, HMAC_SIZE);
 	strcpy(b64_response, _b64_response);
 	free (_b64_response);
+#else
+#error "You need to define a crypto library to use."
+#endif
+
 #ifdef DEBUG
 	fprintf(stderr,"base64 hmac is %s\n",b64_response);
 #endif
 	return b64_response;
-#else
-#error "You need to define a crypto library to use."
-#endif
 }
 
 void escape_json(char **buffer)

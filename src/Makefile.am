@@ -13,6 +13,11 @@ if HAVE_OPENSSL
 AM_CFLAGS += @OPENSSL_CFLAGS@
 AM_CPPFLAGS += -DUSE_OPENSSL
 endif
+if HAVE_LIBGCRYPT
+AM_CFLAGS += $(x86_64-pc-linux-gnu-libgcrypt-config --cflags)
+AM_CPPFLAGS += -DUSE_LIBGCRYPT
+AM_LDFLAGS += $(x86_64-pc-linux-gnu-libgcrypt-config --libs)
+endif
 
 endif
 
@@ -80,7 +85,10 @@ if HAVE_NETTLE
 nano_LDADD += @NETTLE_LIBS@
 endif
 if HAVE_OPENSSL
-nano_LDADD += @OPENSSL_LIBS@ @GLIB_LIBS@
+nano_LDADD += @OPENSSL_LIBS@
+endif
+if HAVE_LIBGCRYPT
+nano_LDADD += @GLIB_LIBS@
 endif
 if HAVE_YCMD
 nano_LDADD += @GLIB_LIBS@

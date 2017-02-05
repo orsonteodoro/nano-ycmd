@@ -219,6 +219,7 @@ AC_ARG_VAR([RACERD_PATH],[Define the full path to the racerd for racerd for rust
 AC_ARG_VAR([YCMG_PATH],[Define the full path to YCM-Generator for C / C++ / Objective-C / Objective C++ language support in ycmd (optional)])
 AC_ARG_WITH(openssl,AS_HELP_STRING([--with-openssl], [Enable openssl support for ycmd]))
 AC_ARG_WITH(nettle,AS_HELP_STRING([--with-nettle], [Enable nettle support for ycmd]))
+AC_ARG_WITH(libgcrypt,AS_HELP_STRING([--with-libgcrypt], [Enable libgcrypt support for ycmd]))
 AC_ARG_ENABLE(ycmd,
 AS_HELP_STRING([--enable-ycmd], [Enable code completion support via ycmd]))
 have_ycmd=no
@@ -250,8 +251,13 @@ if test "x$enable_ycmd" = xyes; then
             NETTLE_LIB_NAME=nettle
         ], [:])
         have_nettle=yes
+    elif test "x$with_libgcrypt" = xyes; then
+	AC_SEARCH_LIBS([gcry_mac_open], [gcrypt], [], [
+		AC_MSG_ERROR([unable to find the gcry_mac_open() function])
+	])
+        have_libgcrypt=yes
     else
-	AC_MSG_ERROR([You must choose a crypto library: nettle, openssl])
+	AC_MSG_ERROR([You must choose a crypto library: nettle, openssl, libgcrypt])
     fi
     PKG_CHECK_MODULES([NEON], [neon], [
         NEON_LIB=$NEON_LIBS
@@ -287,6 +293,7 @@ AM_CONDITIONAL([HAVE_YCMD], [test x$have_ycmd = xyes])
 
 AM_CONDITIONAL([HAVE_OPENSSL], [test x$have_openssl = xyes])
 AM_CONDITIONAL([HAVE_NETTLE], [test x$have_nettle = xyes])
+AM_CONDITIONAL([HAVE_LIBGCRYPT], [test x$have_libgcrypt = xyes])
 
 AC_ARG_ENABLE(tiny,
 AS_HELP_STRING([--enable-tiny], [Disable features for the sake of size]))
