@@ -13,8 +13,7 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
-* c44e2e2a0d97a0c5d0e93dcab3a769ba1a4d294c (recently tested)
-* b19e6018f416d24a4c530bf8f02ab76cf0331afe (old)
+* 052b4866f3b24caeed877ae6f017f422d1443ed9 (recently tested)
 
 ####Dependencies
 * ycmd >= commits later than year 2015, with new hmac computation
@@ -27,10 +26,7 @@ You can use the following which have been tested:
 * Sed, for patching .ycm_extra_conf.py
 * Bash >=4, for `&|` support
 * Unix, Linux, Cygwin for /dev/null and /dev/random support
-
-######What other dependencies were involved?
-
-NXJSON which is released under GPL 3 by Yaroslav Stavnichiy.
+* NXJSON, for server response parsing
 
 ####My distribution doesn't have the required dependencies
 
@@ -152,9 +148,11 @@ If you compiled nano-ycmd with --enable-debug then you can redirect the stderr t
 For example:
 nano 2>/tmp/out.txt
 
-####Special thanks goes to....
+####Special thanks goes to...
 
 marchelzo and twkm from freenode ##C channel for the clear excess stdin fix.
+
+Also see --version or https://github.com/orsonteodoro/nano-ycmd/blob/052b4866f3b24caeed877ae6f017f422d1443ed9/src/nano.c#L929 for other credits
 
 ####How do I add changes?
 1. Create a repository on your account
