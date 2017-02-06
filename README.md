@@ -26,7 +26,7 @@ You can use the following which have been tested:
 * Sed, for patching .ycm_extra_conf.py
 * Bash >=4, for `&|` support
 * Unix, Linux, Cygwin for /dev/null and /dev/random support
-* NXJSON, for server response parsing
+* NXJSON, for server response parsing (A Makefile patch applied to NXJSON package needs to be applied https://github.com/orsonteodoro/oiledmachine-overlay/blob/master/dev-libs/nxjson/files/nxjson-9999.20141019-create-libs.patch so that it is a shared library)
 
 ####My distribution doesn't have the required dependencies
 
