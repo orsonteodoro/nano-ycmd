@@ -34,7 +34,7 @@ You can look at my gentoo package overlay https://github.com/orsonteodoro/oiledm
 
 ####Why use ycmd backend over the builtin WORDCOMPLETION?
 
-ycmd allows to you use IntelliSense for C# sources using omnisharp/omnisharp-roslyn that the big IDE editors have.  It goes beyond word completion.
+ycmd allows to you use IntelliSense for C# sources using omnisharp-server/omnisharp-roslyn that the big IDE editors have.  It goes beyond word completion providing documentation about method signatures and real time syntax checking (currently not supported in nano-ycmd).
 
 ####How do I use this code completion feature?
 
