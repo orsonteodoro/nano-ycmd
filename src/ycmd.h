@@ -27,7 +27,7 @@
 
 #include <ne_session.h>
 
-#define HTTP_REQUEST_HEADER_YCM_HMAC "X-Ycm-Hmac"
+#define HTTP_HEADER_YCM_HMAC "X-Ycm-Hmac"
 #define HMAC_SIZE 256/8
 #define SECRET_KEY_LENGTH 16
 #define DIGITS_MAX 11 //including null character

@@ -913,6 +913,14 @@ void usage(void)
 #ifndef NANO_TINY
     print_opt("-$", "--softwrap", N_("Enable soft line wrapping"));
 #endif
+#ifdef ENABLE_YCMD
+    printf("\n");
+    printf("YCM-Generator environment variables");
+    printf("\n");
+    printf("YCMG_PROJECT_PATH - full path to the directory containing your top-level build script.  Supported:  CMakeList.txt, configure, GNUmakefile, Makefile, makefile, *.pro\n");
+    printf("YCMG_FLAGS - Additional flags to pass to YCM-Generator\n");
+    printf("\n");
+#endif
 }
 
 /* Display the current version of nano, the date and time it was
@@ -929,8 +937,92 @@ void version(void)
     printf(_(" (C) 2014..%s the contributors to nano\n"), "2016");
     printf(
 	_(" Email: nano@nano-editor.org	Web: https://nano-editor.org/"));
-    printf(_("\n Compiled options:"));
 
+#ifdef ENABLE_YCMD
+    printf(_("\n"));
+    printf(_("\n YCMD support:"));
+    printf(_("\n  (C) 2017 Orson Teodoro <orsonteodoro@yahoo.com>"));
+    printf(_("\n  License: GPL3+"));
+    printf(_("\n  Web: https://github.com/orsonteodoro/nano-ycmd"));
+    printf(_("\n "));
+    printf(_("\n Direct third party libraries and programs used for YCMD support.  For dependencies of dependencies check the project:"));
+    printf(_("\n  ycmd:"));
+    printf(_("\n   (C) 2015 ycmd contributors"));
+    printf(_("\n   License: GPL3+"));
+    printf(_("\n   Web: https://github.com/Valloric/ycmd"));
+    printf(_("\n"));
+    printf(_("\n  neon:"));
+    printf(_("\n   (C) 1999-2007 Joe Orton"));
+    printf(_("\n   AUTHORS: http://svn.webdav.org/repos/projects/neon/trunk/AUTHORS"));
+    printf(_("\n   License: LGPL2+"));
+    printf(_("\n"));
+    printf(_("\n  NXJSON:"));
+    printf(_("\n   (C) 2013 Yaroslav Stavnichiy"));
+    printf(_("\n   License: LGPL3+"));
+    printf(_("\n   Web: https://bitbucket.org/yarosla/nxjson"));
+    printf(_("\n"));
+    printf(_("\n  Bear:"));
+    printf(_("\n   (C) 2012-2015 by Laszlo Nagy"));
+    printf(_("\n   License: GPL3+"));
+    printf(_("\n   Web: https://github.com/rizsotto/Bear"));
+    printf(_("\n"));
+    printf(_("\n  YCM-Generator:"));
+    printf(_("\n   (C) 2015-2016 Reuben D'Netto"));
+    printf(_("\n   License: GPL3"));
+    printf(_("\n   Web: https://github.com/rdnetto/YCM-Generator"));
+    printf(_("\n"));
+    printf(_("\n  GNU Bash:"));
+    printf(_("\n   (C) 1987-2016 Free Software Foundation, Inc."));
+    printf(_("\n   AUTHORS: http://git.savannah.gnu.org/cgit/bash.git/tree/AUTHORS"));
+    printf(_("\n   License: GPL3+"));
+    printf(_("\n   Web: https://www.gnu.org/software/bash/"));
+    printf(_("\n"));
+    printf(_("\n  GNU Sed:"));
+    printf(_("\n   (C) 1989-2017 Free Software Foundation, Inc."));
+    printf(_("\n   AUTHORS: http://git.savannah.gnu.org/cgit/sed.git/tree/AUTHORS"));
+    printf(_("\n   License: GPL3+"));
+    printf(_("\n   Web: https://www.gnu.org/software/sed/"));
+    printf(_("\n"));
+    printf(_("\n  GNU Make:"));
+    printf(_("\n   (C) 1988-2016 Free Software Foundation, Inc."));
+    printf(_("\n   AUTHORS: http://git.savannah.gnu.org/cgit/make.git/tree/AUTHORS"));
+    printf(_("\n   License: GPL3+"));
+    printf(_("\n   Web: https://www.gnu.org/software/make/"));
+    printf(_("\n"));
+#ifdef USE_OPENSSL
+    printf(_("\n  OpenSSL:"));
+    printf(_("\n   (C) 1998-2016 The OpenSSL Project"));
+    printf(_("\n   License: OpenSSL"));
+    printf(_("\n   Web: https://www.openssl.org/"));
+    printf(_("\n"));
+#endif
+#ifdef USE_LIBGCRYPT
+    printf(_("\n  Libgcrypt:"));
+    printf(_("\n   (C) 1997 Werner Koch"));
+    printf(_("\n   (C) 2003, 2006, 2008  Free Software Foundation, Inc."));
+    printf(_("\n   AUTHORS: https://git.gnupg.org/cgi-bin/gitweb.cgi?p=libgcrypt.git;a=blob_plain;f=AUTHORS;hb=refs/heads/master"));
+    printf(_("\n   License: LGPLv2.1+"));
+    printf(_("\n   Web: https://www.gnu.org/software/libgcrypt"));
+    printf(_("\n"));
+    printf(_("\n  GLib:"));
+    printf(_("\n   (C) 2006 Alexander Larsson"));
+    printf(_("\n   (C) 2000-2003 Ximian Inc."));
+    printf(_("\n   (C) 1997-2000 GLib team and others"));
+    printf(_("\n   AUTHORS: https://github.com/GNOME/glib/blob/master/AUTHORS"));
+    printf(_("\n   License: LGPL2+"));
+    printf(_("\n   Web: https://wiki.gnome.org/Projects/GLib"));
+    printf(_("\n"));
+#endif
+#ifdef USE_NETTLE
+    printf(_("\n  Nettle:"));
+    printf(_("\n   (C) 2002, 2013 Niels Möller"));
+    printf(_("\n   License: LGPL-3+"));
+    printf(_("\n   Web: http://www.lysator.liu.se/~nisse/nettle"));
+    printf(_("\n"));
+#endif
+#endif
+
+    printf(_("\n Compiled options:"));
 #ifdef NANO_TINY
     printf(" --enable-tiny");
 #ifndef DISABLE_BROWSER

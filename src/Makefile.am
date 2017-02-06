@@ -4,7 +4,7 @@ if HAVE_YCMD
 AM_CPPFLAGS += -DENABLE_YCMD -DYCMD_PATH=\"@YCMD_PATH@\" @GLIB_CFLAGS@
 AM_CFLAGS =
 AM_CPPFLAGS += -DPYTHON_PATH=\"@PYTHON_PATH@\"
-AM_LDFLAGS =
+AM_LDFLAGS = -lnxjson
 if HAVE_NETTLE
 AM_CFLAGS += @NETTLE_CFLAGS@
 AM_CPPFLAGS += -DUSE_NETTLE
@@ -14,9 +14,9 @@ AM_CFLAGS += @OPENSSL_CFLAGS@
 AM_CPPFLAGS += -DUSE_OPENSSL
 endif
 if HAVE_LIBGCRYPT
-AM_CFLAGS += $(x86_64-pc-linux-gnu-libgcrypt-config --cflags)
+AM_CFLAGS += $(shell $(host)-libgcrypt-config --cflags)
 AM_CPPFLAGS += -DUSE_LIBGCRYPT
-AM_LDFLAGS += $(x86_64-pc-linux-gnu-libgcrypt-config --libs)
+LIBGCRYPT_LIBS = $(shell $(host)-libgcrypt-config --libs)
 endif
 
 endif
@@ -70,7 +70,6 @@ nano_SOURCES =	browser.c \
 		move.c \
 		nano.c \
 		nano.h \
-		nxjson.c \
 		prompt.c \
 		proto.h \
 		rcfile.c \
@@ -89,6 +88,7 @@ nano_LDADD += @OPENSSL_LIBS@
 endif
 if HAVE_LIBGCRYPT
 nano_LDADD += @GLIB_LIBS@
+nano_LDFLAGS = $(LIBGCRYPT_LIBS)
 endif
 if HAVE_YCMD
 nano_LDADD += @GLIB_LIBS@

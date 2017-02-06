@@ -237,6 +237,10 @@ if test "x$enable_ycmd" = xyes; then
         GLIB_LIB_NAME=glib-2.0
     ], [:])
 
+    AC_SEARCH_LIBS([nx_json_get], [nxjson], [], [
+        AC_MSG_ERROR([unable to find the nx_json_get() function])
+    ])
+
     if test "x$with_openssl" = xyes; then
         PKG_CHECK_MODULES([OPENSSL], [openssl], [
             OPENSSL_LIB=$OPENSSL_LIBS

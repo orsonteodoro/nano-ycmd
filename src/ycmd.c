@@ -46,11 +46,11 @@
 
 #include <ne_request.h>
 #include <netinet/ip.h>
+#include <nxjson.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
 
-#include "nxjson.h"
 #include "proto.h"
 #include "ycmd.h"
 
@@ -72,6 +72,8 @@ void escape_json(char **buffer);
 void ycmd_generate_secret_raw(char *secret);
 char *ycmd_generate_secret_base64(char *secret);
 void ycmd_restart_server();
+char *_ycmd_get_filetype(char *filepath, char *content);
+char *ycmd_compute_response(char *response_body);
 
 //A function signature to use.  Either it can come from an external library or object code.
 extern char* string_replace(const char* src, const char* find, const char* replace);
@@ -463,36 +465,8 @@ void _ycmd_json_replace_file_data(char **json, char *filepath, char *content)
 	else
 		string_replace_w(json, "FILEPATH", filepath);
 
-	if (strstr(filepath,".cs"))
-		string_replace_w(json, "FILETYPES", "cs");
-	else if (strstr(filepath,".go"))
-		string_replace_w(json, "FILETYPES", "go");
-	else if (strstr(filepath,".rs"))
-		string_replace_w(json, "FILETYPES", "rust");
-	else if (strstr(filepath,".mm"))
-		string_replace_w(json, "FILETYPES", "objcpp");
-	else if (strstr(filepath,".m"))
-		string_replace_w(json, "FILETYPES", "objc");
-	else if (strstr(filepath,".cpp") || strstr(filepath,".C") || strstr(filepath,".cxx"))
-		string_replace_w(json, "FILETYPES", "cpp");
-	else if (strstr(filepath,".c"))
-		string_replace_w(json, "FILETYPES", "c");
-	else if (strstr(filepath,".hpp"))
-		string_replace_w(json, "FILETYPES", "cpp");
-	else if (strstr(filepath,".h"))
-	{
-		if (strstr(content, "using namespace") || strstr(content, "iostream") || strstr(content, "\tclass ") || strstr(content, " class ")
-			|| strstr(content, "private:") || strstr(content, "public:") || strstr(content, "protected:"))
-			string_replace_w(json, "FILETYPES", "cpp");
-		else
-			string_replace_w(json, "FILETYPES", "c");
-	}
-	else if (strstr(filepath,".js"))
-		string_replace_w(json, "FILETYPES", "javascript");
-	else if (strstr(filepath,".py"))
-		string_replace_w(json, "FILETYPES", "python");
-	else if (strstr(filepath,".ts"))
-		string_replace_w(json, "FILETYPES", "typescript");
+	char *ft = _ycmd_get_filetype(filepath, content);
+	string_replace_w(json, "FILETYPES", ft);
 
 	string_replace_w(json, "CONTENTS", content);
 }
@@ -544,7 +518,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
 		ne_add_request_header(request,"content-type","application/json");
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, json);
-		ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
+		ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, ycmd_b64_hmac);
 		ne_set_request_body_buffer(request, json, strlen(json));
 
 #ifdef DEBUG
@@ -556,6 +530,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 		{
 			char *response = _ne_read_response_body_full(request);
 			ne_end_request(request);
+
 #ifdef DEBUG
 			fprintf(stderr,"Server response: %s\n", response);
 #endif
@@ -636,6 +611,25 @@ char *_ne_read_response_body_full(ne_request *request)
 	return response_body;
 }
 
+//1 is valid, 0 is invalid
+int ycmd_compare_hmac(const char *remote_hmac, char *local_hmac)
+{
+	if (strcmp(remote_hmac, local_hmac) == 0)
+	{
+#ifdef DEBUG
+		fprintf(stderr,"Verified hmac.  Connection is not compromised.\n");
+#endif
+		return 1;
+	}
+	else
+	{
+#ifdef DEBUG
+		fprintf(stderr,"Wrong hmac.  Possible compromised connection.\n");
+#endif
+		return 0;
+	}
+}
+
 //get the list of possible completions
 int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath, char *content, char *completertarget)
 {
@@ -693,18 +687,25 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	request = ne_request_create(ycmd_globals.session, method, path);
 	{
 		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
-		char *response_body;
+		char *response_body = NULL;
 
 		ne_add_request_header(request,"content-type","application/json");
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, json);
-		ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
+		ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, ycmd_b64_hmac);
 		ne_set_request_body_buffer(request, json, strlen(json));
 
 		int ret = ne_begin_request(request);
 		if (ret >= 0)
 		{
 			response_body = _ne_read_response_body_full(request);
+			const char *hmac_remote = ne_get_response_header(request, HTTP_HEADER_YCM_HMAC);
 			ne_end_request(request);
+
+			//attacker could inject malicious code into source code here but the user would see it.
+			char *hmac_local = ycmd_compute_response(response_body);
+			if (!ycmd_compare_hmac(hmac_remote, hmac_local))
+				goto compromised_exit;
+
 #ifdef DEBUG
 			fprintf(stderr,"Server response (SUGGESTIONS): %s\n", response_body);
 #endif
@@ -715,7 +716,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 
 		status_code = ne_get_status(request)->code;
 		int found_cc_entry = 0;
-		if (strstr(response_body, "completion_start_column"))
+		if (response_body && strstr(response_body, "completion_start_column"))
 		{
 			const nx_json *pjson = nx_json_parse_utf8(response_body);
 
@@ -763,7 +764,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 			statusline(HUSH, "Code completion triggered");
 		}
 
-		free(response_body);
+		compromised_exit:
+		if (response_body)
+			free(response_body);
 	}
 	ne_request_destroy(request);
 
@@ -792,13 +795,14 @@ int ycmd_rsp_is_healthy_simple()
 	{
 		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,1);
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, "");
-		ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
+		ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, ycmd_b64_hmac);
 
 		int ret = ne_begin_request(request);
 		if (ret >= 0)
 		{
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
+
 #ifdef DEBUG
 			fprintf(stderr, "Server response: %s\n", response_body); //should just say: true
 #endif
@@ -825,9 +829,13 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	fprintf(stderr, "Entering ycmd_rsp_is_healthy()\n");
 #endif
 	char *method = "GET";
-	char *_path = "/healthy?include_subservers=VALUE";
+	char *_path = "/healthy";
 	char *path;
 	path = strdup(_path);
+
+	char *_body = "include_subservers=VALUE";
+	char *body;
+	body = strdup(_body);
 
 	if (include_subservers)
 		string_replace_w(&path, "VALUE", "1");
@@ -839,15 +847,16 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	request = ne_request_create(ycmd_globals.session, method, path);
 	{
 		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,1);
-		char *ycmd_b64_hmac = ycmd_compute_request(method, path, "");
-		ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
+		char *ycmd_b64_hmac = ycmd_compute_request(method, path, body);
+		ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, ycmd_b64_hmac);
+		ne_set_request_body_buffer(request, body, strlen(body));
 
 		int ret = ne_begin_request(request);
 		if (ret >= 0)
 		{
-
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
+
 #ifdef DEBUG
 			fprintf(stderr, "Server response: %s\n", response_body); //should just say: true
 #endif
@@ -859,6 +868,7 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	ne_request_destroy(request);
 
 	free(path);
+	free(body);
 
 #ifdef DEBUG
 	fprintf(stderr, "Status code in ycmd_rsp_is_healthy is %d\n", status_code);
@@ -874,34 +884,66 @@ int ycmd_rsp_is_server_ready(char *filetype)
 	fprintf(stderr, "Entering ycmd_rsp_is_server_ready()\n");
 #endif
 	char *method = "GET";
-	char *_path = "/ready?subserver=FILE_TYPE";
+	char *_path = "/ready";
 	char *path;
 	path = strdup(_path);
+	char *_body = "subserver=FILE_TYPE";
+	char *body;
+	body = strdup(_body);
 
-	string_replace_w(&path, "FILE_TYPE", filetype);
+	string_replace_w(&body, "FILE_TYPE", filetype);
 
 #ifdef DEBUG
 	fprintf(stderr,"ycmd_rsp_is_server_ready path is %s\n",path);
 #endif
 
 	int status_code = 0;
+	int not_compromised = 1;
 
 	ne_request *request;
 	request = ne_request_create(ycmd_globals.session, method, path);
 	{
 		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,1);
-		ne_request_dispatch(request);
+		char *ycmd_b64_hmac = ycmd_compute_request(method, path, body);
+		ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, ycmd_b64_hmac);
+		ne_set_request_body_buffer(request, body, strlen(body));
+
+		int ret = ne_begin_request(request);
+		if (ret >= 0)
+		{
+			char *response_body = _ne_read_response_body_full(request);
+			const char *hmac_remote = ne_get_response_header(request, HTTP_HEADER_YCM_HMAC);
+			ne_end_request(request);
+
+#ifdef DEBUG
+			fprintf(stderr, "Server response: %s\n", response_body); //should just say: true
+#endif
+
+			//attacker could steal source code beyond this point
+			char *hmac_local = ycmd_compute_response(response_body);
+
+#ifdef DEBUG
+			fprintf(stderr,"hmac_local is %s\n",hmac_local);
+			fprintf(stderr,"hmac_remote is %s\n",hmac_remote);
+#endif
+
+			not_compromised = ycmd_compare_hmac(hmac_remote, hmac_local);
+
+			free(response_body);
+		}
+
 		status_code = ne_get_status(request)->code;
 	}
 	ne_request_destroy(request);
 
 	free(path);
+	free(body);
 
 #ifdef DEBUG
 	fprintf(stderr, "Status code in ycmd_rsp_is_server_ready is %d\n", status_code);
 #endif
 
-	return status_code == 200;
+	return status_code == 200 && not_compromised;
 }
 
 int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnum, char *filepath, char *content)
@@ -943,7 +985,7 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 		{
 			ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
 			char *ycmd_b64_hmac = ycmd_compute_request(method, path, json);
-			ne_add_request_header(request, HTTP_REQUEST_HEADER_YCM_HMAC, ycmd_b64_hmac);
+			ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, ycmd_b64_hmac);
 		}
 		else
 		{
@@ -957,6 +999,7 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 		{
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
+
 #ifdef DEBUG
 			fprintf(stderr, "Server response: %s",response_body);
 #endif
@@ -1173,26 +1216,6 @@ void ycmd_start_server()
 	ycmd_globals.child_pid = pid;
 	ycmd_globals.session = ne_session_create(ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port);
 	ne_set_read_timeout(ycmd_globals.session,1);
-
-	/*
-#ifdef DEBUG
-	fprintf(stderr, "Parent process checking server status...\n");
-#endif
-	if (ycmd_rsp_is_server_ready(1))
-	{
-#ifdef DEBUG
-		fprintf(stderr,"ycmd server is up.\n");
-#endif
-		ycmd_globals.running = 1;
-	}
-	else
-	{
-#ifdef DEBUG
-		fprintf(stderr,"ycmd server is down.\n");
-#endif
-		ycmd_stop_server();
-	}
-	*/
 
 #ifdef DEBUG
 	fprintf(stderr, "Parent process: checking if child PID is still alive...\n");
@@ -1650,6 +1673,44 @@ char *get_all_content(filestruct *fileage)
 	return buffer;
 }
 
+char *_ycmd_get_filetype(char *filepath, char *content)
+{
+	static char type[20];
+	type[0] = 0;
+	if (strstr(filepath,".cs"))
+		strcpy(type, "cs");
+	else if (strstr(filepath,".go"))
+		strcpy(type, "go");
+	else if (strstr(filepath,".rs"))
+		strcpy(type, "rust");
+	else if (strstr(filepath,".mm"))
+		strcpy(type, "objcpp");
+	else if (strstr(filepath,".m"))
+		strcpy(type, "objc");
+	else if (strstr(filepath,".cpp") || strstr(filepath,".C") || strstr(filepath,".cxx"))
+		strcpy(type, "cpp");
+	else if (strstr(filepath,".c"))
+		strcpy(type, "c");
+	else if (strstr(filepath,".hpp"))
+		strcpy(type, "cpp");
+	else if (strstr(filepath,".h"))
+	{
+		if (strstr(content, "using namespace") || strstr(content, "iostream") || strstr(content, "\tclass ") || strstr(content, " class ")
+			|| strstr(content, "private:") || strstr(content, "public:") || strstr(content, "protected:"))
+			strcpy(type, "cpp");
+		else
+			strcpy(type, "c");
+	}
+	else if (strstr(filepath,".js"))
+		strcpy(type, "javascript");
+	else if (strstr(filepath,".py"))
+		strcpy(type, "python");
+	else if (strstr(filepath,".ts"))
+		strcpy(type, "typescript");
+
+	return type;
+}
+
 void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, filestruct *fileage)
 {
 	if (!ycmd_globals.connected)
@@ -1660,7 +1721,12 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 #endif
 
 	char *content = get_all_content(fileage);
-	if (ycmd_globals.running)
+	char *ft = _ycmd_get_filetype(filepath, content);
+
+	//check server if it is compromised before sending sensitive source code
+	int ready = ycmd_rsp_is_server_ready(ft);
+
+	if (ycmd_globals.running && ready)
 	{
 		ycmd_gen_extra_conf(filepath, content);
 		ycmd_req_load_extra_conf_file(filepath);
@@ -1681,8 +1747,14 @@ void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, filest
 #endif
 
 	char *content = get_all_content(fileage);
-	if (ycmd_globals.running)
+	char *ft = _ycmd_get_filetype(filepath, content);
+
+	//check server if it is compromised before sending sensitive source code
+	int ready = ycmd_rsp_is_server_ready(ft);
+
+	if (ycmd_globals.running && ready)
 		ycmd_json_event_notification(columnnum, linenum, filepath, "BufferUnload", content);
+
 	free(content);
 }
 
@@ -1696,8 +1768,14 @@ void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, filestr
 #endif
 
 	char *content = get_all_content(fileage);
-	if (ycmd_globals.running)
+	char *ft = _ycmd_get_filetype(filepath, content);
+
+	//check server if it is compromised before sending sensitive source code
+	int ready = ycmd_rsp_is_server_ready(ft);
+
+	if (ycmd_globals.running && ready)
 		ycmd_json_event_notification(columnnum, linenum, filepath, "BufferVisit", content);
+
 	free(content);
 }
 
@@ -1711,8 +1789,14 @@ void ycmd_event_current_identifier_finished(int columnnum, int linenum, char *fi
 #endif
 
 	char *content = get_all_content(fileage);
-	if (ycmd_globals.running)
+	char *ft = _ycmd_get_filetype(filepath, content);
+
+	//check server if it is compromised before sending sensitive source code
+	int ready = ycmd_rsp_is_server_ready(ft);
+
+	if (ycmd_globals.running && ready)
 		ycmd_json_event_notification(columnnum, linenum, filepath, "CurrentIdentifierFinished", content);
+
 	free(content);
 }
 
