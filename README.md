@@ -16,7 +16,7 @@ You can use the following which have been tested:
 * 052b4866f3b24caeed877ae6f017f422d1443ed9 (recently tested)
 
 ####Dependencies
-* ycmd >= commits later than year 2015, with new hmac computation
+* ycmd >= commits later than April 17, 2015, with new hmac computation (https://github.com/Valloric/ycmd/commit/426833360adec8db72ed6cef9d7aa7f037e6a5b8)
 * >=jedi 0.10, for python support and for completer commands to work.
 * Either nettle, openssl, or "libgcrypt with glib" cryptographic library, to mitigate MITM attack between ycmd and nano text editor
 * neon, for http interprocess communication between nano editor and ycmd server
