@@ -64,16 +64,19 @@
 //todo add C/C++ with ycm-generator
 //notes: currently only works non C family languages
 
-char *ycmd_compute_request(char *method, char *path, char *body);
-void ycmd_stop_server();
-void ycmd_start_server();
-char *_ne_read_response_body_full(ne_request *request);
 void escape_json(char **buffer);
-void ycmd_generate_secret_raw(char *secret);
-char *ycmd_generate_secret_base64(char *secret);
-void ycmd_restart_server();
-char *_ycmd_get_filetype(char *filepath, char *content);
+char *get_all_content(filestruct *fileage);
+char *_ne_read_response_body_full(ne_request *request);
+char *ycmd_compute_request(char *method, char *path, char *body);
 char *ycmd_compute_response(char *response_body);
+void ycmd_start_server();
+void ycmd_stop_server();
+char *ycmd_generate_secret_base64(char *secret);
+void ycmd_generate_secret_raw(char *secret);
+char *_ycmd_get_filetype(char *filepath, char *content);
+int ycmd_rsp_is_server_ready(char *filetype);
+int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, char *content, char *completertarget, char *completercommand);
+void ycmd_restart_server();
 
 //A function signature to use.  Either it can come from an external library or object code.
 extern char* string_replace(const char* src, const char* find, const char* replace);
@@ -205,7 +208,8 @@ void ycmd_init()
 }
 
 //generates a compile_commands.json for clang completer
-void bear_generate(char *project_path)
+//returns 1 on success
+int bear_generate(char *project_path)
 {
 	char file_path[PATH_MAX];
 	char command[PATH_MAX*2];
@@ -239,6 +243,43 @@ void bear_generate(char *project_path)
 		}
 	}
 	blank_statusbar();
+	return ret == 0;
+}
+
+//generate json for ninja build system
+//returns 1 on success 0 on failure;
+int ninja_compdb_generate(char *project_path)
+{
+	//try ninja
+	char command[PATH_MAX*2];
+
+	snprintf(command, PATH_MAX*2, "find %s -maxdepth 1 -name \"*.ninja\" | egrep \"*\" > /dev/null", project_path);
+        int ret = system(command);
+
+	if (ret != 0)
+	{
+#ifdef DEBUG
+		fprintf(stderr,"No Ninja files found skipping.\n");
+#endif
+		return ret == 0;
+	}
+
+	snprintf(command,PATH_MAX*2, "cd %s; %s -b compdb", project_path, NINJA_PATH);
+	ret = system(command);
+	total_refresh();
+	if (ret == 0)
+	{
+#ifdef DEBUG
+		fprintf(stderr,"Ninja compdb generated compile_commands.json success.\n");
+#endif
+	}
+	else
+	{
+#ifdef DEBUG
+		fprintf(stderr,"Ninja compdb generated compile_commands.json failed.\n");
+#endif
+	}
+	return ret == 0;
 }
 
 //generates a .ycm_extra_conf.py for c family completer
@@ -285,7 +326,8 @@ void ycm_generate(char *filepath, char *content)
 	snprintf(path_extra_conf, PATH_MAX, "%s/.ycm_extra_conf.py", path_project);
 
 	//generate bear's json first because ycm-generator deletes the Makefiles
-	bear_generate(path_project);
+	if (!bear_generate(path_project))
+		ninja_compdb_generate(path_project); //handle ninja build system.
 
 	if (access(path_extra_conf, F_OK) == 0)
 	{
@@ -324,11 +366,11 @@ void ycm_generate(char *filepath, char *content)
 				sprintf(language, "objective-c++");
 			else if (strstr(filepath,".m"))
 				sprintf(language, "objective-c");
-			else if (strstr(filepath,".cpp") || strstr(filepath,".C") || strstr(filepath,".cxx"))
+			else if (strstr(filepath,".cpp") || strstr(filepath,".C") || strstr(filepath,".cxx") || strstr(filepath,".cc"))
 				sprintf(language, "c++");
 			else if (strstr(filepath,".c"))
 				sprintf(language, "c");
-			else if (strstr(filepath,".hpp"))
+			else if (strstr(filepath,".hpp") || strstr(filepath,".hh"))
 				sprintf(language, "c++");
 			else if (strstr(filepath,".h"))
 			{
@@ -431,7 +473,7 @@ void ycmd_gen_extra_conf(char *filepath, char *content)
 	char cwd[PATH_MAX];
 
 	getcwd(cwd, PATH_MAX);
-	sprintf(command, "find %s -name \"*.mm\" -o -name \"*.m\" -o -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.c\" -o -name \"*.hpp\" -o -name \"*.h\" | egrep \"*\" > /dev/null", cwd);
+	sprintf(command, "find %s -name \"*.mm\" -o -name \"*.m\" -o -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.c\" -o -name \"*.hpp\" -o -name \"*.h\" -o -name \"*.cc\" -o -name \"*.hh\" | egrep \"*\" > /dev/null", cwd);
 	int ret = system(command);
 
 	if (ret == 0)
@@ -577,7 +619,7 @@ char *_ne_read_response_body_full(ne_request *request)
 		else
 		{
 #ifdef DEBUG
-			fprintf(stderr, "Request is not success.  Discarding request. (2)\n");
+			fprintf(stderr, "Request is not success.  Discarding request.  Status code %d. (2)\n", ne_get_status(request)->klass);
 #endif
 			//ne_discard_response(request);
 			break;
@@ -703,6 +745,12 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 
 			//attacker could inject malicious code into source code here but the user would see it.
 			char *hmac_local = ycmd_compute_response(response_body);
+
+#ifdef DEBUG
+			fprintf(stderr,"hmac_local is %s\n",hmac_local);
+			fprintf(stderr,"hmac_remote is %s\n",hmac_remote);
+#endif
+
 			if (!ycmd_compare_hmac(hmac_remote, hmac_local))
 				goto compromised_exit;
 
@@ -774,6 +822,441 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 
 #ifdef DEBUG
 	fprintf(stderr, "Status code in ycmd_req_completions_suggestions is %d\n", status_code);
+#endif
+
+	return status_code == 200;
+}
+
+void _do_completer_command(char *completercommand)
+{
+#ifdef DEBUG
+	fprintf(stderr,"Entered _do_completer_command for %s.\n", completercommand);
+#endif
+	char *content = get_all_content(openfile->fileage);
+
+	//char *ft = _ycmd_get_filetype(openfile->filename, content);
+	char *ft = "filetype_default";
+
+	//check server if it is compromised before sending sensitive source code
+	int ready = ycmd_rsp_is_server_ready(ft);
+
+	if (ycmd_globals.running && ready)
+	{
+		ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand);
+	}
+
+	free(content);
+}
+
+void do_completer_command_gotoinclude(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gotoinclude\n");
+#endif
+	_do_completer_command("\"GoToInclude\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_gotodeclaration(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gotodeclaration\n");
+#endif
+	_do_completer_command("\"GoToDeclaration\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_gotodefinition(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gotodefinition\n");
+#endif
+	_do_completer_command("\"GoToDefinition\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_goto(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_goto\n");
+#endif
+	_do_completer_command("\"GoTo\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_gotoimprecise(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gotoimprecise\n");
+#endif
+	_do_completer_command("\"GoToImprecise\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_gotoreferences(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gotoreferences\n");
+#endif
+	_do_completer_command("\"GoToReferences\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_gotoimplementation(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gotoimplementation\n");
+#endif
+	_do_completer_command("\"GoToImplementation\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_gotoimplementationelsedeclaration(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gotoimplementationelsedeclaration\n");
+#endif
+	_do_completer_command("\"GoToImplementationElseDeclaration\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_fixit(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_fixit\n");
+#endif
+	_do_completer_command("\"FixIt\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_getdoc(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_getdoc\n");
+#endif
+	_do_completer_command("\"GetDoc\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_refactorename(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_refactorename\n");
+#endif
+	_do_completer_command("\"RefactorRename\""); //fixme needs additional arg and edit box widget
+	bottombars(MMAIN);
+}
+
+void do_completer_command_gettype(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gettype\n");
+#endif
+	_do_completer_command("\"GetType\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_gettypeimprecise(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gettypeimprecise\n");
+#endif
+	_do_completer_command("\"GetTypeImprecise\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_reloadsolution(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_reloadsolution\n");
+#endif
+	_do_completer_command("\"ReloadSolution\"");
+	bottombars(MMAIN);
+}
+
+void do_completer_command_restartserver(void)
+{
+	char *_completercommand = "[\"RestartServer','LANG\"]";
+	char *completercommand = strdup(_completercommand);
+
+	//code is expanded for performance and memory reasons
+
+	char *content = get_all_content(openfile->fileage);
+	//char *ft = _ycmd_get_filetype(openfile->filename, content);
+	char *ft = "filetype_default";
+	string_replace_w(&completercommand, "LANG", ft);
+
+	//check server if it is compromised before sending sensitive source code
+	int ready = ycmd_rsp_is_server_ready(ft);
+
+	if (ycmd_globals.running && ready)
+	{
+		ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand);
+	}
+
+	free(completercommand);
+
+	free(content);
+}
+
+void do_completer_command_gototype(void)
+{
+	_do_completer_command("\"GoToType\"");
+}
+
+void do_completer_command_clearcompliationflagcache(void)
+{
+	_do_completer_command("\"ClearCompilationFlagCache\"");
+}
+
+void do_completer_command_getparent(void)
+{
+	_do_completer_command("\"GetParent\"");
+}
+
+//Supported completer_command list: https://github.com/Valloric/YouCompleteMe
+
+//most require line_num and column_num to implicitly work
+
+//Goes to header
+//GoToInclude
+//c, cpp, objc, objcpp
+
+//Goes to declaration of symbol
+//GoToDeclaration
+//c, cpp, objc, objcpp, cs, go, python, rustx, go
+
+//Goes to the definition of the symbol
+//GoToDefinition
+//c, cpp, objc, objcpp, cs, go, javascript, python, rustx, typescript, go
+
+//Go to whatever is sensible. symbol definition first then declration as fallback.  goes to header in c family or implementation in csharp
+//GoTo
+//c, cpp, objc, objcpp, cs, go, javascript, python, rustx, go
+
+//Faster goto but without compile
+//GoToImprecise
+//c, cpp, objc, objcpp
+
+//Gets a list of references in the project
+//GoToReferences
+//javascript, python, typescript
+
+//Goes to implementation non-interface (abstract class
+//GoToImplementation
+//cs
+
+//Go to implementation else go to declaration
+//GoToImplementationElseDeclaration
+//cs
+
+//Applies trivial fixes to the problem
+//FixIt
+//c, cpp, objc, objcpp, cs
+
+//Shows documentation
+//GetDoc
+//c, cpp, objc, objcpp, cs, python, typescript, javascript, rust
+
+//Applies rename of identifier to multiple files
+//RefactorRename <newname>
+//javascript, typescript
+
+//Displays the type
+//GetType
+//javascript, typescript, cs, c, cpp, objc, objcpp
+
+//Faster version of GetType
+//GetTypeImprecise
+//c, cpp, objc, objcpp
+
+//Clear cache and reload all files
+//ReloadSolution
+//cs
+
+//no documentation
+//GoToType
+//typescript
+
+//Restarts the semantic engine.  For java you can specify the binary
+//RestartServer <lang>
+//python, typescript, javascript, go
+
+//no documentation
+//command_arguments
+//python
+
+//Clears and reloads the function FlagsForFile from .ycm_extra_conf.py file
+//ClearCompilationFlagCache
+//c, cpp, objc, objcpp
+
+//Applies to classes... basically gets the class of a method or an field
+//GetParent
+//c, cpp, objc, objcpp
+
+//more advanced completer sub commands per completer engine
+//completercommand expects a json array without dangling comma.  it should be one of the above GoTo{...}, FixIt, Get{...}, ....  Quotes also needs to be escaped so it would look like [\"FixIt\"].
+int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, char *content, char *completertarget, char *completercommand)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Entering ycmd_req_run_completer_command()\n");
+#endif
+
+	char *method = "POST";
+	char *path = "/run_completer_command";
+
+	//todo handle without string replace
+	char *_json = "{"
+		"        \"line_num\": LINE_NUM,"
+		"        \"column_num\": COLUMN_NUM,"
+		"        \"filepath\": \"FILEPATH\","
+		"        \"command_arguments\": [COMMAND_ARGUMENTS],"
+		"        \"completer_target\": \"COMPLETER_TARGET\","
+		"        \"file_data\": {"
+		"		\"FILEPATH\": {"
+		"                \"filetypes\": [\"FILETYPES\"],"
+		"                \"contents\": \"CONTENTS\""
+		"        	}"
+		"	 }"
+		"}";
+
+
+	char *json;
+	json = strdup(_json);
+
+	char line_num[DIGITS_MAX];
+	char column_num[DIGITS_MAX];
+
+	snprintf(line_num, DIGITS_MAX, "%d", linenum);
+	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
+
+	string_replace_w(&json, "LINE_NUM", line_num);
+	string_replace_w(&json, "COLUMN_NUM", column_num);
+	string_replace_w(&json, "COMPLETER_TARGET", completertarget);
+	string_replace_w(&json, "COMMAND_ARGUMENTS", completercommand);
+
+	_ycmd_json_replace_file_data(&json, filepath, content);
+
+#ifdef DEBUG
+	fprintf(stderr, "json body in ycmd_req_run_completer_command: %s\n", json);
+#endif
+
+	//struct subnfunc *func = allfuncs;
+
+	/*
+	while(func)
+	{
+		if (func && func->menus & MCODECOMPLETION)
+			break;
+		func = func->next;
+	}*/
+
+	int status_code = 0;
+	ne_request *request;
+	request = ne_request_create(ycmd_globals.session, method, path);
+	{
+		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
+		char *response_body = NULL;
+
+		ne_add_request_header(request,"content-type","application/json");
+		char *ycmd_b64_hmac = ycmd_compute_request(method, path, json);
+		ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, ycmd_b64_hmac);
+		ne_set_request_body_buffer(request, json, strlen(json));
+
+		//omt
+//		ne_request_dispatch(request);
+		status_code = ne_get_status(request)->code;
+
+		int ret = ne_begin_request(request);
+		if (ret >= 0)
+		{
+			response_body = _ne_read_response_body_full(request);
+			const char *hmac_remote = ne_get_response_header(request, HTTP_HEADER_YCM_HMAC);
+			ne_end_request(request);
+
+			//attacker could inject malicious code into source code here but the user would see it.
+			char *hmac_local = ycmd_compute_response(response_body);
+
+#ifdef DEBUG
+			fprintf(stderr,"hmac_local is %s\n",hmac_local);
+			fprintf(stderr,"hmac_remote is %s\n",hmac_remote);
+#endif
+
+#ifdef DEBUG
+			fprintf(stderr,"Server response for ycmd_req_run_completer_command: %s %d\n", response_body, strlen(response_body));
+#endif
+
+			if (!ycmd_compare_hmac(hmac_remote, hmac_local))
+				goto compromised_exit;
+
+		}
+
+		//output should look like:
+		//{"errors": [], "completion_start_column": 22, "completions": [{"insertion_text": "Wri", "extra_menu_info": "[ID]"}, {"insertion_text": "WriteLine", "extra_menu_info": "[ID]"}]}
+
+		//response_body should be a list, object, regular string
+
+/*
+		int found_cc_entry = 0;
+		if (response_body && strstr(response_body, "completion_start_column"))
+		{
+			const nx_json *pjson = nx_json_parse_utf8(response_body);
+
+			const nx_json *completions = nx_json_get(pjson, "completions");
+			int i = 0;
+			int j = 0;
+			int maxlist = MAIN_VISIBLE;
+#ifdef DEBUG
+			fprintf(stderr,"maxlist = %d, cols = %d\n", maxlist, COLS);
+#endif
+
+			for (i = 0; i < completions->length && j < maxlist && j < 26 && func; i++, j++) //26 for 26 letters A-Z
+			{
+				const nx_json *candidate = nx_json_item(completions, i);
+				const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
+				if (func->desc != NULL)
+					free((void *)func->desc);
+				func->desc = strdup(insertion_text->text_value);
+#ifdef DEBUG
+				fprintf(stderr,">Added completion entry to nano toolbar: %s\n", insertion_text->text_value);
+#endif
+				found_cc_entry = 1;
+				func = func->next;
+			}
+			for (i = j; i < maxlist && i < 26 && func; i++, func = func->next)
+			{
+				if (func->desc != NULL)
+					free((void *)func->desc);
+				func->desc = strdup("");
+#ifdef DEBUG
+				fprintf(stderr,">Deleting unused entry: %d\n", i);
+#endif
+			}
+			ycmd_globals.apply_column = nx_json_get(pjson, "completion_start_column")->int_value;
+
+			nx_json_free(pjson);
+		}
+
+		if (found_cc_entry)
+		{
+#ifdef DEBUG
+			fprintf(stderr,"Showing completion bar.\n");
+#endif
+			bottombars(MCODECOMPLETION);
+			statusline(HUSH, "Code completion triggered");
+		}
+		*/
+
+		compromised_exit:
+		if (response_body)
+			free(response_body);
+	}
+	ne_request_destroy(request);
+
+	free(json);
+
+#ifdef DEBUG
+	fprintf(stderr, "Status code in ycmd_req_run_completer_command is %d\n", status_code);
 #endif
 
 	return status_code == 200;
@@ -1189,7 +1672,11 @@ void ycmd_start_server()
 #endif
 
 		//after execl executes, the server will delete the tmpfile
-		execl(PYTHON_PATH, PYTHON_PATH, ycmd_path, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value, "--stdout", "/dev/null", "--stderr", "/dev/null", NULL);
+#ifdef DEBUG
+		execl(PYTHON_PATH, PYTHON_PATH, ycmd_path, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value, "--keep_logfiles", "--stdout", "/dev/null", "--stderr", "/tmp/ynano.txt", NULL);
+#else
+		execl(PYTHON_PATH, PYTHON_PATH, ycmd_path, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value, "--stdout", "/dev/null", "--stderr",  "/dev/null", NULL);
+#endif
 
 #ifdef DEBUG
 		fprintf(stderr, "Child process server exit on abnormal condition.  Exiting child process...\n");
@@ -1687,11 +2174,11 @@ char *_ycmd_get_filetype(char *filepath, char *content)
 		strcpy(type, "objcpp");
 	else if (strstr(filepath,".m"))
 		strcpy(type, "objc");
-	else if (strstr(filepath,".cpp") || strstr(filepath,".C") || strstr(filepath,".cxx"))
+	else if (strstr(filepath,".cpp") || strstr(filepath,".C") || strstr(filepath,".cxx") || strstr(filepath,".cc") )
 		strcpy(type, "cpp");
 	else if (strstr(filepath,".c"))
 		strcpy(type, "c");
-	else if (strstr(filepath,".hpp"))
+	else if (strstr(filepath,".hpp") || strstr(filepath,".hh") )
 		strcpy(type, "cpp");
 	else if (strstr(filepath,".h"))
 	{
@@ -1995,8 +2482,16 @@ void do_code_completion_z(void)
 
 void do_end_code_completion(void)
 {
-#ifdef DEBUG
-	fprintf(stderr, "Escaped pressed\n");
-#endif
 	bottombars(MMAIN);
 }
+
+void do_end_completer_commands(void)
+{
+	bottombars(MMAIN);
+}
+
+void do_completer_command_show(void)
+{
+	bottombars(MCOMPLETERCOMMANDS);
+}
+

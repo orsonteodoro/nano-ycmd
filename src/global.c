@@ -649,7 +649,8 @@ void shortcut_init(void)
 #endif /* !DISABLE_HELP */
 
 #ifdef ENABLE_YCMD
-    const char *nano_ycmd_msg = N_("Select code completer choice");
+    const char *nano_ycmd_choice_msg = N_("Select code completer choice");
+    const char *nano_ycmd_command_msg = N_("Select code completer command");
 #endif
 
 #ifndef DISABLE_HELP
@@ -1041,57 +1042,97 @@ void shortcut_init(void)
 
 #ifdef ENABLE_YCMD
     add_to_funcs(do_code_completion_a, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_b, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_c, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_d, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_e, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_f, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_g, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_h, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_i, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_j, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_k, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_l, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_m, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_n, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_o, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_p, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_q, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_r, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_s, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_t, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_u, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_v, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_w, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_x, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_y, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_code_completion_z, MCODECOMPLETION,
-	strdup(""), IFSCHELP(nano_ycmd_msg), TOGETHER, NOVIEW);
+	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
+
+    add_to_funcs(do_completer_command_gotoinclude, MCOMPLETERCOMMANDS,
+	N_("Go To Include"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gotodeclaration, MCOMPLETERCOMMANDS,
+	N_("Go To Declaration"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gotodefinition, MCOMPLETERCOMMANDS,
+	N_("Go To Definition"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_goto, MCOMPLETERCOMMANDS,
+	N_("Go To"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gotoimprecise, MCOMPLETERCOMMANDS,
+	N_("Go To (Fast)"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gotoreferences, MCOMPLETERCOMMANDS,
+	N_("Go To References"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gotoimplementation, MCOMPLETERCOMMANDS,
+	N_("Go To Implementation"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gotoimplementationelsedeclaration, MCOMPLETERCOMMANDS,
+	N_("Go To Implementation Else Declaration"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_fixit, MCOMPLETERCOMMANDS,
+	N_("Fix Trivial Problem"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_getdoc, MCOMPLETERCOMMANDS,
+	N_("Get Documentation"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_refactorename, MCOMPLETERCOMMANDS,
+	N_("Refactor Rename"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gettype, MCOMPLETERCOMMANDS,
+	N_("Get Type"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gettypeimprecise, MCOMPLETERCOMMANDS,
+	N_("Get Type (Fast)"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_reloadsolution, MCOMPLETERCOMMANDS,
+	N_("Reload Solution"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_restartserver, MCOMPLETERCOMMANDS,
+	N_("Restart Semantic Engine"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gototype, MCOMPLETERCOMMANDS,
+	N_("Go To Type"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_clearcompliationflagcache, MCOMPLETERCOMMANDS,
+	N_("Reload .ycm_extra_conf.py"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_getparent, MCOMPLETERCOMMANDS,
+	N_("Get Parent"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+
+    add_to_funcs(do_completer_command_show, MMAIN,
+	N_("Show Completer Commands"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
 
 #endif
 
@@ -1374,6 +1415,29 @@ void shortcut_init(void)
     add_to_sclist(MCODECOMPLETION, "^Z", 0, do_code_completion_z, 0);
 
     add_to_sclist(MCODECOMPLETION, "^Space", 0, do_end_code_completion, 0);
+
+    add_to_sclist(MCOMPLETERCOMMANDS, "^A", 0, do_completer_command_gotoinclude, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^B", 0, do_completer_command_gotodeclaration, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^C", 0, do_completer_command_gotodefinition, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^D", 0, do_completer_command_goto, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^E", 0, do_completer_command_gotoimprecise, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^F", 0, do_completer_command_gotoreferences, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^G", 0, do_completer_command_gotoimplementation, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^H", 0, do_completer_command_gotoimplementationelsedeclaration, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^I", 0, do_completer_command_fixit, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^J", 0, do_completer_command_getdoc, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^K", 0, do_completer_command_refactorename, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^L", 0, do_completer_command_gettype, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^M", 0, do_completer_command_gettypeimprecise, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^N", 0, do_completer_command_reloadsolution, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^O", 0, do_completer_command_restartserver, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^P", 0, do_completer_command_gototype, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^Q", 0, do_completer_command_clearcompliationflagcache, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^R", 0, do_completer_command_getparent, 0);
+
+    add_to_sclist(MCOMPLETERCOMMANDS, "^Space", 0, do_end_completer_commands, 0);
+
+    add_to_sclist(MMAIN, "M-`", 0, do_completer_command_show, 0);
 
 #endif
 
@@ -1775,6 +1839,8 @@ int strtomenu(const char *input)
 #ifdef ENABLE_YCMD
     else if (!strcasecmp(input, "codecompletion"))
 	return MCODECOMPLETION;
+    else if (!strcasecmp(input, "completercommands"))
+	return MCOMPLETERCOMMANDS;
 #endif
     return -1;
 }

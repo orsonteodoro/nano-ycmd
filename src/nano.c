@@ -2776,7 +2776,7 @@ int main(int argc, char **argv)
 	}
 
 #ifdef ENABLE_YCMD
-	if (currmenu != MMAIN && currmenu != MCODECOMPLETION)
+	if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS)
 #else
 	if (currmenu != MMAIN)
 #endif

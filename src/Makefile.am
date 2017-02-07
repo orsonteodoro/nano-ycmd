@@ -19,6 +19,10 @@ AM_CPPFLAGS += -DUSE_LIBGCRYPT
 LIBGCRYPT_LIBS = $(shell $(host)-libgcrypt-config --libs)
 endif
 
+if HAVE_NINJA
+AM_CPPFLAGS += -DNINJA_PATH=\"@NINJA_PATH@\"
+endif
+
 endif
 
 if HAVE_GOCODE

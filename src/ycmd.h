@@ -33,30 +33,6 @@
 #define DIGITS_MAX 11 //including null character
 #define IDLE_SUICIDE_SECONDS 10800 //3 HOURS
 
-//GoToInclude
-//c, cpp, objc, objcpp
-
-//GoToDeclaration
-//c, cpp, objc, objcpp, cs, go, python, rust
-
-//GoToDefinition
-//c, cpp, objc, objcpp, cs, go, javascript, python, rust, typescript
-
-//GoTo
-//c, cpp, objc, objcpp, cs, go, javascript, python, rust
-
-//GoToImprecise
-//c, cpp, objc, objcpp
-
-//GoToReferences
-//javascript, python, typescript
-
-//GoToImplementation
-//cs
-
-//GoToImplementationElseDeclaration
-//cs
-
 typedef struct _ycmd_globals {
 	char *scheme;
 	char *hostname;
@@ -112,4 +88,25 @@ extern void do_code_completion_y(void);
 extern void do_code_completion_z(void);
 extern void do_end_code_completion(void);
 
+extern void do_completer_command_gotoinclude(void);
+extern void do_completer_command_gotodeclaration(void);
+extern void do_completer_command_gotodefinition(void);
+extern void do_completer_command_goto(void);
+extern void do_completer_command_gotoimprecise(void);
+extern void do_completer_command_gotoreferences(void);
+extern void do_completer_command_gotoimplementation(void);
+extern void do_completer_command_gotoimplementationelsedeclaration(void);
+extern void do_completer_command_fixit(void);
+extern void do_completer_command_getdoc(void);
+extern void do_completer_command_refactorename(void);
+extern void do_completer_command_gettype(void);
+extern void do_completer_command_gettypeimprecise(void);
+extern void do_completer_command_reloadsolution(void);
+extern void do_completer_command_restartserver(void);
+extern void do_completer_command_gototype(void);
+extern void do_completer_command_clearcompliationflagcache(void);
+extern void do_completer_command_getparent(void);
+
+extern void do_completer_command_show(void);
+extern void do_end_completer_commands(void);
 #endif
