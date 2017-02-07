@@ -17,6 +17,7 @@ You can use the following which have been tested:
 
 ####Dependencies
 * ycmd >= commits later than year 2015, with new hmac computation
+* >=jedi 0.10, for python support and for completer commands to work.
 * Either nettle, openssl, or "libgcrypt with glib" cryptographic library, to mitigate MITM attack between ycmd and nano text editor
 * neon, for http interprocess communication between nano editor and ycmd server
 * YCM-Generator (https://github.com/rdnetto/YCM-Generator), for C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py
@@ -27,10 +28,15 @@ You can use the following which have been tested:
 * Bash >=4, for `&|` support
 * Unix, Linux, Cygwin for /dev/null and /dev/random support
 * NXJSON, for server response parsing (A Makefile patch applied to NXJSON package needs to be applied https://github.com/orsonteodoro/oiledmachine-overlay/blob/master/dev-libs/nxjson/files/nxjson-9999.20141019-create-libs.patch so that it is a shared library)
+* compdb (https://github.com/Sarcasm/compdb) and Ninja, for Ninja build system support.
 
 ####My distribution doesn't have the required dependencies
 
 You can look at my gentoo package overlay https://github.com/orsonteodoro/oiledmachine-overlay to see how to properly compile them or you can research them to build packages for your distribution.
+
+####Why does the completer command "Get Documentation" not work for c-sharp?
+
+Your distribution has not packaged the xml files properly.  Compile nano-ycmd in debug mode and inspect the logs (ynano.txt, jedihttp_*.log, omnisharp_*.log) in the /tmp folder to see which xml documentation files are required.
 
 ####Why use ycmd backend over the builtin WORDCOMPLETION?
 
