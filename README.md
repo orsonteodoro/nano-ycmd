@@ -89,8 +89,13 @@ Just type and press CTRL-LETTER.  Use CTRL-X to exit the code completion selecti
 ####What languages supported?
 python, javascript*, typescript, rust, go, C*, C++*, Objective-C*, Objective-C++*, C#*
 
+
+Working with some of these languages require additional requirements:
+
 *Javascript support requires a .tern-project project file to work.
+
 *C# support requires a .solution project file to work.
+
 *C, C++, Objective-C, Objective-C++ requires a *.pro, CMakeList.txt, GNUmakefile, Makefile, makefile, *.ninja file to work.
 
 ####Why is my intellisense not working with my C#?
