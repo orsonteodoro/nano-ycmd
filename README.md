@@ -214,7 +214,7 @@ marchelzo and twkm from freenode ##C channel for the clear excess stdin fix.
 Also see --version or https://github.com/orsonteodoro/nano-ycmd/blob/052b4866f3b24caeed877ae6f017f422d1443ed9/src/nano.c#L929 for other credits
 
 ####How do I add changes?
-1. Click fork to create a repository on your account
+1. Click fork at the top of this page to create a repository on your account
 2. git clone https://github.com/orsonteodoro/nano-ycmd.git
 3. cd into folder
 4. git checkout -b myfeaturename
