@@ -64,8 +64,22 @@
 //todo add C/C++ with ycm-generator
 //notes: currently only works non C family languages
 
+typedef struct completer_command_results
+{
+	int usable;
+	char message[4096]; //1 memory page size arbitrary
+	int line_num;
+	int column_num;
+	char filepath[PATH_MAX];
+	char json_blob[4096]; //1 memory page size arbitrary
+	char detailed_info[4096]; //1 memory page size
+	int status_code;
+} COMPLETER_COMMAND_RESULTS;
+
 void escape_json(char **buffer);
 char *get_all_content(filestruct *fileage);
+void get_extra_conf_path(char *path_project, char *path_extra_conf);
+void get_project_path(char *path_project);
 char *_ne_read_response_body_full(ne_request *request);
 char *ycmd_compute_request(char *method, char *path, char *body);
 char *ycmd_compute_response(char *response_body);
@@ -75,8 +89,11 @@ char *ycmd_generate_secret_base64(char *secret);
 void ycmd_generate_secret_raw(char *secret);
 char *_ycmd_get_filetype(char *filepath, char *content);
 int ycmd_rsp_is_server_ready(char *filetype);
-int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, char *content, char *completertarget, char *completercommand);
+void ycmd_req_load_extra_conf_file(char *filepath);
+void ycmd_req_ignore_extra_conf_file(char *filepath);
+int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, char *content, char *completertarget, char *completercommand, COMPLETER_COMMAND_RESULTS *ccr);
 void ycmd_restart_server();
+
 
 //A function signature to use.  Either it can come from an external library or object code.
 extern char* string_replace(const char* src, const char* find, const char* replace);
@@ -282,15 +299,8 @@ int ninja_compdb_generate(char *project_path)
 	return ret == 0;
 }
 
-//generates a .ycm_extra_conf.py for c family completer
-//language must be: c, c++, objective-c, objective-c++
-void ycm_generate(char *filepath, char *content)
+void get_project_path(char *path_project)
 {
-	char path_project[PATH_MAX];
-	char path_extra_conf[PATH_MAX];
-	char command[PATH_MAX*2];
-	char flags[PATH_MAX];
-
 	char *ycmg_project_path = getenv("YCMG_PROJECT_PATH");
 	if (ycmg_project_path && strcmp(ycmg_project_path, "(null)") != 0)
 	{
@@ -306,6 +316,24 @@ void ycm_generate(char *filepath, char *content)
 #endif
 		getcwd(path_project, PATH_MAX);
 	}
+}
+
+//precondition: path_project must be populated first from get_project_path()
+void get_extra_conf_path(char *path_project, char *path_extra_conf)
+{
+	snprintf(path_extra_conf, PATH_MAX, "%s/.ycm_extra_conf.py", path_project);
+}
+
+//generates a .ycm_extra_conf.py for c family completer
+//language must be: c, c++, objective-c, objective-c++
+void ycm_generate(char *filepath, char *content)
+{
+	char path_project[PATH_MAX];
+	char path_extra_conf[PATH_MAX];
+	char command[PATH_MAX*2];
+	char flags[PATH_MAX];
+
+	get_project_path(path_project);
 
 	char *ycmg_flags = getenv("YCMG_FLAGS");
 	if (!ycmg_flags || strcmp(ycmg_flags,"(null)") == 0)
@@ -323,7 +351,7 @@ void ycm_generate(char *filepath, char *content)
 		snprintf(flags, PATH_MAX, "%s",ycmg_flags);
 	}
 
-	snprintf(path_extra_conf, PATH_MAX, "%s/.ycm_extra_conf.py", path_project);
+	get_extra_conf_path(path_project, path_extra_conf);
 
 	//generate bear's json first because ycm-generator deletes the Makefiles
 	if (!bear_generate(path_project))
@@ -382,9 +410,10 @@ void ycm_generate(char *filepath, char *content)
 			}
 
 			//inject clang includes to find stdio.h and others
+			//caching disabled because of problems
 			snprintf(command, PATH_MAX*2,
 				"V=$(echo | clang -v -E -x %s - |& sed  -r  -e ':a' -e 'N' -e '$!ba' -e \"s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g\" -e \"s|[ \\n]+|\',\'|g\");"
-				"sed -i -e \"s|'-x'|'$V','-x'|g\" \"%s\"",
+				"sed -i -e \"s|'do_cache': True|'do_cache': False|g\" -e \"s|'-x'|'$V','-x'|g\" \"%s\"",
 				language, path_extra_conf);
 #ifdef DEBUG
 			fprintf(stderr, command);
@@ -751,7 +780,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 			fprintf(stderr,"hmac_remote is %s\n",hmac_remote);
 #endif
 
-			if (!ycmd_compare_hmac(hmac_remote, hmac_local))
+			if (!hmac_local || !hmac_remote || !ycmd_compare_hmac(hmac_remote, hmac_local))
 				goto compromised_exit;
 
 #ifdef DEBUG
@@ -827,7 +856,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	return status_code == 200;
 }
 
-void _do_completer_command(char *completercommand)
+void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *ccr)
 {
 #ifdef DEBUG
 	fprintf(stderr,"Entered _do_completer_command for %s.\n", completercommand);
@@ -842,10 +871,105 @@ void _do_completer_command(char *completercommand)
 
 	if (ycmd_globals.running && ready)
 	{
-		ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand);
+		char path_project[PATH_MAX];
+		char path_extra_conf[PATH_MAX];
+
+		//loading required by the c family languages
+		ycmd_gen_extra_conf(openfile->filename, content);
+		get_project_path(path_project);
+		get_extra_conf_path(path_project, path_extra_conf);
+		ycmd_req_load_extra_conf_file(path_extra_conf);
+
+		int ret = ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand, ccr);
+		if (ret == 0)
+		{
+#ifdef DEBUG
+			statusline(HUSH, "Completer command failed.");
+#endif
+		}
+		else
+		{
+#ifdef DEBUG
+			statusline(HUSH, "Completer command success.");
+#endif
+		}
+
+		ycmd_req_ignore_extra_conf_file(path_extra_conf);
 	}
 
 	free(content);
+}
+
+void _parse_ccr_from_json_blob(COMPLETER_COMMAND_RESULTS *ccr)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Entered _parse_ccr_from_json_blob\n");
+#endif
+	if (!ccr->usable || ccr->status_code != 200)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "json blob not usable\n");
+#endif
+		return;
+	}
+
+	const nx_json *json = nx_json_parse_utf8(ccr->json_blob);
+
+	if (json && ccr->usable)
+	{
+		const nx_json *n = nx_json_get(json, "message");
+		if ( n->type != NX_JSON_NULL )
+			strncpy(ccr->message, n->text_value, 4096);
+
+		n = nx_json_get(json, "filepath");
+		if ( n->type != NX_JSON_NULL )
+			strncpy(ccr->filepath, n->text_value, PATH_MAX);
+
+		n = nx_json_get(json, "line_num");
+		if ( n->type != NX_JSON_NULL )
+			ccr->line_num = n->int_value;
+
+		n = nx_json_get(json, "column_num");
+		if ( n->type != NX_JSON_NULL )
+			ccr->column_num = n->int_value;
+
+		n = nx_json_get(json, "detailed_info");
+		if ( n->type != NX_JSON_NULL )
+			strncpy(ccr->detailed_info, n->text_value, 4096);
+
+		nx_json_free(json);
+	}
+}
+
+//1 on success, 0 on failure
+void _do_goto(COMPLETER_COMMAND_RESULTS *ccr)
+{
+#ifdef DEBUG
+	fprintf(stderr, "_do_goto names: ccr->filepath:%s  openfile->filename:%s\n", ccr->filepath, openfile->filename);
+#endif
+
+	if (strstr(ccr->filepath, openfile->filename))
+	{
+#ifdef DEBUG
+		fprintf(stderr, "using same buffer: %s line_num:%d column_num:%d\n", ccr->filepath, ccr->line_num, ccr->column_num);
+#endif
+		do_gotolinecolumn(ccr->line_num, ccr->column_num, 0, 0);
+	}
+	else
+	{
+#ifdef DEBUG
+		fprintf(stderr, "opening new buffer: %s line_num:%d column_num:%d\n", ccr->filepath, ccr->line_num, ccr->column_num);
+#endif
+#ifndef DISABLE_MULTIBUFFER
+		SET(MULTIBUFFER);
+#else
+		//todo non multibuffer
+#endif
+		open_buffer(ccr->filepath, FALSE);
+		display_buffer();
+		do_gotolinecolumn(ccr->line_num, ccr->column_num, 0, 0);
+	}
+	refresh_needed = TRUE;
 }
 
 void do_completer_command_gotoinclude(void)
@@ -853,7 +977,19 @@ void do_completer_command_gotoinclude(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_gotoinclude\n");
 #endif
-	_do_completer_command("\"GoToInclude\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GoToInclude\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	_do_goto(&ccr);
+
 	bottombars(MMAIN);
 }
 
@@ -862,7 +998,19 @@ void do_completer_command_gotodeclaration(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_gotodeclaration\n");
 #endif
-	_do_completer_command("\"GoToDeclaration\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GoToDeclaration\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	_do_goto(&ccr);
+
 	bottombars(MMAIN);
 }
 
@@ -871,7 +1019,19 @@ void do_completer_command_gotodefinition(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_gotodefinition\n");
 #endif
-	_do_completer_command("\"GoToDefinition\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GoToDefinition\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	_do_goto(&ccr);
+
 	bottombars(MMAIN);
 }
 
@@ -880,7 +1040,44 @@ void do_completer_command_goto(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_goto\n");
 #endif
-	_do_completer_command("\"GoTo\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GoTo\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+	char display_text[80]; //should be number of columns
+	display_text[0] = 0;
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	//todo
+	//_do_goto(&ccr);
+	//[{"description": "Builtin instance BaseNewStr"}, {"description": "Builtin instance str"}, {"description": "Builtin instance NoneType"}, {"description": "Builtin instance unicode"}]
+
+
+	const nx_json *json = nx_json_parse_utf8(ccr.json_blob);
+
+	if (json)
+	{
+		const nx_json *a = json;
+		int i;
+
+		for (i=0; i < a->length; i++)
+		{
+			const nx_json *item = nx_json_item(a, i);
+			const char *description = nx_json_get(item, "description")->text_value;
+			//todo populate hotkeys with object
+			snprintf(display_text, 80, "%s, %s", display_text, description);
+		}
+
+		nx_json_free(json);
+	}
+
+	statusline(HUSH, display_text);
+
 	bottombars(MMAIN);
 }
 
@@ -889,7 +1086,19 @@ void do_completer_command_gotoimprecise(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_gotoimprecise\n");
 #endif
-	_do_completer_command("\"GoToImprecise\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GoToImprecise\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	_do_goto(&ccr);
+
 	bottombars(MMAIN);
 }
 
@@ -898,7 +1107,41 @@ void do_completer_command_gotoreferences(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_gotoreferences\n");
 #endif
-	_do_completer_command("\"GoToReferences\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GoToReferences\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	//todo
+	//json array
+	//[{"description": "return _SolutionTestCheckHeuristics( candidates, tokens, i )", "filepath": "/usr/lib64/python3.4/site-packages/ycmd/completers/cs/solutiondetection.py", "column_num": 14, "line_num": 92}, {"description": "def _SolutionTestCheckHeuristics", "filepath": "/usr/lib64/python3.4/site-packages/ycmd/completers/cs/solutiondetection.py", "column_num": 5, "line_num": 96}] 
+
+	const nx_json *json = nx_json_parse_utf8(ccr.json_blob);
+
+	if (json)
+	{
+		const nx_json *a = json;
+		int i;
+
+		for (i=0; i < a->length; i++)
+		{
+			const nx_json *item = nx_json_item(a, i);
+			const char *description = nx_json_get(item, "description")->text_value;
+			const char *filepath = nx_json_get(item, "filepath")->text_value;
+			int column_num = nx_json_get(item, "column_num")->int_value;
+			int line_num = nx_json_get(item, "line_num")->int_value;
+			//todo populate hotkeys with object
+		}
+
+		nx_json_free(json);
+	}
+
 	bottombars(MMAIN);
 }
 
@@ -907,7 +1150,20 @@ void do_completer_command_gotoimplementation(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_gotoimplementation\n");
 #endif
-	_do_completer_command("\"GoToImplementation\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GoToImplementation\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	//{"filepath": "/var/tmp/portage/dev-dotnet/omnisharp-roslyn-9999.20170128/work/omnisharp-roslyn-b24c48f939dc3467514187184ff439f864ec6ad9/src/OmniSharp.DotNet/DotNetProjectSystem.cs", "column_num": 9, "line_num": 27}
+	_do_goto(&ccr);
+
 	bottombars(MMAIN);
 }
 
@@ -916,7 +1172,19 @@ void do_completer_command_gotoimplementationelsedeclaration(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_gotoimplementationelsedeclaration\n");
 #endif
-	_do_completer_command("\"GoToImplementationElseDeclaration\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GoToImplementationElseDeclaration\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	//todo
+
 	bottombars(MMAIN);
 }
 
@@ -925,7 +1193,42 @@ void do_completer_command_fixit(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_fixit\n");
 #endif
-	_do_completer_command("\"FixIt\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"FixIt\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	//todo
+	//{"fixits": [{"chunks": [], "text": "", "location": {"filepath": "/var/tmp/portage/dev-dotnet/omnisharp-roslyn-9999.20170128/work/omnisharp-roslyn-b24c48f939dc3467514187184ff439f864ec6ad9/src/OmniSharp.DotNet/DotNetProjectSystem.cs", "column_num": 39, "line_num": 117}}]}
+
+	const nx_json *json = nx_json_parse_utf8(ccr.json_blob);
+
+	if (json)
+	{
+		const nx_json *a = nx_json_get(json, "fixits");
+		int i;
+
+		for (i=0; i < a->length; i++)
+		{
+			const nx_json *item = nx_json_item(a, i);
+			const nx_json *a_chunks = nx_json_get(item, "chunks");
+			const char *text = nx_json_get(item, "text")->text_value;
+			const nx_json *location = nx_json_get(item, "location");
+			const char *filepath = nx_json_get(location, "filepath")->text_value;
+			int column_num = nx_json_get(location, "column_num")->int_value;
+			int line_num = nx_json_get(location, "line_num")->int_value;
+			//todo populate hotkeys list
+		}
+
+		nx_json_free(json);
+	}
+
 	bottombars(MMAIN);
 }
 
@@ -934,8 +1237,46 @@ void do_completer_command_getdoc(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_getdoc\n");
 #endif
-	_do_completer_command("\"GetDoc\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GetDoc\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+#ifdef DEBUG
+	fprintf(stderr, "Dump to buffer:\n%s\n", ccr.detailed_info);
+#endif
+
+	char doc_filename[PATH_MAX];
+	strcpy(doc_filename,"/tmp/nanoXXXXXX");
+	int fdtemp = mkstemp(doc_filename);
+#ifdef DEBUG
+	fprintf(stderr, "tempname is %s\n", doc_filename);
+#endif
+	FILE *f = fdopen(fdtemp,"w+");
+	fprintf(f, "%s", ccr.detailed_info);
+	fclose(f);
+
+#ifndef DISABLE_MULTIBUFFER
+	SET(MULTIBUFFER);
+#else
+	//todo non multibuffer
+#endif
+
+	//do_output doesn't handle \n properly and displays it as ^@ so we do it this way
+	open_buffer(doc_filename, FALSE);
+	display_buffer();
+
+	unlink(doc_filename);
+
 	bottombars(MMAIN);
+
+	refresh_needed = TRUE;
 }
 
 void do_completer_command_refactorename(void)
@@ -943,7 +1284,19 @@ void do_completer_command_refactorename(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_refactorename\n");
 #endif
-	_do_completer_command("\"RefactorRename\""); //fixme needs additional arg and edit box widget
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"RefactorRename\"", &ccr); //fixme needs additional arg and edit box widget
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	//todo
+
 	bottombars(MMAIN);
 }
 
@@ -952,7 +1305,19 @@ void do_completer_command_gettype(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_gettype\n");
 #endif
-	_do_completer_command("\"GetType\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GetType\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	statusline(HUSH, ccr.message);
+
 	bottombars(MMAIN);
 }
 
@@ -961,7 +1326,19 @@ void do_completer_command_gettypeimprecise(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_gettypeimprecise\n");
 #endif
-	_do_completer_command("\"GetTypeImprecise\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GetTypeImprecise\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	statusline(HUSH, ccr.message);
+
 	bottombars(MMAIN);
 }
 
@@ -970,12 +1347,28 @@ void do_completer_command_reloadsolution(void)
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_reloadsolution\n");
 #endif
-	_do_completer_command("\"ReloadSolution\"");
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"ReloadSolution\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	if (ccr.status_code == 200)
+		statusline(HUSH, "Reloaded solution.");
+
 	bottombars(MMAIN);
 }
 
 void do_completer_command_restartserver(void)
 {
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_restartserver\n");
+#endif
 	char *_completercommand = "[\"RestartServer','LANG\"]";
 	char *completercommand = strdup(_completercommand);
 
@@ -991,28 +1384,154 @@ void do_completer_command_restartserver(void)
 
 	if (ycmd_globals.running && ready)
 	{
-		ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand);
+		char path_project[PATH_MAX];
+		char path_extra_conf[PATH_MAX];
+
+		//loading required by the c family languages
+		ycmd_gen_extra_conf(openfile->filename, content);
+		get_project_path(path_project);
+		get_extra_conf_path(path_project, path_extra_conf);
+		ycmd_req_load_extra_conf_file(path_extra_conf);
+
+		COMPLETER_COMMAND_RESULTS ccr;
+		ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand, &ccr);
+
+		ycmd_req_ignore_extra_conf_file(path_extra_conf);
+
+		_parse_ccr_from_json_blob(&ccr);
+
+		if (!ccr.usable || ccr.status_code != 200)
+		{
+			statusline(HUSH, "Reloaded fail.");
+			bottombars(MMAIN);
+			return;
+		}
+
+		if (ccr.status_code == 200)
+			statusline(HUSH, "Restarted solution.");
 	}
 
 	free(completercommand);
 
 	free(content);
+
+	bottombars(MMAIN);
 }
 
 void do_completer_command_gototype(void)
 {
-	_do_completer_command("\"GoToType\"");
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gototype\n");
+#endif
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GoToType\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	_do_goto(&ccr);
+
+	bottombars(MMAIN);
 }
 
 void do_completer_command_clearcompliationflagcache(void)
 {
-	_do_completer_command("\"ClearCompilationFlagCache\"");
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_clearcompliationflagcache\n");
+#endif
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"ClearCompilationFlagCache\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	if (ccr.status_code == 200)
+		statusline(HUSH, "Clear compliation flag cached performed.");
+
+	bottombars(MMAIN);
 }
 
 void do_completer_command_getparent(void)
 {
-	_do_completer_command("\"GetParent\"");
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_getparent\n");
+#endif
+	COMPLETER_COMMAND_RESULTS ccr;
+	_do_completer_command("\"GetParent\"", &ccr);
+	_parse_ccr_from_json_blob(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+		bottombars(MMAIN);
+		return;
+	}
+
+	statusline(HUSH, ccr.message);
+
+	bottombars(MMAIN);
 }
+
+/*
+JSON structure sample for each completer command not mentioned by the official docs:
+
+GetParent (c lang)
+{"message": "ycmd_init()"}
+
+ClearCompilationFlagCache (c lang)
+null
+
+GetTypeImprecise (c lang)
+{"message": "unsigned long (const char *)"}
+
+GetType (c lang)
+{"message": "char [8192]"}
+
+FixIt (cs)
+{"fixits": [{"chunks": [], "text": "", "location": {"filepath": "/var/tmp/portage/dev-dotnet/omnisharp-roslyn-9999.20170128/work/omnisharp-roslyn-b24c48f939dc3467514187184ff439f864ec6ad9/src/OmniSharp.DotNet/DotNetProjectSystem.cs", "column_num": 39, "line_num": 117}}]}
+
+GoToImprecise (c lang)
+{"filepath": "/usr/include/string.h", "column_num": 15, "line_num": 394}
+
+GoToInclude (c lang)
+{"filepath": "/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/proto.h", "column_num": 1, "line_num": 1}
+
+GoToDeclaration (c lang)
+{"filepath": "/usr/include/string.h", "column_num": 15, "line_num": 394}
+
+GoToDeclaration (python)
+{"filepath": "/usr/lib64/python3.4/site-packages/ycmd/completers/cs/solutiondetection.py", "column_num": 5, "line_num": 96}
+
+GoToDefinition (python)
+{"filepath": "/usr/lib64/python3.4/site-packages/ycmd/completers/cs/solutiondetection.py", "column_num": 5, "line_num": 96}
+
+GoToImplementation (cs)
+{"filepath": "/var/tmp/portage/dev-dotnet/omnisharp-roslyn-9999.20170128/work/omnisharp-roslyn-b24c48f939dc3467514187184ff439f864ec6ad9/src/OmniSharp.DotNet/DotNetProjectSystem.cs", "column_num": 9, "line_num": 27}
+
+GoTo (python)
+[{"description": "Builtin instance BaseNewStr"}, {"description": "Builtin instance str"}, {"description": "Builtin instance NoneType"}, {"description": "Builtin instance unicode"}]
+
+GetDoc (python)
+{"detailed_info": "\n---\n\n---\n\n---\n"}
+
+GetDoc (C#)
+{"detailed_info": "static void Thread.Sleep(int millisecondsTimeout);"}
+
+
+GoToReferences (python)
+[{"description": "return _SolutionTestCheckHeuristics( candidates, tokens, i )", "filepath": "/usr/lib64/python3.4/site-packages/ycmd/completers/cs/solutiondetection.py", "column_num": 14, "line_num": 92}, {"description": "def _SolutionTestCheckHeuristics", "filepath": "/usr/lib64/python3.4/site-packages/ycmd/completers/cs/solutiondetection.py", "column_num": 5, "line_num": 96}] 
+
+*/
 
 //Supported completer_command list: https://github.com/Valloric/YouCompleteMe
 
@@ -1096,7 +1615,9 @@ void do_completer_command_getparent(void)
 
 //more advanced completer sub commands per completer engine
 //completercommand expects a json array without dangling comma.  it should be one of the above GoTo{...}, FixIt, Get{...}, ....  Quotes also needs to be escaped so it would look like [\"FixIt\"].
-int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, char *content, char *completertarget, char *completercommand)
+
+
+int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, char *content, char *completertarget, char *completercommand, COMPLETER_COMMAND_RESULTS *ccr)
 {
 #ifdef DEBUG
 	fprintf(stderr, "Entering ycmd_req_run_completer_command()\n");
@@ -1141,16 +1662,6 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, c
 	fprintf(stderr, "json body in ycmd_req_run_completer_command: %s\n", json);
 #endif
 
-	//struct subnfunc *func = allfuncs;
-
-	/*
-	while(func)
-	{
-		if (func && func->menus & MCODECOMPLETION)
-			break;
-		func = func->next;
-	}*/
-
 	int status_code = 0;
 	ne_request *request;
 	request = ne_request_create(ycmd_globals.session, method, path);
@@ -1163,14 +1674,14 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, c
 		ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, ycmd_b64_hmac);
 		ne_set_request_body_buffer(request, json, strlen(json));
 
-		//omt
-//		ne_request_dispatch(request);
-		status_code = ne_get_status(request)->code;
-
 		int ret = ne_begin_request(request);
+		status_code = ne_get_status(request)->code;
+		memset(ccr, 0, sizeof(COMPLETER_COMMAND_RESULTS));
+		ccr->status_code = status_code; //sometimes the subservers will throw exceptions so capture that
 		if (ret >= 0)
 		{
 			response_body = _ne_read_response_body_full(request);
+
 			const char *hmac_remote = ne_get_response_header(request, HTTP_HEADER_YCM_HMAC);
 			ne_end_request(request);
 
@@ -1183,69 +1694,25 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, c
 #endif
 
 #ifdef DEBUG
-			fprintf(stderr,"Server response for ycmd_req_run_completer_command: %s %d\n", response_body, strlen(response_body));
+			fprintf(stderr,"Server response for ycmd_req_run_completer_command: %s %zd\n", response_body, strlen(response_body));
 #endif
 
-			if (!ycmd_compare_hmac(hmac_remote, hmac_local))
+
+			if (!hmac_local || !hmac_remote || !ycmd_compare_hmac(hmac_remote, hmac_local))
 				goto compromised_exit;
 
+			strncpy(ccr->json_blob, response_body, strlen(response_body));
+#ifdef DEBUG
+			fprintf(stderr,"Setting usable COMPLETER_COMMAND_RESULTS flag\n");
+#endif
+			ccr->usable = 1;
 		}
-
-		//output should look like:
-		//{"errors": [], "completion_start_column": 22, "completions": [{"insertion_text": "Wri", "extra_menu_info": "[ID]"}, {"insertion_text": "WriteLine", "extra_menu_info": "[ID]"}]}
-
-		//response_body should be a list, object, regular string
-
-/*
-		int found_cc_entry = 0;
-		if (response_body && strstr(response_body, "completion_start_column"))
-		{
-			const nx_json *pjson = nx_json_parse_utf8(response_body);
-
-			const nx_json *completions = nx_json_get(pjson, "completions");
-			int i = 0;
-			int j = 0;
-			int maxlist = MAIN_VISIBLE;
-#ifdef DEBUG
-			fprintf(stderr,"maxlist = %d, cols = %d\n", maxlist, COLS);
-#endif
-
-			for (i = 0; i < completions->length && j < maxlist && j < 26 && func; i++, j++) //26 for 26 letters A-Z
-			{
-				const nx_json *candidate = nx_json_item(completions, i);
-				const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
-				if (func->desc != NULL)
-					free((void *)func->desc);
-				func->desc = strdup(insertion_text->text_value);
-#ifdef DEBUG
-				fprintf(stderr,">Added completion entry to nano toolbar: %s\n", insertion_text->text_value);
-#endif
-				found_cc_entry = 1;
-				func = func->next;
-			}
-			for (i = j; i < maxlist && i < 26 && func; i++, func = func->next)
-			{
-				if (func->desc != NULL)
-					free((void *)func->desc);
-				func->desc = strdup("");
-#ifdef DEBUG
-				fprintf(stderr,">Deleting unused entry: %d\n", i);
-#endif
-			}
-			ycmd_globals.apply_column = nx_json_get(pjson, "completion_start_column")->int_value;
-
-			nx_json_free(pjson);
-		}
-
-		if (found_cc_entry)
+		else
 		{
 #ifdef DEBUG
-			fprintf(stderr,"Showing completion bar.\n");
+			fprintf(stderr,"ne_begin_request was negative\n");
 #endif
-			bottombars(MCODECOMPLETION);
-			statusline(HUSH, "Code completion triggered");
 		}
-		*/
 
 		compromised_exit:
 		if (response_body)
@@ -1858,7 +2325,7 @@ char *ycmd_generate_secret_base64(char *secret)
 	//todo secure memory
 	static char b64_secret[80];
         gchar *_b64_secret = g_base64_encode((unsigned char *)secret, SECRET_KEY_LENGTH);
-	strcpy(b64_secret, _b64_secret);
+	strncpy(b64_secret, _b64_secret, 80);
 	free (_b64_secret);
 #else
 #error "You need to define a crypto library to use."
@@ -1953,7 +2420,7 @@ char *ycmd_compute_request(char *method, char *path, char *body)
 	//todo secure memory
 	static char b64_request[80];
         gchar *_b64_request = g_base64_encode((unsigned char *)digest_join, HMAC_SIZE);
-	strcpy(b64_request, _b64_request);
+	strncpy(b64_request, _b64_request, 80);
 	free (_b64_request);
 #else
 #error "You need to define a crypto library to use."
@@ -2013,7 +2480,7 @@ char *ycmd_compute_response(char *response_body)
 	//todo secure memory
 	static char b64_response[80];
         gchar *_b64_response = g_base64_encode((unsigned char *)response_digest, HMAC_SIZE);
-	strcpy(b64_response, _b64_response);
+	strncpy(b64_response, _b64_response, 80);
 	free (_b64_response);
 #else
 #error "You need to define a crypto library to use."
@@ -2215,11 +2682,16 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 
 	if (ycmd_globals.running && ready)
 	{
+		char path_project[PATH_MAX];
+		char path_extra_conf[PATH_MAX];
+
 		ycmd_gen_extra_conf(filepath, content);
-		ycmd_req_load_extra_conf_file(filepath);
+		get_project_path(path_project);
+		get_extra_conf_path(path_project, path_extra_conf);
+		ycmd_req_load_extra_conf_file(path_extra_conf);
 		ycmd_json_event_notification(columnnum, linenum, filepath, "FileReadyToParse", content);
 		ycmd_req_completions_suggestions(linenum, columnnum, filepath, content, "filetype_default");
-		ycmd_req_ignore_extra_conf_file(filepath);
+		ycmd_req_ignore_extra_conf_file(path_extra_conf);
 	}
 	free(content);
 }
