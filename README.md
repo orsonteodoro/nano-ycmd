@@ -78,8 +78,6 @@ No | Yes | Yes | GoToType | Goes to a type
 No | Yes | Yes | ClearCompilationFlagCache | Clears and updates FlagsForFile from .ycm_extra_conf.py
 No | Yes | Yes | GetParent | Gets parent class or method
 
-
-
 ####Why use ycmd backend over the builtin WORDCOMPLETION?
 
 ycmd allows to you use IntelliSense for C# sources using omnisharp-server/omnisharp-roslyn that the big IDE editors have.  It goes beyond word completion providing documentation about method signatures and real time syntax checking (currently not supported in nano-ycmd).
@@ -108,36 +106,36 @@ I don't see any plugin support in nano.
 
 Your setup may vary depending on if your distro patched ycmd.  In my case, I modified ycmd to use absolute paths.  The vanilla ycmd uses relative path to the thirdparty folder.
 
-######You need a crypto library.  Choose one of either:
+#####You need a crypto library.  Choose one of either:
 --with-openssl
 or
 --with-nettle
 or
 --with-libgcrypt
 
-######You need to enable ycmd support
+#####You need to enable ycmd support
 --enable-ycmd
 
-######You need to set up environmental variables to pass to the configure script:
+#####You need to set up environmental variables to pass to the configure script:
 (IMPORTANT) The python version must be the same as the compiled ycmd scripts.
 
 YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd"
 PYTHON_PATH="/usr/bin/python3.4" 
 
-######The following are optional environmental variables to pass to the configure script pass empty "" if you don't want support:
+#####The following are optional environmental variables to pass to the configure script pass empty "" if you don't want support:
 
-######for rust language:
+#####for rust language:
 RACERD_PATH="/usr/bin/racerd" 
 RUST_SRC_PATH="/usr/share/rust/src" 
 
-######for go language:
+#####for go language:
 GODEF_PATH="/usr/bin/godef" 
 GOCODE_PATH="/usr/bin/gocode" 
 
-######for C / C++ / Objective-C / Objective-C++ language:
+#####for C / C++ / Objective-C / Objective-C++ language:
 YCMG_PATH="/usr/bin/config_gen.py"
 
-######How would the result string look like?
+#####How would the result string look like?
 
 ./autogen.sh
 CFLAGS="-g" YCMG_PATH="/usr/bin/config_gen.py" PYTHON_PATH="/usr/bin/python3.4" RACERD_PATH="/usr/bin/racerd" RUST_SRC_PATH="/usr/share/rust/src" GODEF_PATH="/usr/bin/godef" GOCODE_PATH="/usr/bin/gocode" YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd" ./configure --enable-ycmd --with-openssl
@@ -145,7 +143,7 @@ make
 
 The -g adds debugging information for developers but not needed for regular users. 
 
-######YCM-Generator support
+#####YCM-Generator support
 The following environmental variables are defined when running nano-ycmd:
 
 * YCMG_PROJECT_PATH - This should point to the folder containing the top-level Makefile, configure, CMakeList.txt, 
@@ -159,21 +157,21 @@ Also, if you add new libraries or files, you should delete both the .ycm_extra_c
 
 Also, if you change languages, between C, C++, Objective-C, Objective-C++, you should regenerate them.  Currently no hotkey exist to delete and regenerate those files.  nano-ycmd automatically skips generation to save time if they already exist.
 
-######Why does the user experience suck?
+#####Why does the user experience suck?
 We are working on that.  Feel free to merge your changes.
 
-######Why does it do only word matching within a single source code?
+#####Why does it do only word matching within a single source code?
 The example reference script used it that way.
 
-######Quality?  Is it finished or complete?
+#####Quality?  Is it finished or complete?
 
 Nah, I just have it working.  The UX could be improved.
 
-######What license is GNU nano released under?
+#####What license is GNU nano released under?
 
 GPL version 3
 
-######What license is nano-ycmd feature set released under?
+#####What license is nano-ycmd feature set released under?
 
 It is GPL version 3.
 
@@ -181,7 +179,9 @@ It is GPL version 3.
 
 Add better user interface or user interaction.  Emacs-ycmd is a good example.
 
-#####When will it be considered ready for review to be included in the official GNU nano?
+Speed up the loading time.  It is currently using timers and works almost always.  An attempt was done to do an event based solution but it didn't work as expected.
+
+####When will it be considered ready for review to be included in the official GNU nano?
 
 After the UX has been polished and all the features are feature complete.  If they do not want to include this patchset, we will fork nano.  I want this merged eventually if possible or someone do it if I am gone or no longer working on it.
 
@@ -189,7 +189,7 @@ After the UX has been polished and all the features are feature complete.  If th
 
 Yes you can, but you need to change the src/Makefile.am.  Rerun autogen.sh.  Do configure again specifying features then make.  Just keep the binary only.  I recommend installing both since nano-ycmd is still a work in progress.
 
-#####What is up with the debug spew?
+####What is up with the debug spew?
 
 If you compiled nano-ycmd with --enable-debug then you can redirect the stderr to a file to inspect it later.  You should use --disable-debug if you are not a developer.
 
