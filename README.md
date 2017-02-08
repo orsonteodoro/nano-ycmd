@@ -176,7 +176,7 @@ Add better user interface or user interaction.  Emacs-ycmd is a good example.
 
 #####When will it be considered ready for review to be included in the official GNU nano?
 
-After the UX has been polished.
+After the UX has been polished and all the features are feature complete.  If they do not want to include this patchset, we will fork nano.  I want this merged eventually if possible or someone do it if I am gone or no longer working on it.
 
 #####Can I install both vanilla nano and nano-ycmd along side each other?
 
