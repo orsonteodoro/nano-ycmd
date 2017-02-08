@@ -39,6 +39,40 @@ You can look at my gentoo package overlay https://github.com/orsonteodoro/oiledm
 
 Your distribution has not packaged the xml files properly.  Compile nano-ycmd in debug mode and inspect the logs (ynano.txt, jedihttp_*.log, omnisharp_*.log) in the /tmp folder to see which xml documentation files are required.
 
+####Which completer commands work and how do I access them and what is the expected behavior?
+
+Completer commands add beyond code completion.  It is optional but powerful features for the developer.
+
+The features below are still in development.  Some may be feature complete.
+
+Do Ctrl \` to bring up the completer commands menu
+To execute a completer command do Ctrl letter
+
+Some completer commands may not work for the particular language that you working with.
+
+Tested and passed | Feature Complete? | Working? | Feature | Description
+--- | --- | --- | ------------| -------------------------------------------
+Yes | Yes | Yes | GoToInclude | Loads the include file in buffer
+Yes | Yes | Yes | GoToDeclaration | Puts the cursor at the variable declaration
+Yes | Yes | Yes | GoToDefinition | Puts the cursor at the function definition
+No | No | Yes | GoTo | Should display description in the status bar.  Goes definition or declaration whatever makes sense.
+No | No | Yes | GoToImprecise | Faster but less accurate version of GoTo but should put the cursor.
+No | Yes | Yes | ReloadSolution | Reloads a C# solution
+No | No | No | GoToReferences | Lists references
+No | Yes | Yes | GoToImplementation | Goes to abstract class
+No | No | No | GoToImplementationElseDeclaration 
+No | No | Yes | FixIt | Displays trivial changes 
+Yes | Yes | Yes | GetDoc | Displays documentation in new buffer
+No | No | No | RefactorRename | Renames a symbol in every file in the project - NOT WORKING CURRENTLY
+No | Yes | Yes | GetType | Returns the type of a variable or return value of a function.
+No | Yes | Yes | GetTypeImprecise | Faster but less accurate version of GetType
+No | Yes | Yes | RestartServer | Reloads the subserver
+No | Yes | Yes | GoToType | Goes to a type
+No | Yes | Yes | ClearCompilationFlagCache | Clears and updates FlagsForFile from .ycm_extra_conf.py
+No | Yes | Yes | GetParent | Gets parent class or method
+
+
+
 ####Why use ycmd backend over the builtin WORDCOMPLETION?
 
 ycmd allows to you use IntelliSense for C# sources using omnisharp-server/omnisharp-roslyn that the big IDE editors have.  It goes beyond word completion providing documentation about method signatures and real time syntax checking (currently not supported in nano-ycmd).
