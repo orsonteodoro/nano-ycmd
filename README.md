@@ -51,7 +51,7 @@ Completer commands add beyond code completion.  It is optional but powerful feat
 
 The features below are still in development.  Some may be feature complete.
 
-Do Ctrl \` to bring up the completer commands menu
+Do Alt \` to bring up the completer commands menu
 
 To execute a completer command do Ctrl letter
 
