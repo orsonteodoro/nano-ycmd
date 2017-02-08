@@ -60,8 +60,8 @@ No | No | Yes | GoToImprecise | Faster but less accurate version of GoTo but sho
 No | Yes | Yes | ReloadSolution | Reloads a C# solution
 No | No | No | GoToReferences | Lists references
 No | Yes | Yes | GoToImplementation | Goes to abstract class
-No | No | No | GoToImplementationElseDeclaration 
-No | No | Yes | FixIt | Displays trivial changes 
+No | No | No | GoToImplementationElseDeclaration | Goes to the implemention first then if it can't find it goes to the declaration
+No | No | Yes | FixIt | Displays trivial changes and fixes them 
 Yes | Yes | Yes | GetDoc | Displays documentation in new buffer
 No | No | No | RefactorRename | Renames a symbol in every file in the project - NOT WORKING CURRENTLY
 No | Yes | Yes | GetType | Returns the type of a variable or return value of a function.
