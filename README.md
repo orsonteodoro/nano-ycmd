@@ -87,7 +87,11 @@ ycmd allows to you use IntelliSense for C# sources using omnisharp-server/omnish
 Just type and press CTRL-LETTER.  Use CTRL-X to exit the code completion selections.
 
 ####What languages supported?
-python, javascript, typescript, rust, go, C, C++, Objective C, Objective C++
+python, javascript*, typescript, rust, go, C*, C++*, Objective-C*, Objective-C++*, C#*
+
+*Javascript support requires a .tern-project project file to work.
+*C# support requires a .solution project file to work.
+*C, C++, Objective-C, Objective-C++ requires a *.pro, CMakeList.txt, GNUmakefile, Makefile, makefile, *.ninja file to work.
 
 ####Why is my intellisense not working with my C#?
 You didn't set up ycmd correctly.  It needs to see a sln file or maybe project.json file if json is supported in ycmd.
