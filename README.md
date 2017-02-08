@@ -35,6 +35,12 @@ You can use the following which have been tested:
 
 You can look at my gentoo package overlay https://github.com/orsonteodoro/oiledmachine-overlay to see how to properly compile them or you can research them to build packages for your distribution.
 
+####What are the new hot keys to use this functionality?
+
+See https://github.com/orsonteodoro/nano-ycmd/blob/ymcd-code-completion/src/global.c#L1389 .
+
+Some of these features require the user to begin to type their code before the menu shows.
+
 ####Why does the completer command "Get Documentation" not work for c-sharp?
 
 Your distribution has not packaged the xml files properly.  Compile nano-ycmd in debug mode and inspect the logs (ynano.txt, jedihttp_*.log, omnisharp_*.log) in the /tmp folder to see which xml documentation files are required.
