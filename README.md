@@ -181,7 +181,7 @@ The example reference script used it that way.
 
 ####Quality?  Is it finished or complete?
 
-Code completion is feature complete but the entire feature set of the completer commands is not feature complete.  The UX could also be improved.
+Code completion as in looking outside of the current opened buffers in nano is feature complete but the entire feature set of the completer commands is not feature complete.  The UX could also be improved.
 
 ####What license is GNU nano released under?
 
