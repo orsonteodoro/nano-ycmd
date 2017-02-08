@@ -51,9 +51,11 @@ Completer commands add beyond code completion.  It is optional but powerful feat
 
 The features below are still in development.  Some may be feature complete.
 
-Do Alt \` to bring up the completer commands menu
+Do Alt-\` to bring up the completer commands menu
 
-To execute a completer command do Ctrl letter
+To execute a completer command do Ctrl-letter
+
+To exit the completer commands do Ctrl-space
 
 Some completer commands may not work for the particular language that you working with.
 
@@ -84,7 +86,7 @@ ycmd allows to you use IntelliSense for C# sources using omnisharp-server/omnish
 
 ####How do I use this code completion feature?
 
-Just type and press CTRL-LETTER.  Use CTRL-X to exit the code completion selections.
+Just type and press CTRL-LETTER.  Use Ctrl-space to exit the code completion selections.
 
 ####What languages supported?
 python, javascript*, typescript, rust, go, C*, C++*, Objective-C*, Objective-C++*, C#*
