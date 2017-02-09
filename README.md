@@ -185,11 +185,11 @@ Code completion as in looking outside of the current opened buffers in nano is f
 
 ####What license is GNU nano released under?
 
-GPL version 3
+GPL version 3 or newer
 
 ####What license is nano-ycmd feature set released under?
 
-It is GPL version 3.
+It is GPL version 3 or newer
 
 ####What could I do to help?
 
