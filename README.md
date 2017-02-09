@@ -66,7 +66,7 @@ Yes | Yes | Yes | GoToInclude | Loads the include file in buffer
 Yes | Yes | Yes | GoToDeclaration | Puts the cursor at the variable declaration
 Yes | Yes | Yes | GoToDefinition | Puts the cursor at the function definition
 No | No | Yes | GoTo | Should display description in the status bar.  Goes definition or declaration whatever makes sense.
-No | No | Yes | GoToImprecise | Faster but less accurate version of GoTo but should put the cursor.
+Yes | Maybe | Yes | GoToImprecise | Faster but less accurate version of GoTo but should put the cursor.
 No | Yes | Yes | ReloadSolution | Reloads a C# solution
 No | No | No | GoToReferences | Lists references
 No | Yes | Yes | GoToImplementation | Goes to abstract class
@@ -74,12 +74,12 @@ No | No | No | GoToImplementationElseDeclaration | Goes to the implemention firs
 Yes (Procs Randomly/Not deterministic; tested only for %d->%s format specifier and missing semicolon; tested only in c language) | Maybe (needs more test cases) | Yes | FixIt | Displays trivial changes and fixes chosen ones automatically
 Yes | Yes | Yes | GetDoc | Displays documentation in new buffer
 No | No | No | RefactorRename | Renames a symbol in every file in the project
-No | Yes | Yes | GetType | Returns the type of a variable or return value of a function.
-No | Yes | Yes | GetTypeImprecise | Faster but less accurate version of GetType
+Yes | Yes | Yes | GetType | Returns the type of a variable or return the function signature.
+Yes | Yes | Yes | GetTypeImprecise | Faster but less accurate version of GetType
 No | Yes | Yes | RestartServer | Reloads the subserver
 No | Yes | Yes | GoToType | Goes to a type
 No | Yes | Yes | ClearCompilationFlagCache | Clears and updates FlagsForFile from .ycm_extra_conf.py
-No | Yes | Yes | GetParent | Gets parent class or method
+Yes | Yes | Yes | GetParent | Gets parent class or method
 
 ####Why use ycmd backend over the builtin WORDCOMPLETION?
 
