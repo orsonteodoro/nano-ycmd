@@ -118,16 +118,23 @@ I don't see any plugin support in nano.
 Your setup may vary depending on if your distro patched ycmd.  In my case, I modified ycmd to use absolute paths.  The vanilla ycmd uses relative path to the thirdparty folder.
 
 ####You need a crypto library.  Choose one of either:
+
 --with-openssl
+
 or
+
 --with-nettle
+
 or
+
 --with-libgcrypt
 
 ####You need to enable ycmd support
+
 --enable-ycmd
 
 ####You need to set up environmental variables to pass to the configure script:
+
 (IMPORTANT) The python version must be the same as the compiled ycmd scripts.
 
 YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd"
@@ -154,6 +161,7 @@ YCMG_PATH="/usr/bin/config_gen.py"
 ####How would the result string look like?
 
 ./autogen.sh
+
 CFLAGS="-g" YCMG_PATH="/usr/bin/config_gen.py" PYTHON_PATH="/usr/bin/python3.4" RACERD_PATH="/usr/bin/racerd" RUST_SRC_PATH="/usr/share/rust/src" GODEF_PATH="/usr/bin/godef" GOCODE_PATH="/usr/bin/gocode" YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd" ./configure --enable-ycmd --with-openssl
 make
 
