@@ -25,22 +25,22 @@
 #ifdef USE_NETTLE
 #include <nettle/base64.h>
 #include <nettle/hmac.h>
-#define SSL_LIB "NETTLE"
+#define CRYPTO_LIB "NETTLE"
 #endif
 
 #ifdef USE_OPENSSL
 #include <openssl/hmac.h>
 #include <openssl/buffer.h>
-#define SSL_LIB "OPENSSL"
+#define CRYPTO_LIB "OPENSSL"
 #endif
 
 #ifdef USE_LIBGCRYPT
 #include <gcrypt.h>
 #include <glib.h>
-#define SSL_LIB "LIBGCRYPT"
+#define CRYPTO_LIB "LIBGCRYPT"
 #endif
 
-#ifndef SSL_LIB
+#ifndef CRYPTO_LIB
 #error "You must choose a crypto library to use ycmd code completion support.  Currently nettle, openssl, libgcrypt are supported."
 #endif
 
@@ -67,12 +67,12 @@
 typedef struct completer_command_results
 {
 	int usable;
-	char message[4096]; //1 memory page size arbitrary
+	char *message;
 	int line_num;
 	int column_num;
-	char filepath[PATH_MAX];
-	char json_blob[4096]; //1 memory page size arbitrary
-	char detailed_info[4096]; //1 memory page size
+	char *filepath;
+	char *json_blob;
+	char *detailed_info;
 	int status_code;
 } COMPLETER_COMMAND_RESULTS;
 
@@ -411,6 +411,10 @@ void ycm_generate(char *filepath, char *content)
 
 			//inject clang includes to find stdio.h and others
 			//caching disabled because of problems
+/* unescaped version for testing in bash
+V=$(echo | clang -v -E -x c - |& sed  -r  -e ':a' -e 'N' -e '$!ba' -e "s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g"  -e "s|[ \\n]+|\\n|g" | tac);V=$(echo -e $V | sed -r -e "s|[ \\n]+|\',\\n    \'-isystem\','|g");
+sed -e "s|'do_cache': True|'do_cache': False|g" -e "s|'-I.'|'-isystem','$(echo $V)','-I.'|g" ../.ycm_extra_conf.py
+*/
 			snprintf(command, PATH_MAX*2,
 				"V=$(echo | clang -v -E -x %s - |& sed  -r  -e ':a' -e 'N' -e '$!ba' -e \"s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g\" -e \"s|[ \\n]+|\\n|g\" | tac);"
 				"V=$(echo -e $V | sed -r -e \"s|[ \\n]+|\',\\n    \'-isystem\','|g\");"
@@ -901,10 +905,28 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 	free(content);
 }
 
-void _parse_ccr_from_json_blob(COMPLETER_COMMAND_RESULTS *ccr)
+void init_completer_command_results(COMPLETER_COMMAND_RESULTS *ccr)
+{
+	memset(ccr, 0, sizeof(COMPLETER_COMMAND_RESULTS));
+}
+
+void destroy_completer_command_results(COMPLETER_COMMAND_RESULTS *ccr)
+{
+	if (ccr->message)
+		free(ccr->message);
+	if (ccr->filepath)
+		free(ccr->filepath);
+	if (ccr->detailed_info)
+		free(ccr->detailed_info);
+	if (ccr->json_blob)
+		free(ccr->json_blob);
+}
+
+//must call destroy_completer_command_results() aftr using it
+void parse_completer_command_results(COMPLETER_COMMAND_RESULTS *ccr)
 {
 #ifdef DEBUG
-	fprintf(stderr, "Entered _parse_ccr_from_json_blob\n");
+	fprintf(stderr, "Entered parse_completer_command_results\n");
 #endif
 	if (!ccr->usable || ccr->status_code != 200)
 	{
@@ -914,17 +936,20 @@ void _parse_ccr_from_json_blob(COMPLETER_COMMAND_RESULTS *ccr)
 		return;
 	}
 
+	char *json_blob; //nxjson does inplace edits so back it up
+	json_blob = strdup(ccr->json_blob);
+
 	const nx_json *json = nx_json_parse_utf8(ccr->json_blob);
 
 	if (json && ccr->usable)
 	{
 		const nx_json *n = nx_json_get(json, "message");
 		if ( n->type != NX_JSON_NULL )
-			strncpy(ccr->message, n->text_value, 4096);
+			ccr->message = strdup(n->text_value);
 
 		n = nx_json_get(json, "filepath");
 		if ( n->type != NX_JSON_NULL )
-			strncpy(ccr->filepath, n->text_value, PATH_MAX);
+			ccr->filepath = strdup(n->text_value);
 
 		n = nx_json_get(json, "line_num");
 		if ( n->type != NX_JSON_NULL )
@@ -936,10 +961,12 @@ void _parse_ccr_from_json_blob(COMPLETER_COMMAND_RESULTS *ccr)
 
 		n = nx_json_get(json, "detailed_info");
 		if ( n->type != NX_JSON_NULL )
-			strncpy(ccr->detailed_info, n->text_value, 4096);
+			ccr->detailed_info = strdup(n->text_value);
 
 		nx_json_free(json);
 	}
+
+	ccr->json_blob = json_blob;
 }
 
 //1 on success, 0 on failure
@@ -954,7 +981,9 @@ void _do_goto(COMPLETER_COMMAND_RESULTS *ccr)
 #ifdef DEBUG
 		fprintf(stderr, "using same buffer: %s line_num:%d column_num:%d\n", ccr->filepath, ccr->line_num, ccr->column_num);
 #endif
-		do_gotolinecolumn(ccr->line_num, ccr->column_num, 0, 0);
+		//ycm treats tabs as one column.  nano treats a tab as many column.
+		do_gotolinecolumn(ccr->line_num, 1, FALSE, FALSE);
+		openfile->current_x = ccr->column_num-1;
 	}
 	else
 	{
@@ -968,7 +997,8 @@ void _do_goto(COMPLETER_COMMAND_RESULTS *ccr)
 #endif
 		open_buffer(ccr->filepath, FALSE);
 		display_buffer();
-		do_gotolinecolumn(ccr->line_num, ccr->column_num, 0, 0);
+		do_gotolinecolumn(ccr->line_num, 1, FALSE, FALSE);
+		openfile->current_x = ccr->column_num-1;
 	}
 	refresh_needed = TRUE;
 }
@@ -979,17 +1009,20 @@ void do_completer_command_gotoinclude(void)
 	fprintf(stderr, "Tapped do_completer_command_gotoinclude\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GoToInclude\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		_do_goto(&ccr);
 	}
 
-	_do_goto(&ccr);
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1000,17 +1033,20 @@ void do_completer_command_gotodeclaration(void)
 	fprintf(stderr, "Tapped do_completer_command_gotodeclaration\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GoToDeclaration\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		_do_goto(&ccr);
 	}
 
-	_do_goto(&ccr);
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1021,17 +1057,20 @@ void do_completer_command_gotodefinition(void)
 	fprintf(stderr, "Tapped do_completer_command_gotodefinition\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GoToDefinition\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		_do_goto(&ccr);
 	}
 
-	_do_goto(&ccr);
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1042,42 +1081,43 @@ void do_completer_command_goto(void)
 	fprintf(stderr, "Tapped do_completer_command_goto\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GoTo\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 	char display_text[80]; //should be number of columns
 	display_text[0] = 0;
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
 	}
-
-	//todo
-	//_do_goto(&ccr);
-	//[{"description": "Builtin instance BaseNewStr"}, {"description": "Builtin instance str"}, {"description": "Builtin instance NoneType"}, {"description": "Builtin instance unicode"}]
-
-
-	const nx_json *json = nx_json_parse_utf8(ccr.json_blob);
-
-	if (json)
+	else
 	{
-		const nx_json *a = json;
-		int i;
+		//todo
+		//_do_goto(&ccr);
+		//[{"description": "Builtin instance BaseNewStr"}, {"description": "Builtin instance str"}, {"description": "Builtin instance NoneType"}, {"description": "Builtin instance unicode"}]
 
-		for (i=0; i < a->length; i++)
+		const nx_json *json = nx_json_parse_utf8(ccr.json_blob);
+
+		if (json)
 		{
-			const nx_json *item = nx_json_item(a, i);
-			const char *description = nx_json_get(item, "description")->text_value;
-			//todo populate hotkeys with object
-			snprintf(display_text, 80, "%s, %s", display_text, description);
-		}
+			const nx_json *a = json;
+			int i;
 
-		nx_json_free(json);
+			for (i=0; i < a->length; i++)
+			{
+				const nx_json *item = nx_json_item(a, i);
+				const char *description = nx_json_get(item, "description")->text_value;
+				//todo populate hotkeys with object
+				snprintf(display_text, 80, "%s, %s", display_text, description);
+			}
+
+			nx_json_free(json);
+		}
+		statusline(HUSH, display_text);
 	}
 
-	statusline(HUSH, display_text);
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1088,17 +1128,20 @@ void do_completer_command_gotoimprecise(void)
 	fprintf(stderr, "Tapped do_completer_command_gotoimprecise\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GoToImprecise\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		_do_goto(&ccr);
 	}
 
-	_do_goto(&ccr);
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1109,39 +1152,42 @@ void do_completer_command_gotoreferences(void)
 	fprintf(stderr, "Tapped do_completer_command_gotoreferences\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GoToReferences\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
 	}
-
-	//todo
-	//json array
-	//[{"description": "return _SolutionTestCheckHeuristics( candidates, tokens, i )", "filepath": "/usr/lib64/python3.4/site-packages/ycmd/completers/cs/solutiondetection.py", "column_num": 14, "line_num": 92}, {"description": "def _SolutionTestCheckHeuristics", "filepath": "/usr/lib64/python3.4/site-packages/ycmd/completers/cs/solutiondetection.py", "column_num": 5, "line_num": 96}] 
-
-	const nx_json *json = nx_json_parse_utf8(ccr.json_blob);
-
-	if (json)
+	else
 	{
-		const nx_json *a = json;
-		int i;
+		//todo
+		//json array
+		//[{"description": "return _SolutionTestCheckHeuristics( candidates, tokens, i )", "filepath": "/usr/lib64/python3.4/site-packages/ycmd/completers/cs/solutiondetection.py", "column_num": 14, "line_num": 92}, {"description": "def _SolutionTestCheckHeuristics", "filepath": "/usr/lib64/python3.4/site-packages/ycmd/completers/cs/solutiondetection.py", "column_num": 5, "line_num": 96}] 
 
-		for (i=0; i < a->length; i++)
+		const nx_json *json = nx_json_parse_utf8(ccr.json_blob);
+
+		if (json)
 		{
-			const nx_json *item = nx_json_item(a, i);
-			const char *description = nx_json_get(item, "description")->text_value;
-			const char *filepath = nx_json_get(item, "filepath")->text_value;
-			int column_num = nx_json_get(item, "column_num")->int_value;
-			int line_num = nx_json_get(item, "line_num")->int_value;
-			//todo populate hotkeys with object
-		}
+			const nx_json *a = json;
+			int i;
 
-		nx_json_free(json);
+			for (i=0; i < a->length; i++)
+			{
+				const nx_json *item = nx_json_item(a, i);
+				const char *description = nx_json_get(item, "description")->text_value;
+				const char *filepath = nx_json_get(item, "filepath")->text_value;
+				int column_num = nx_json_get(item, "column_num")->int_value;
+				int line_num = nx_json_get(item, "line_num")->int_value;
+				//todo populate hotkeys with object
+			}
+
+			nx_json_free(json);
+		}
 	}
+
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1152,18 +1198,21 @@ void do_completer_command_gotoimplementation(void)
 	fprintf(stderr, "Tapped do_completer_command_gotoimplementation\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GoToImplementation\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		//{"filepath": "/var/tmp/portage/dev-dotnet/omnisharp-roslyn-9999.20170128/work/omnisharp-roslyn-b24c48f939dc3467514187184ff439f864ec6ad9/src/OmniSharp.DotNet/DotNetProjectSystem.cs", "column_num": 9, "line_num": 27}
+		_do_goto(&ccr);
 	}
 
-	//{"filepath": "/var/tmp/portage/dev-dotnet/omnisharp-roslyn-9999.20170128/work/omnisharp-roslyn-b24c48f939dc3467514187184ff439f864ec6ad9/src/OmniSharp.DotNet/DotNetProjectSystem.cs", "column_num": 9, "line_num": 27}
-	_do_goto(&ccr);
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1174,19 +1223,113 @@ void do_completer_command_gotoimplementationelsedeclaration(void)
 	fprintf(stderr, "Tapped do_completer_command_gotoimplementationelsedeclaration\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GoToImplementationElseDeclaration\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		//todo
 	}
 
-	//todo
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
+}
+
+/* Structure format prettyfied tag:1
+{
+   "fixits":[
+      {
+         "chunks":[
+            {
+               //solution section
+               "range":{
+                  "start":{
+                     "filepath":"/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c",
+                     "column_num":55,
+                     "line_num":148
+                  },
+                  "end":{
+                     "filepath":"/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c",
+                     "column_num":57,
+                     "line_num":148
+                  }
+               },
+               "replacement_text":"%s"
+            }
+         ],
+         //user dialog text
+         "text":"/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c:148:62: warning: format specifies type 'int' but the argument has type 'char *' [-Wformat]",
+         "location":{
+            "filepath":"/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c",
+            "column_num":62,
+            "line_num":148
+         }
+      }
+   ]
+}
+
+{
+   "fixits":[
+      {
+         "chunks":[
+            {
+               //solution section
+               "range":{
+                  "start":{
+                     "filepath":"/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c",
+                     "column_num":16,
+                     "line_num":135
+                  },
+                  "end":{
+                     "filepath":"/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c",
+                     "column_num":16,
+                     "line_num":135
+                  }
+               },
+               "replacement_text":";"
+            }
+         ],
+         //user dialog text
+         "text":"/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c:135:16: error: expected ';' at end of declaration",
+         "location":{
+            "filepath":"/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c",
+            "column_num":16,
+            "line_num":135
+         }
+      }
+   ]
+}
+
+*/
+
+//{"fixits": [{"chunks": [], "text": "", "location": {"filepath": "/var/tmp/portage/dev-dotnet/omnisharp-roslyn-9999.20170128/work/omnisharp-roslyn-b24c48f939dc3467514187184ff439f864ec6ad9/src/OmniSharp.DotNet/DotNetProjectSystem.cs", "column_num": 39, "line_num": 117}}]}
+/*
+{
+   "fixits":[
+      {
+         "chunks":[
+
+         ],
+         "text":"",
+         "location":{
+            "filepath":"/var/tmp/portage/dev-dotnet/omnisharp-roslyn-9999.20170128/work/omnisharp-roslyn-b24c48f939dc3467514187184ff439f864ec6ad9/src/OmniSharp.DotNet/DotNetProjectSystem.cs",
+            "column_num":39,
+            "line_num":117
+         }
+      }
+   ]
+}
+*/
+
+void fixit_refresh(void)
+{
+	refresh_needed = FALSE;
 }
 
 void do_completer_command_fixit(void)
@@ -1195,42 +1338,114 @@ void do_completer_command_fixit(void)
 	fprintf(stderr, "Tapped do_completer_command_fixit\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"FixIt\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
 	}
-
-	//todo
-	//{"fixits": [{"chunks": [], "text": "", "location": {"filepath": "/var/tmp/portage/dev-dotnet/omnisharp-roslyn-9999.20170128/work/omnisharp-roslyn-b24c48f939dc3467514187184ff439f864ec6ad9/src/OmniSharp.DotNet/DotNetProjectSystem.cs", "column_num": 39, "line_num": 117}}]}
-
-	const nx_json *json = nx_json_parse_utf8(ccr.json_blob);
-
-	if (json)
+	else
 	{
-		const nx_json *a = nx_json_get(json, "fixits");
-		int i;
+		const nx_json *json = nx_json_parse_utf8(ccr.json_blob);
 
-		for (i=0; i < a->length; i++)
+
+		//the server can only handle one at a time.  after that, it bombs out.
+
+		if (json)
 		{
-			const nx_json *item = nx_json_item(a, i);
-			const nx_json *a_chunks = nx_json_get(item, "chunks");
-			const char *text = nx_json_get(item, "text")->text_value;
-			const nx_json *location = nx_json_get(item, "location");
-			const char *filepath = nx_json_get(location, "filepath")->text_value;
-			int column_num = nx_json_get(location, "column_num")->int_value;
-			int line_num = nx_json_get(location, "line_num")->int_value;
-			//todo populate hotkeys list
+			const nx_json *a_fixits = nx_json_get(json, "fixits");
+			int i=0, j=0;
+
+			//for (i=0; i < a_fixits->length; i++) //1 array element only supported
+			if (a_fixits->length == 1)
+			{
+				const nx_json *item_fixit = nx_json_item(a_fixits, i);
+				const nx_json *a_chunks = nx_json_get(item_fixit, "chunks");
+
+
+				const nx_json *item_chunk, *range, *range_start, *range_end;
+				const char *replacement_text = NULL;
+				const char *fcrs_filepath;
+				int fcrs_column_num, fcrs_line_num;
+
+				const char *fcre_filepath;
+				int fcre_column_num, fcre_line_num;;
+
+				if (a_chunks != NX_JSON_NULL && a_chunks->length >= 1)
+				{
+					//see tag:1 on format
+					//for (j=0; j < a_chunks->length; j++)
+					if (a_chunks->length == 1) //1 array element only supported
+					{
+						item_chunk = nx_json_item(a_chunks, j);
+						range = nx_json_get(item_chunk, "range");
+						range_start = nx_json_get(range, "start");
+						range_end = nx_json_get(range, "end");
+						replacement_text = nx_json_get(item_chunk, "replacement_text")->text_value;
+
+						fcrs_filepath = nx_json_get(range_start, "filepath")->text_value;
+						fcrs_column_num = nx_json_get(range_start, "column_num")->int_value;
+						fcrs_line_num = nx_json_get(range_start, "line_num")->int_value;
+
+						fcre_filepath = nx_json_get(range_end, "filepath")->text_value;
+						fcre_column_num = nx_json_get(range_end, "column_num")->int_value;
+						fcre_line_num = nx_json_get(range_end, "line_num")->int_value;
+					}
+				}
+				else
+				{
+					//see tag:2 on format
+				}
+
+				//user dialog text
+				const char *text = nx_json_get(item_fixit, "text")->text_value;
+				char prompt_msg[4096];
+				snprintf(prompt_msg, 4096, "Apply fix It? %s", text);
+				const nx_json *location = nx_json_get(item_fixit, "location");
+				const char *fl_filepath = nx_json_get(location, "filepath")->text_value;
+				int fl_column_num = nx_json_get(location, "column_num")->int_value;
+				int fl_line_num = nx_json_get(location, "line_num")->int_value;
+
+				//show prompt
+				int ret = do_yesno_prompt(FALSE, prompt_msg);
+				if (ret)
+				{
+					if (replacement_text && strlen(replacement_text))
+					{
+						openfile->mark_set = 1; //assume flag was previously set
+						do_gotolinecolumn(fcrs_line_num, 1, FALSE, FALSE); //nano column num means distance within a tab character.  ycmd column num means treat tabs as indivisible.
+						openfile->current_x = fcrs_column_num-1; //nano treats current_x as 0 based and linenum as 1 based
+#ifdef DEBUG
+						fprintf(stderr, "start cursor: y=%d x=%d\n", fcrs_line_num, fcrs_column_num);
+#endif
+						do_mark(); //flip flag and unsets marker
+						do_mark(); //flip flag and sets marker
+						do_gotolinecolumn(fcre_line_num, 1, FALSE, FALSE);
+						openfile->current_x = fcre_column_num-1;
+#ifdef DEBUG
+						fprintf(stderr, "end cursor: y=%d x=%d\n", fcrs_line_num, fcrs_column_num);
+#endif
+						do_cut_text_void();
+						do_output((char*)replacement_text, strlen(replacement_text), FALSE);
+						statusline(HUSH, "Applied FixIt.");
+					}
+				}
+				else
+				{
+					statusline(HUSH, "Canceled FixIt.");
+				}
+			}
+
+			nx_json_free(json);
 		}
 
-		nx_json_free(json);
 	}
 
 	bottombars(MMAIN);
+
+	destroy_completer_command_results(&ccr);
 }
 
 void do_completer_command_getdoc(void)
@@ -1239,43 +1454,46 @@ void do_completer_command_getdoc(void)
 	fprintf(stderr, "Tapped do_completer_command_getdoc\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GetDoc\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
 	}
-
+	else
+	{
 #ifdef DEBUG
-	fprintf(stderr, "Dump to buffer:\n%s\n", ccr.detailed_info);
+		fprintf(stderr, "Dump to buffer:\n%s\n", ccr.detailed_info);
 #endif
 
-	char doc_filename[PATH_MAX];
-	strcpy(doc_filename,"/tmp/nanoXXXXXX");
-	int fdtemp = mkstemp(doc_filename);
+		char doc_filename[PATH_MAX];
+		strcpy(doc_filename,"/tmp/nanoXXXXXX");
+		int fdtemp = mkstemp(doc_filename);
 #ifdef DEBUG
-	fprintf(stderr, "tempname is %s\n", doc_filename);
+		fprintf(stderr, "tempname is %s\n", doc_filename);
 #endif
-	FILE *f = fdopen(fdtemp,"w+");
-	fprintf(f, "%s", ccr.detailed_info);
-	fclose(f);
+		FILE *f = fdopen(fdtemp,"w+");
+		fprintf(f, "%s", ccr.detailed_info);
+		fclose(f);
 
 #ifndef DISABLE_MULTIBUFFER
-	SET(MULTIBUFFER);
+		SET(MULTIBUFFER);
 #else
-	//todo non multibuffer
+		//todo non multibuffer
 #endif
 
-	//do_output doesn't handle \n properly and displays it as ^@ so we do it this way
-	open_buffer(doc_filename, FALSE);
-	display_buffer();
+		//do_output doesn't handle \n properly and displays it as ^@ so we do it this way
+		open_buffer(doc_filename, FALSE);
+		display_buffer();
 
-	unlink(doc_filename);
+		unlink(doc_filename);
+	}
 
 	bottombars(MMAIN);
+
+	destroy_completer_command_results(&ccr);
 
 	refresh_needed = TRUE;
 }
@@ -1286,17 +1504,20 @@ void do_completer_command_refactorename(void)
 	fprintf(stderr, "Tapped do_completer_command_refactorename\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"RefactorRename\"", &ccr); //fixme needs additional arg and edit box widget
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		//todo
 	}
 
-	//todo
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1307,17 +1528,20 @@ void do_completer_command_gettype(void)
 	fprintf(stderr, "Tapped do_completer_command_gettype\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GetType\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		statusline(HUSH, ccr.message);
 	}
 
-	statusline(HUSH, ccr.message);
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1328,17 +1552,20 @@ void do_completer_command_gettypeimprecise(void)
 	fprintf(stderr, "Tapped do_completer_command_gettypeimprecise\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GetTypeImprecise\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		statusline(HUSH, ccr.message);
 	}
 
-	statusline(HUSH, ccr.message);
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1349,8 +1576,9 @@ void do_completer_command_reloadsolution(void)
 	fprintf(stderr, "Tapped do_completer_command_reloadsolution\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"ReloadSolution\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
@@ -1358,9 +1586,13 @@ void do_completer_command_reloadsolution(void)
 		bottombars(MMAIN);
 		return;
 	}
+	else
+	{
+		if (ccr.status_code == 200)
+			statusline(HUSH, "Reloaded solution.");
+	}
 
-	if (ccr.status_code == 200)
-		statusline(HUSH, "Reloaded solution.");
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1395,21 +1627,24 @@ void do_completer_command_restartserver(void)
 		ycmd_req_load_extra_conf_file(path_extra_conf);
 
 		COMPLETER_COMMAND_RESULTS ccr;
+		init_completer_command_results(&ccr);
 		ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand, &ccr);
 
 		ycmd_req_ignore_extra_conf_file(path_extra_conf);
 
-		_parse_ccr_from_json_blob(&ccr);
+		parse_completer_command_results(&ccr);
 
 		if (!ccr.usable || ccr.status_code != 200)
 		{
 			statusline(HUSH, "Reloaded fail.");
-			bottombars(MMAIN);
-			return;
+		}
+		else
+		{
+			if (ccr.status_code == 200)
+				statusline(HUSH, "Restarted solution.");
 		}
 
-		if (ccr.status_code == 200)
-			statusline(HUSH, "Restarted solution.");
+		destroy_completer_command_results(&ccr);
 	}
 
 	free(completercommand);
@@ -1425,17 +1660,20 @@ void do_completer_command_gototype(void)
 	fprintf(stderr, "Tapped do_completer_command_gototype\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GoToType\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		_do_goto(&ccr);
 	}
 
-	_do_goto(&ccr);
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1446,18 +1684,22 @@ void do_completer_command_clearcompliationflagcache(void)
 	fprintf(stderr, "Tapped do_completer_command_clearcompliationflagcache\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"ClearCompilationFlagCache\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
 		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		if (ccr.status_code == 200)
+			statusline(HUSH, "Clear compliation flag cached performed.");
 	}
 
-	if (ccr.status_code == 200)
-		statusline(HUSH, "Clear compliation flag cached performed.");
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1468,17 +1710,20 @@ void do_completer_command_getparent(void)
 	fprintf(stderr, "Tapped do_completer_command_getparent\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
 	_do_completer_command("\"GetParent\"", &ccr);
-	_parse_ccr_from_json_blob(&ccr);
+	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
+	}
+	else
+	{
+		statusline(HUSH, ccr.message);
 	}
 
-	statusline(HUSH, ccr.message);
+	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
 }
@@ -1499,7 +1744,10 @@ GetType (c lang)
 {"message": "char [8192]"}
 
 FixIt (cs)
+{"fixits": []}
 {"fixits": [{"chunks": [], "text": "", "location": {"filepath": "/var/tmp/portage/dev-dotnet/omnisharp-roslyn-9999.20170128/work/omnisharp-roslyn-b24c48f939dc3467514187184ff439f864ec6ad9/src/OmniSharp.DotNet/DotNetProjectSystem.cs", "column_num": 39, "line_num": 117}}]}
+{"fixits": [{"chunks": [{"range": {"start": {"filepath": "/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c", "column_num": 12, "line_num": 114}, "end": {"filepath": "/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c", "column_num": 12, "line_num": 114}}, "replacement_text": ";"}], "text": "/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c:114:12: error: expected ';' after return statement", "location": {"filepath": "/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c", "column_num": 12, "line_num": 114}}]}
+{"fixits": [{"chunks": [{"range": {"start": {"filepath": "/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c", "column_num": 55, "line_num": 148}, "end": {"filepath": "/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c", "column_num": 57, "line_num": 148}}, "replacement_text": "%s"}], "text": "/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c:148:62: warning: format specifies type 'int' but the argument has type 'char *' [-Wformat]", "location": {"filepath": "/var/tmp/portage/app-editors/nano-ycmd-9999.20170205/work/nano-ycmd-052b4866f3b24caeed877ae6f017f422d1443ed9/src/ycmd.c", "column_num": 62, "line_num": 148}}]}
 
 GoToImprecise (c lang)
 {"filepath": "/usr/include/string.h", "column_num": 15, "line_num": 394}
@@ -1571,6 +1819,7 @@ GoToReferences (python)
 //cs
 
 //Applies trivial fixes to the problem
+//It just spits the most recent one, one at a time, instead of all at once on demand.  It might need poll.
 //FixIt
 //c, cpp, objc, objcpp, cs
 
@@ -1677,7 +1926,6 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, c
 
 		int ret = ne_begin_request(request);
 		status_code = ne_get_status(request)->code;
-		memset(ccr, 0, sizeof(COMPLETER_COMMAND_RESULTS));
 		ccr->status_code = status_code; //sometimes the subservers will throw exceptions so capture that
 		if (ret >= 0)
 		{
@@ -1702,7 +1950,7 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, c
 			if (!hmac_local || !hmac_remote || !ycmd_compare_hmac(hmac_remote, hmac_local))
 				goto compromised_exit;
 
-			strncpy(ccr->json_blob, response_body, strlen(response_body));
+			ccr->json_blob = strdup(response_body);
 #ifdef DEBUG
 			fprintf(stderr,"Setting usable COMPLETER_COMMAND_RESULTS flag\n");
 #endif
@@ -2666,6 +2914,900 @@ char *_ycmd_get_filetype(char *filepath, char *content)
 	return type;
 }
 
+/*
+Contents of ycm_json_event_notification -> ...simple_request...
+Useful as a hinter for fixit support
+Fix it alone only reports 1 result but FileReadyToParse reports many after parsing
+
+[{"kind": "ERROR", "text": "'stddef.h' file not found", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 11, "line_num": 33}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 11, "line_num": 33}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 12, "line_num": 33}}, "fixit_available": false}, {"kind": "ERROR", "text": "'stddef.h' file not found", "ranges": [], "location": {"filepath": "/usr/include/_G_config.h", "column_num": 10, "line_num": 15}, "location_extent": {"start": {"filepath": "/usr/include/_G_config.h", "column_num": 10, "line_num": 15}, "end": {"filepath": "/usr/include/_G_config.h", "column_num": 11, "line_num": 15}}, "fixit_available": false}, {"kind": "ERROR", "text": "'stdarg.h' file not found", "ranges": [], "location": {"filepath": "/usr/include/libio.h", "column_num": 10, "line_num": 49}, "location_extent": {"start": {"filepath": "/usr/include/libio.h", "column_num": 10, "line_num": 49}, "end": {"filepath": "/usr/include/libio.h", "column_num": 11, "line_num": 49}}, "fixit_available": false}, {"kind": "ERROR", "text": "unknown type name 'size_t'", "ranges": [], "location": {"filepath": "/usr/include/libio.h", "column_num": 3, "line_num": 302}, "location_extent": {"start": {"filepath": "/usr/include/libio.h", "column_num": 3, "line_num": 302}, "end": {"filepath": "/usr/include/libio.h", "column_num": 9, "line_num": 302}}, "fixit_available": false}, {"kind": "ERROR", "text": "use of undeclared identifier 'size_t'; did you mean 'sizeof'?", "ranges": [], "location": {"filepath": "/usr/include/libio.h", "column_num": 67, "line_num": 305}, "location_extent": {"start": {"filepath": "/usr/include/libio.h", "column_num": 67, "line_num": 305}, "end": {"filepath": "/usr/include/libio.h", "column_num": 73, "line_num": 305}}, "fixit_available": true}, {"kind": "ERROR", "text": "reference to overloaded function could not be resolved; did you mean to call it?", "ranges": [{"start": {"filepath": "/usr/include/libio.h", "column_num": 66, "line_num": 305}, "end": {"filepath": "/usr/include/libio.h", "column_num": 74, "line_num": 305}}], "location": {"filepath": "/usr/include/libio.h", "column_num": 66, "line_num": 305}, "location_extent": {"start": {"filepath": "/usr/include/libio.h", "column_num": 66, "line_num": 305}, "end": {"filepath": "/usr/include/libio.h", "column_num": 67, "line_num": 305}}, "fixit_available": false}, {"kind": "ERROR", "text": "unknown type name 'size_t'", "ranges": [], "location": {"filepath": "/usr/include/libio.h", "column_num": 62, "line_num": 333}, "location_extent": {"start": {"filepath": "/usr/include/libio.h", "column_num": 62, "line_num": 333}, "end": {"filepath": "/usr/include/libio.h", "column_num": 68, "line_num": 333}}, "fixit_available": false}, {"kind": "ERROR", "text": "unknown type name 'size_t'", "ranges": [], "location": {"filepath": "/usr/include/libio.h", "column_num": 6, "line_num": 342}, "location_extent": {"start": {"filepath": "/usr/include/libio.h", "column_num": 6, "line_num": 342}, "end": {"filepath": "/usr/include/libio.h", "column_num": 12, "line_num": 342}}, "fixit_available": false}, {"kind": "ERROR", "text": "unknown type name 'size_t'", "ranges": [], "location": {"filepath": "/usr/include/libio.h", "column_num": 8, "line_num": 464}, "location_extent": {"start": {"filepath": "/usr/include/libio.h", "column_num": 8, "line_num": 464}, "end": {"filepath": "/usr/include/libio.h", "column_num": 18, "line_num": 464}}, "fixit_available": false}, {"kind": "ERROR", "text": "unknown type name '__gnuc_va_list'", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 9, "line_num": 79}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 9, "line_num": 79}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 19, "line_num": 79}}, "fixit_available": false}, {"kind": "ERROR", "text": "unknown type name 'size_t'; did you mean 'ssize_t'?", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 35, "line_num": 319}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 35, "line_num": 319}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 41, "line_num": 319}}, "fixit_available": true}, {"kind": "ERROR", "text": "unknown type name 'size_t'; did you mean 'ssize_t'?", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 47, "line_num": 325}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 47, "line_num": 325}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 53, "line_num": 325}}, "fixit_available": true}, {"kind": "ERROR", "text": "unknown type name 'size_t'; did you mean 'ssize_t'?", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 20, "line_num": 337}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 20, "line_num": 337}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 26, "line_num": 337}}, "fixit_available": true}, {"kind": "ERROR", "text": "unknown type name 'size_t'; did you mean 'ssize_t'?", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 10, "line_num": 344}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 10, "line_num": 344}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 16, "line_num": 344}}, "fixit_available": true}, {"kind": "ERROR", "text": "unknown type name '__gnuc_va_list'", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 8, "line_num": 372}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 8, "line_num": 372}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 18, "line_num": 372}}, "fixit_available": false}, {"kind": "ERROR", "text": "unknown type name '__gnuc_va_list'", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 54, "line_num": 377}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 54, "line_num": 377}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 64, "line_num": 377}}, "fixit_available": false}, {"kind": "ERROR", "text": "unknown type name '__gnuc_va_list'", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 8, "line_num": 380}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 8, "line_num": 380}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 18, "line_num": 380}}, "fixit_available": false}, {"kind": "ERROR", "text": "unknown type name 'size_t'; did you mean 'ssize_t'?", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 44, "line_num": 386}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 44, "line_num": 386}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 50, "line_num": 386}}, "fixit_available": true}, {"kind": "ERROR", "text": "unknown type name 'size_t'; did you mean 'ssize_t'?", "ranges": [], "location": {"filepath": "/usr/include/stdio.h", "column_num": 45, "line_num": 390}, "location_extent": {"start": {"filepath": "/usr/include/stdio.h", "column_num": 45, "line_num": 390}, "end": {"filepath": "/usr/include/stdio.h", "column_num": 51, "line_num": 390}}, "fixit_available": true}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 46, "line_num": 597}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 46, "line_num": 633}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 45, "line_num": 634}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 48, "line_num": 635}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 48, "line_num": 649}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 45, "line_num": 654}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 46, "line_num": 656}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 43, "line_num": 658}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 46, "line_num": 717}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 48, "line_num": 722}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}, {"kind": "WARNING", "text": "type specifier missing, defaults to 'int'", "ranges": [{"start": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}, "end": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 1, "line_num": 1}}], "location": {"filepath": "/usr/include/ncursesw/curses.h", "column_num": 47, "line_num": 748}, "location_extent": {"start": {"filepath": "", "column_num": 0, "line_num": 0}, "end": {"filepath": "", "column_num": 0, "line_num": 0}}, "fixit_available": false}]
+
+
+[
+   {
+      "kind":"ERROR",
+      "text":"'stddef.h' file not found",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":11,
+         "line_num":33
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":11,
+            "line_num":33
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":12,
+            "line_num":33
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"'stddef.h' file not found",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/_G_config.h",
+         "column_num":10,
+         "line_num":15
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/_G_config.h",
+            "column_num":10,
+            "line_num":15
+         },
+         "end":{
+            "filepath":"/usr/include/_G_config.h",
+            "column_num":11,
+            "line_num":15
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"'stdarg.h' file not found",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/libio.h",
+         "column_num":10,
+         "line_num":49
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":10,
+            "line_num":49
+         },
+         "end":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":11,
+            "line_num":49
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name 'size_t'",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/libio.h",
+         "column_num":3,
+         "line_num":302
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":3,
+            "line_num":302
+         },
+         "end":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":9,
+            "line_num":302
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"use of undeclared identifier 'size_t'; did you mean 'sizeof'?",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/libio.h",
+         "column_num":67,
+         "line_num":305
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":67,
+            "line_num":305
+         },
+         "end":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":73,
+            "line_num":305
+         }
+      },
+      "fixit_available":true
+   },
+   {
+      "kind":"ERROR",
+      "text":"reference to overloaded function could not be resolved; did you mean to call it?",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/libio.h",
+               "column_num":66,
+               "line_num":305
+            },
+            "end":{
+               "filepath":"/usr/include/libio.h",
+               "column_num":74,
+               "line_num":305
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/libio.h",
+         "column_num":66,
+         "line_num":305
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":66,
+            "line_num":305
+         },
+         "end":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":67,
+            "line_num":305
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name 'size_t'",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/libio.h",
+         "column_num":62,
+         "line_num":333
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":62,
+            "line_num":333
+         },
+         "end":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":68,
+            "line_num":333
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name 'size_t'",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/libio.h",
+         "column_num":6,
+         "line_num":342
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":6,
+            "line_num":342
+         },
+         "end":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":12,
+            "line_num":342
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name 'size_t'",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/libio.h",
+         "column_num":8,
+         "line_num":464
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":8,
+            "line_num":464
+         },
+         "end":{
+            "filepath":"/usr/include/libio.h",
+            "column_num":18,
+            "line_num":464
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name '__gnuc_va_list'",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":9,
+         "line_num":79
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":9,
+            "line_num":79
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":19,
+            "line_num":79
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name 'size_t'; did you mean 'ssize_t'?",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":35,
+         "line_num":319
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":35,
+            "line_num":319
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":41,
+            "line_num":319
+         }
+      },
+      "fixit_available":true
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name 'size_t'; did you mean 'ssize_t'?",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":47,
+         "line_num":325
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":47,
+            "line_num":325
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":53,
+            "line_num":325
+         }
+      },
+      "fixit_available":true
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name 'size_t'; did you mean 'ssize_t'?",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":20,
+         "line_num":337
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":20,
+            "line_num":337
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":26,
+            "line_num":337
+         }
+      },
+      "fixit_available":true
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name 'size_t'; did you mean 'ssize_t'?",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":10,
+         "line_num":344
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":10,
+            "line_num":344
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":16,
+            "line_num":344
+         }
+      },
+      "fixit_available":true
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name '__gnuc_va_list'",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":8,
+         "line_num":372
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":8,
+            "line_num":372
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":18,
+            "line_num":372
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name '__gnuc_va_list'",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":54,
+         "line_num":377
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":54,
+            "line_num":377
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":64,
+            "line_num":377
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name '__gnuc_va_list'",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":8,
+         "line_num":380
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":8,
+            "line_num":380
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":18,
+            "line_num":380
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name 'size_t'; did you mean 'ssize_t'?",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":44,
+         "line_num":386
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":44,
+            "line_num":386
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":50,
+            "line_num":386
+         }
+      },
+      "fixit_available":true
+   },
+   {
+      "kind":"ERROR",
+      "text":"unknown type name 'size_t'; did you mean 'ssize_t'?",
+      "ranges":[
+
+      ],
+      "location":{
+         "filepath":"/usr/include/stdio.h",
+         "column_num":45,
+         "line_num":390
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":45,
+            "line_num":390
+         },
+         "end":{
+            "filepath":"/usr/include/stdio.h",
+            "column_num":51,
+            "line_num":390
+         }
+      },
+      "fixit_available":true
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":46,
+         "line_num":597
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":46,
+         "line_num":633
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":45,
+         "line_num":634
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":48,
+         "line_num":635
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":48,
+         "line_num":649
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":45,
+         "line_num":654
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":46,
+         "line_num":656
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":43,
+         "line_num":658
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":46,
+         "line_num":717
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":48,
+         "line_num":722
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   },
+   {
+      "kind":"WARNING",
+      "text":"type specifier missing, defaults to 'int'",
+      "ranges":[
+         {
+            "start":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            },
+            "end":{
+               "filepath":"/usr/include/ncursesw/curses.h",
+               "column_num":1,
+               "line_num":1
+            }
+         }
+      ],
+      "location":{
+         "filepath":"/usr/include/ncursesw/curses.h",
+         "column_num":47,
+         "line_num":748
+      },
+      "location_extent":{
+         "start":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         },
+         "end":{
+            "filepath":"",
+            "column_num":0,
+            "line_num":0
+         }
+      },
+      "fixit_available":false
+   }
+]
+*/
+
 void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, filestruct *fileage)
 {
 	if (!ycmd_globals.connected)
@@ -2967,4 +4109,3 @@ void do_completer_command_show(void)
 {
 	bottombars(MCOMPLETERCOMMANDS);
 }
-

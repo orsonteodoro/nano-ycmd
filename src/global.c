@@ -1423,7 +1423,7 @@ void shortcut_init(void)
     add_to_sclist(MCOMPLETERCOMMANDS, "^E", 0, do_completer_command_gotoimprecise, 0);
     add_to_sclist(MCOMPLETERCOMMANDS, "^F", 0, do_completer_command_gotoreferences, 0);
     add_to_sclist(MCOMPLETERCOMMANDS, "^G", 0, do_completer_command_gotoimplementation, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^H", 0, do_completer_command_gotoimplementationelsedeclaration, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^Z", 0, do_completer_command_gotoimplementationelsedeclaration, 0); //overloading ^H seems to conflict with MCODECOMPLETION
     add_to_sclist(MCOMPLETERCOMMANDS, "^I", 0, do_completer_command_fixit, 0);
     add_to_sclist(MCOMPLETERCOMMANDS, "^J", 0, do_completer_command_getdoc, 0);
     add_to_sclist(MCOMPLETERCOMMANDS, "^K", 0, do_completer_command_refactorename, 0);
@@ -1438,6 +1438,7 @@ void shortcut_init(void)
     add_to_sclist(MCOMPLETERCOMMANDS, "^Space", 0, do_end_completer_commands, 0);
 
     add_to_sclist(MMAIN, "M-`", 0, do_completer_command_show, 0);
+
 
 #endif
 
