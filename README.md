@@ -70,7 +70,7 @@ No | Yes | Yes | ReloadSolution | Reloads a C# solution
 No | No | No | GoToReferences | Lists references
 No | Yes | Yes | GoToImplementation | Goes to abstract class
 No | No | No | GoToImplementationElseDeclaration | Goes to the implemention first then if it can't find it goes to the declaration
-Yes (Procs Randomly/Not deterministic; tested only for %d->%s format specifier and semicolon) | Yes | Yes | FixIt | Displays trivial changes and fixes chosen ones automatically
+Yes (Procs Randomly/Not deterministic; tested only for %d->%s format specifier and missing semicolon) | Yes | Yes | FixIt | Displays trivial changes and fixes chosen ones automatically
 Yes | Yes | Yes | GetDoc | Displays documentation in new buffer
 No | No | No | RefactorRename | Renames a symbol in every file in the project
 No | Yes | Yes | GetType | Returns the type of a variable or return value of a function.
