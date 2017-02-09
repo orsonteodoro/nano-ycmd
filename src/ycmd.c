@@ -270,7 +270,7 @@ int ninja_compdb_generate(char *project_path)
 	//try ninja
 	char command[PATH_MAX*2];
 
-	snprintf(command, PATH_MAX*2, "find %s -maxdepth 1 -name \"*.ninja\" | egrep \"*\" > /dev/null", project_path);
+	snprintf(command, PATH_MAX*2, "find \"%s\" -maxdepth 1 -name \"*.ninja\" | egrep \"*\" > /dev/null", project_path);
         int ret = system(command);
 
 	if (ret != 0)
@@ -281,7 +281,7 @@ int ninja_compdb_generate(char *project_path)
 		return ret == 0;
 	}
 
-	snprintf(command,PATH_MAX*2, "cd %s; %s -b compdb", project_path, NINJA_PATH);
+	snprintf(command,PATH_MAX*2, "cd \"%s\";\"%s\" -b compdb", project_path, NINJA_PATH);
 	ret = system(command);
 	total_refresh();
 	if (ret == 0)
@@ -412,8 +412,9 @@ void ycm_generate(char *filepath, char *content)
 			//inject clang includes to find stdio.h and others
 			//caching disabled because of problems
 			snprintf(command, PATH_MAX*2,
-				"V=$(echo | clang -v -E -x %s - |& sed  -r  -e ':a' -e 'N' -e '$!ba' -e \"s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g\" -e \"s|[ \\n]+|\',\'|g\");"
-				"sed -i -e \"s|'do_cache': True|'do_cache': False|g\" -e \"s|'-x'|'$V','-x'|g\" \"%s\"",
+				"V=$(echo | clang -v -E -x %s - |& sed  -r  -e ':a' -e 'N' -e '$!ba' -e \"s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g\" -e \"s|[ \\n]+|\\n|g\" | tac);"
+				"V=$(echo -e $V | sed -r -e \"s|[ \\n]+|\',\\n    \'-isystem\','|g\");"
+				"sed -i -e \"s|'do_cache': True|'do_cache': False|g\" -e \"s|'-I.'|'-isystem','$(echo -e $V)','-I.'|g\" \"%s\"",
 				language, path_extra_conf);
 #ifdef DEBUG
 			fprintf(stderr, command);
@@ -502,7 +503,7 @@ void ycmd_gen_extra_conf(char *filepath, char *content)
 	char cwd[PATH_MAX];
 
 	getcwd(cwd, PATH_MAX);
-	sprintf(command, "find %s -name \"*.mm\" -o -name \"*.m\" -o -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.c\" -o -name \"*.hpp\" -o -name \"*.h\" -o -name \"*.cc\" -o -name \"*.hh\" | egrep \"*\" > /dev/null", cwd);
+	sprintf(command, "find \"%s\" -name \"*.mm\" -o -name \"*.m\" -o -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.c\" -o -name \"*.hpp\" -o -name \"*.h\" -o -name \"*.cc\" -o -name \"*.hh\" | egrep \"*\" > /dev/null", cwd);
 	int ret = system(command);
 
 	if (ret == 0)
