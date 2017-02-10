@@ -108,6 +108,8 @@ Working with some of these languages require additional requirements:
 
 You may forgot to have a Makefile, makefile GNUmakefile for make, *.pro for qmake, configure for autotools, CMakeLists.txt for cmake or forgot to set the YCMG_PROJECT_PATH to point to your top level project folder.  nano-ycmd will pass it to bear and YCM-Generator to properly create a .ycm_extra_conf.py and compile_commands.json.  The compile_commands.json is for clang compliation database system (http://clang.llvm.org/docs/JSONCompilationDatabase.html).  .ycm_extra_conf.py contains headers and constants that are per project.
 
+Also try deleting compile_commands.json file and .ycm_extra_conf.py in the current (working) directory.  Those files should be only in the directory mentioned in the YCMG_PROJECT_PATH environmental variable passed into nano-ycmd.
+
 ####Why is my intellisense not working with my C#?
 You didn't set up ycmd correctly.  It needs to see a sln file or maybe project.json file if json is supported in ycmd.
 
