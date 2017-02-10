@@ -458,6 +458,9 @@ typedef struct sc {
 	/* The how-manieth toggle this is, in order to be able to
 	 * keep them in sequence. */
 #endif
+#ifdef ENABLE_YCMD
+    int visibility; //for completer commands menu
+#endif
     struct sc *next;
 	/* Next in the list. */
 } sc;
@@ -570,6 +573,7 @@ enum
 #define MLINTER			(1<<14)
 #define MCODECOMPLETION		(1<<15)
 #define MCOMPLETERCOMMANDS	(1<<16)
+#define MREFACTORRENAME		(1<<17)
 /* This is an abbreviation for all menus except Help and YesNo. */
 #define MMOST  (MMAIN|MWHEREIS|MREPLACE|MREPLACEWITH|MGOTOLINE|MWRITEFILE|MINSERTFILE|\
 		MEXTCMD|MBROWSER|MWHEREISFILE|MGOTODIR|MSPELL|MLINTER)

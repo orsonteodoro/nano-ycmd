@@ -2216,10 +2216,16 @@ void bottombars(int menu)
 	    continue;
 	}
 
+#ifdef ENABLE_YCMD
+	if ((menu & MCOMPLETERCOMMANDS) && !s->visibility) //skip hidden
+		continue;
+#endif
+
 	wmove(bottomwin, 1 + i % 2, (i / 2) * itemwidth);
 #ifdef DEBUG
 	fprintf(stderr, "Calling onekey with keystr \"%s\" and desc \"%s\"\n", s->keystr, f->desc);
 #endif
+
 	onekey(s->keystr, _(f->desc), itemwidth + (COLS % itemwidth));
 	i++;
     }

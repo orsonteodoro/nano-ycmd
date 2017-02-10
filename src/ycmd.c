@@ -61,9 +61,6 @@
 //ycm https://github.com/Valloric/YouCompleteMe/blob/master/README.md
 //json escape: http://szydan.github.io/json-escape/
 
-//todo add C/C++ with ycm-generator
-//notes: currently only works non C family languages
-
 typedef struct completer_command_results
 {
 	int usable;
@@ -75,6 +72,13 @@ typedef struct completer_command_results
 	char *detailed_info;
 	int status_code;
 } COMPLETER_COMMAND_RESULTS;
+
+typedef struct defined_subcommands_results
+{
+	int usable;
+	char *json_blob;
+	int status_code;
+} DEFINED_SUBCOMMANDS_RESULTS;
 
 void escape_json(char **buffer);
 char *get_all_content(filestruct *fileage);
@@ -88,6 +92,7 @@ void ycmd_stop_server();
 char *ycmd_generate_secret_base64(char *secret);
 void ycmd_generate_secret_raw(char *secret);
 char *_ycmd_get_filetype(char *filepath, char *content);
+int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, char *content, char *completertarget, DEFINED_SUBCOMMANDS_RESULTS *dsr);
 int ycmd_rsp_is_server_ready(char *filetype);
 void ycmd_req_load_extra_conf_file(char *filepath);
 void ycmd_req_ignore_extra_conf_file(char *filepath);
@@ -1075,6 +1080,32 @@ void do_completer_command_gotodefinition(void)
 	bottombars(MMAIN);
 }
 
+void do_completer_command_gotodefinitionelsedeclaration(void)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Tapped do_completer_command_gotodefinition\n");
+#endif
+	COMPLETER_COMMAND_RESULTS ccr;
+	init_completer_command_results(&ccr);
+	_do_completer_command("\"GoToDefinitionElseDeclaration\"", &ccr);
+	parse_completer_command_results(&ccr);
+
+	if (!ccr.usable || ccr.status_code != 200)
+	{
+		statusline(HUSH, "Completer command failed.");
+	}
+	else
+	{
+		//_do_goto(&ccr);
+		//todo
+	}
+
+	destroy_completer_command_results(&ccr);
+
+	bottombars(MMAIN);
+}
+
+
 void do_completer_command_goto(void)
 {
 #ifdef DEBUG
@@ -1448,14 +1479,14 @@ void do_completer_command_fixit(void)
 	destroy_completer_command_results(&ccr);
 }
 
-void do_completer_command_getdoc(void)
+void _do_completer_command_getdoc(char *command)
 {
 #ifdef DEBUG
 	fprintf(stderr, "Tapped do_completer_command_getdoc\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
 	init_completer_command_results(&ccr);
-	_do_completer_command("\"GetDoc\"", &ccr);
+	_do_completer_command(command, &ccr);
 	parse_completer_command_results(&ccr);
 
 	if (!ccr.usable || ccr.status_code != 200)
@@ -1498,26 +1529,69 @@ void do_completer_command_getdoc(void)
 	refresh_needed = TRUE;
 }
 
-void do_completer_command_refactorename(void)
+void do_completer_command_getdoc(void)
+{
+	_do_completer_command_getdoc("\"GetDoc\"");
+}
+
+void do_completer_command_getdocimprecise(void)
+{
+	_do_completer_command_getdoc("\"GetDocImprecise\"");
+}
+
+void refactorrename_refresh(void)
+{
+	refresh_needed = TRUE;
+}
+
+void do_completer_command_refactorrename(void)
 {
 #ifdef DEBUG
-	fprintf(stderr, "Tapped do_completer_command_refactorename\n");
+	fprintf(stderr, "Tapped do_completer_command_refactorrename\n");
 #endif
 	COMPLETER_COMMAND_RESULTS ccr;
 	init_completer_command_results(&ccr);
-	_do_completer_command("\"RefactorRename\"", &ccr); //fixme needs additional arg and edit box widget
-	parse_completer_command_results(&ccr);
 
-	if (!ccr.usable || ccr.status_code != 200)
+	char *cc_command = strdup("\"RefactorRename\",\"NEW_IDENTIFIER\"");
+
+	char *curranswer;
+	int ret = do_prompt(FALSE, FALSE, MREFACTORRENAME, NULL,
+#ifndef DISABLE_HISTORIES
+		NULL,
+#endif
+		refactorrename_refresh, _("Rename identifier as"));
+
+#ifdef DEBUG
+	fprintf(stderr, "do_prompt return code %d\n", ret);
+#endif
+
+	if (ret == 0) //0 enter, -1 cancel
 	{
-		statusline(HUSH, "Completer command failed.");
+		string_replace_w(&cc_command, "NEW_IDENTIFIER", answer);
+
+		statusline(HUSH, "Applying refactor rename...");
+
+		_do_completer_command(cc_command, &ccr); //fixme needs additional arg and edit box widget
+
+		parse_completer_command_results(&ccr);
+
+		if (!ccr.usable || ccr.status_code != 200)
+		{
+			statusline(HUSH, "Refactor rename failed.");
+		}
+		else
+		{
+			statusline(HUSH, "Refactor rename thoughrout project success.");
+		}
+
+		destroy_completer_command_results(&ccr);
 	}
 	else
 	{
-		//todo
+		statusline(HUSH, "Canceled refactor rename.");
 	}
 
-	destroy_completer_command_results(&ccr);
+	free(cc_command);
 
 	bottombars(MMAIN);
 }
@@ -1583,13 +1657,10 @@ void do_completer_command_reloadsolution(void)
 	if (!ccr.usable || ccr.status_code != 200)
 	{
 		statusline(HUSH, "Completer command failed.");
-		bottombars(MMAIN);
-		return;
 	}
 	else
 	{
-		if (ccr.status_code == 200)
-			statusline(HUSH, "Reloaded solution.");
+		statusline(HUSH, "Reloaded solution.");
 	}
 
 	destroy_completer_command_results(&ccr);
@@ -1640,8 +1711,7 @@ void do_completer_command_restartserver(void)
 		}
 		else
 		{
-			if (ccr.status_code == 200)
-				statusline(HUSH, "Restarted solution.");
+			statusline(HUSH, "Restarted solution.");
 		}
 
 		destroy_completer_command_results(&ccr);
@@ -1695,8 +1765,7 @@ void do_completer_command_clearcompliationflagcache(void)
 	}
 	else
 	{
-		if (ccr.status_code == 200)
-			statusline(HUSH, "Clear compliation flag cached performed.");
+		statusline(HUSH, "Clear compliation flag cached performed.");
 	}
 
 	destroy_completer_command_results(&ccr);
@@ -1726,6 +1795,12 @@ void do_completer_command_getparent(void)
 	destroy_completer_command_results(&ccr);
 
 	bottombars(MMAIN);
+}
+
+void do_completer_command_solutionfile(void)
+{
+	//todo
+
 }
 
 /*
@@ -2217,6 +2292,119 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 
 	return status_code == 200;
 }
+
+//get the list completer commands available for the completer target
+int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, char *content, char *completertarget, DEFINED_SUBCOMMANDS_RESULTS *dsr)
+{
+#ifdef DEBUG
+	fprintf(stderr, "Entering defined_subcommands()\n");
+#endif
+
+	char *method = "POST";
+	char *path = "/defined_subcommands";
+
+	//todo handle without string replace
+	char *_json = "{"
+		"        \"line_num\": LINE_NUM,"
+		"        \"column_num\": COLUMN_NUM,"
+		"        \"filepath\": \"FILEPATH\","
+		"        \"completer_target\": \"COMPLETER_TARGET\","
+		"        \"file_data\": {"
+		"		\"FILEPATH\": {"
+		"                \"filetypes\": [\"FILETYPES\"],"
+		"                \"contents\": \"CONTENTS\""
+		"        	}"
+		"	 }"
+		"}";
+
+
+	char *json;
+	json = strdup(_json);
+
+	char line_num[DIGITS_MAX];
+	char column_num[DIGITS_MAX];
+
+	snprintf(line_num, DIGITS_MAX, "%d", linenum);
+	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
+
+	string_replace_w(&json, "LINE_NUM", line_num);
+	string_replace_w(&json, "COLUMN_NUM", column_num);
+	string_replace_w(&json, "COMPLETER_TARGET", completertarget);
+
+	_ycmd_json_replace_file_data(&json, filepath, content);
+
+#ifdef DEBUG
+	fprintf(stderr, "json body in ycmd_req_defined_subcommands: %s\n", json);
+#endif
+
+	int status_code = 0;
+	ne_request *request;
+	request = ne_request_create(ycmd_globals.session, method, path);
+	{
+		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
+		char *response_body = NULL;
+
+		ne_add_request_header(request,"content-type","application/json");
+		char *ycmd_b64_hmac = ycmd_compute_request(method, path, json);
+		ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, ycmd_b64_hmac);
+		ne_set_request_body_buffer(request, json, strlen(json));
+
+		int ret = ne_begin_request(request);
+		status_code = ne_get_status(request)->code;
+		dsr->status_code = status_code; //sometimes the subservers will throw exceptions so capture that
+		if (ret >= 0)
+		{
+			response_body = _ne_read_response_body_full(request);
+
+			const char *hmac_remote = ne_get_response_header(request, HTTP_HEADER_YCM_HMAC);
+			ne_end_request(request);
+
+			//attacker could inject malicious code into source code here but the user would see it.
+			char *hmac_local = ycmd_compute_response(response_body);
+
+#ifdef DEBUG
+			fprintf(stderr,"hmac_local is %s\n",hmac_local);
+			fprintf(stderr,"hmac_remote is %s\n",hmac_remote);
+#endif
+
+#ifdef DEBUG
+			fprintf(stderr,"Server response for ycmd_req_defined_subcommands: %s %zd\n", response_body, strlen(response_body));
+#endif
+
+
+			if (!hmac_local || !hmac_remote || !ycmd_compare_hmac(hmac_remote, hmac_local))
+				goto compromised_exit;
+
+			dsr->json_blob = strdup(response_body);
+#ifdef DEBUG
+			fprintf(stderr,"Setting usable COMPLETER_COMMAND_RESULTS flag\n");
+#endif
+			dsr->usable = 1;
+		}
+		else
+		{
+#ifdef DEBUG
+			fprintf(stderr,"ne_begin_request was negative\n");
+#endif
+		}
+
+		compromised_exit:
+		if (response_body)
+			free(response_body);
+	}
+	ne_request_destroy(request);
+
+	free(json);
+
+#ifdef DEBUG
+	fprintf(stderr, "Status code in ycmd_req_defined_subcommands is %d\n", status_code);
+#endif
+
+	return status_code == 200;
+}
+
+
+
 
 //filepath should be the .ycm_extra_conf.py file
 //should load before parsing
@@ -4105,7 +4293,150 @@ void do_end_completer_commands(void)
 	bottombars(MMAIN);
 }
 
+void init_defined_subcommands_results(DEFINED_SUBCOMMANDS_RESULTS *dsr)
+{
+	memset(dsr, 0, sizeof(DEFINED_SUBCOMMANDS_RESULTS));
+}
+
+void destroy_defined_subcommands_results(DEFINED_SUBCOMMANDS_RESULTS *dsr)
+{
+        if (dsr->json_blob)
+               	free(dsr->json_blob);
+}
+
+/*
+
+cfamily
+ValueError: Supported commands are:
+ClearCompilationFlagCache
+FixIt
+GetDoc
+GetDocImprecise
+GetParent
+GetType
+GetTypeImprecise
+GoTo
+GoToDeclaration
+GoToDefinition
+GoToImprecise
+GoToInclude
+
+csharp
+ValueError: Supported commands are:
+FixIt
+GetDoc
+GetType
+GoTo
+GoToDeclaration
+GoToDefinition
+GoToDefinitionElseDeclaration
+GoToImplementation
+GoToImplementationElseDeclaration
+ReloadSolution
+RestartServer
+SolutionFile
+
+typescript
+ValueError: Supported commands are:
+GetDoc
+GetType
+GoToDefinition
+GoToReferences
+GoToType
+RefactorRename
+RestartServer
+
+go
+ValueError: Supported commands are:
+GoTo
+GoToDeclaration
+GoToDefinition
+RestartServer
+
+js
+ValueError: Supported commands are:
+GetDoc
+GetType
+GoTo
+GoToDefinition
+GoToReferences
+RefactorRename
+RestartServer
+
+python
+ValueError: Supported commands are:
+GetDoc
+GoTo
+GoToDeclaration
+GoToDefinition
+GoToReferences
+RestartServer
+*/
+
 void do_completer_command_show(void)
 {
+#ifdef DEBUG
+	fprintf(stderr,"Entered do_completer_command_show\n");
+#endif
+	sc *s;
+	for (s = sclist; s != NULL; s = s->next)
+		s->visibility = 0; //0 hidden, 1 visible
+
+        char *content = get_all_content(openfile->fileage);
+        char *ft = _ycmd_get_filetype(openfile->filename, content);
+
+	//should cache
+	DEFINED_SUBCOMMANDS_RESULTS dsr;
+	init_defined_subcommands_results(&dsr);
+	ycmd_req_defined_subcommands((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, &dsr);
+	//should return something like: ["ClearCompilationFlagCache", "FixIt", "GetDoc", "GetDocImprecise", "GetParent", "GetType", "GetTypeImprecise", "GoTo", "GoToDeclaration", "GoToDefinition", "GoToImprecise", "GoToInclude"]
+
+	if (dsr.usable && dsr.status_code == 200)
+	{
+		for (s = sclist; s != NULL; s = s->next)
+		{
+			if (s->scfunc == do_completer_command_gotoinclude && strstr(dsr.json_blob,"\"GoToInclude\""))							s->visibility = 1;
+			else if (s->scfunc == do_completer_command_gotodeclaration && strstr(dsr.json_blob,"\"GoToDeclaration\"")) 					s->visibility = 1;
+			else if (s->scfunc == do_completer_command_gotodefinition && strstr(dsr.json_blob,"\"GoToDefinition\"")) 					s->visibility = 1;
+			else if (s->scfunc == do_completer_command_gotodefinitionelsedeclaration && strstr(dsr.json_blob,"\"GoToDefinitionElseDeclaration\"")) 		s->visibility = 1;
+			else if (s->scfunc == do_completer_command_goto && strstr(dsr.json_blob,"\"GoTo\"")) 								s->visibility = 1;
+			else if (s->scfunc == do_completer_command_gotoimprecise && strstr(dsr.json_blob,"\"GoToImprecise\"")) 						s->visibility = 1;
+			else if (s->scfunc == do_completer_command_gotoreferences && strstr(dsr.json_blob,"\"GoToReferences\"")) 					s->visibility = 1;
+			else if (s->scfunc == do_completer_command_gotoimplementation && strstr(dsr.json_blob,"\"GoToImplementation\"")) 				s->visibility = 1;
+			else if (s->scfunc == do_completer_command_gotoimplementationelsedeclaration && strstr(dsr.json_blob,"\"GoToImplementationElseDeclaration\"")) 	s->visibility = 1;
+			else if (s->scfunc == do_completer_command_fixit && strstr(dsr.json_blob,"\"FixIt\"")) 								s->visibility = 1;
+			else if (s->scfunc == do_completer_command_getdoc && strstr(dsr.json_blob,"\"GetDoc\"")) 							s->visibility = 1;
+			else if (s->scfunc == do_completer_command_getdocimprecise && strstr(dsr.json_blob,"\"GetDocImprecise\""))					s->visibility = 1;
+			else if (s->scfunc == do_completer_command_refactorrename && strstr(dsr.json_blob,"\"RefactorRename\"")) 					s->visibility = 1;
+			else if (s->scfunc == do_completer_command_gettype && strstr(dsr.json_blob,"\"GetType\"")) 							s->visibility = 1;
+			else if (s->scfunc == do_completer_command_gettypeimprecise && strstr(dsr.json_blob,"\"GetTypeImprecise\"")) 					s->visibility = 1;
+			else if (s->scfunc == do_completer_command_reloadsolution && strstr(dsr.json_blob,"\"ReloadSolution\"")) 					s->visibility = 1;
+			else if (s->scfunc == do_completer_command_restartserver && strstr(dsr.json_blob,"\"RestartServer\"")) 						s->visibility = 1;
+			else if (s->scfunc == do_completer_command_gototype && strstr(dsr.json_blob,"\"GoToType\"")) 							s->visibility = 1;
+	 		else if (s->scfunc == do_completer_command_clearcompliationflagcache && strstr(dsr.json_blob,"\"ClearCompilationFlagCache\"")) 			s->visibility = 1;
+			else if (s->scfunc == do_completer_command_getparent && strstr(dsr.json_blob,"\"GetParent\"")) 							s->visibility = 1;
+			else if (s->scfunc == do_completer_command_solutionfile && strstr(dsr.json_blob,"\"SolutionFile\""))						s->visibility = 1;
+		}
+	}
+	else
+	{
+		for (s = sclist; s != NULL; s = s->next)
+			s->visibility = 1; //0 hidden, 1 visible
+	}
+
 	bottombars(MCOMPLETERCOMMANDS);
+
+	destroy_defined_subcommands_results(&dsr);
+	free(content);
 }
+
+void do_completer_refactorrename_apply(void)
+{
+	bottombars(MMAIN);
+}
+
+void do_completer_refactorrename_cancel(void)
+{
+	bottombars(MMAIN);
+}
+

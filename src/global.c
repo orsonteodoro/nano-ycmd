@@ -665,7 +665,7 @@ void shortcut_init(void)
 	/* TRANSLATORS: Try to keep the following strings at most 10 characters. */
 	N_("Get Help"), IFSCHELP(nano_help_msg), TOGETHER, VIEW);
 
-    add_to_funcs(do_cancel, ((MMOST & ~MMAIN & ~MBROWSER) | MYESNO),
+    add_to_funcs(do_cancel, (((MMOST|MREFACTORRENAME) & ~MMAIN & ~MBROWSER) | MYESNO),
 	N_("Cancel"), IFSCHELP(nano_cancel_msg), BLANKAFTER, VIEW);
 
     add_to_funcs(do_exit, MMAIN,
@@ -895,7 +895,7 @@ void shortcut_init(void)
 
     add_to_funcs(do_tab, MMAIN,
 	N_("Tab"), IFSCHELP(nano_tab_msg), TOGETHER, NOVIEW);
-    add_to_funcs(do_enter, MMAIN,
+    add_to_funcs(do_enter, MMAIN|MREFACTORRENAME,
 	N_("Enter"), IFSCHELP(nano_enter_msg), BLANKAFTER, NOVIEW);
 
     add_to_funcs(do_delete, MMAIN,
@@ -1094,45 +1094,55 @@ void shortcut_init(void)
     add_to_funcs(do_code_completion_z, MCODECOMPLETION,
 	strdup(""), IFSCHELP(nano_ycmd_choice_msg), TOGETHER, NOVIEW);
 
-    add_to_funcs(do_completer_command_gotoinclude, MCOMPLETERCOMMANDS,
-	N_("Go To Include"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_gotodeclaration, MCOMPLETERCOMMANDS,
 	N_("Go To Declaration"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_gotodefinition, MCOMPLETERCOMMANDS,
 	N_("Go To Definition"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gotodefinitionelsedeclaration, MCOMPLETERCOMMANDS,
+	N_("Go To Definition Else Declaration"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gotoreferences, MCOMPLETERCOMMANDS,
+	N_("Go To References"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_fixit, MCOMPLETERCOMMANDS,
+	N_("Fix Trivial Problem"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_goto, MCOMPLETERCOMMANDS,
 	N_("Go To"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_gotoimprecise, MCOMPLETERCOMMANDS,
 	N_("Go To (Fast)"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
-    add_to_funcs(do_completer_command_gotoreferences, MCOMPLETERCOMMANDS,
-	N_("Go To References"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_gotoinclude, MCOMPLETERCOMMANDS,
+	N_("Go To Include"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_gotoimplementation, MCOMPLETERCOMMANDS,
 	N_("Go To Implementation"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_gotoimplementationelsedeclaration, MCOMPLETERCOMMANDS,
 	N_("Go To Implementation Else Declaration"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
-    add_to_funcs(do_completer_command_fixit, MCOMPLETERCOMMANDS,
-	N_("Fix Trivial Problem"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_getdoc, MCOMPLETERCOMMANDS,
 	N_("Get Documentation"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
-    add_to_funcs(do_completer_command_refactorename, MCOMPLETERCOMMANDS,
+    add_to_funcs(do_completer_command_getdocimprecise, MCOMPLETERCOMMANDS,
+	N_("Get Documentation (Fast)"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_getparent, MCOMPLETERCOMMANDS,
+	N_("Get Parent"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_refactorrename, MCOMPLETERCOMMANDS,
 	N_("Refactor Rename"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_solutionfile, MCOMPLETERCOMMANDS,
+	N_("Solution File"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_gettype, MCOMPLETERCOMMANDS,
 	N_("Get Type"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_gettypeimprecise, MCOMPLETERCOMMANDS,
 	N_("Get Type (Fast)"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
-    add_to_funcs(do_completer_command_reloadsolution, MCOMPLETERCOMMANDS,
-	N_("Reload Solution"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
-    add_to_funcs(do_completer_command_restartserver, MCOMPLETERCOMMANDS,
-	N_("Restart Semantic Engine"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_gototype, MCOMPLETERCOMMANDS,
 	N_("Go To Type"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_clearcompliationflagcache, MCOMPLETERCOMMANDS,
 	N_("Reload .ycm_extra_conf.py"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
-    add_to_funcs(do_completer_command_getparent, MCOMPLETERCOMMANDS,
-	N_("Get Parent"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_restartserver, MCOMPLETERCOMMANDS,
+	N_("Restart Semantic Engine"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(do_completer_command_reloadsolution, MCOMPLETERCOMMANDS,
+	N_("Reload Solution"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+
+    add_to_funcs(do_end_completer_commands, MCOMPLETERCOMMANDS,
+	N_("Exit Completer Commands"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
 
     add_to_funcs(do_completer_command_show, MMAIN,
 	N_("Show Completer Commands"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+
 
 #endif
 
@@ -1230,9 +1240,9 @@ void shortcut_init(void)
     add_to_sclist(MMOST, "M-Space", 0, do_prev_word_void, 0);
     add_to_sclist(MMOST, "^Space", 0, do_next_word_void, 0);
     add_to_sclist((MMOST & ~MBROWSER), "^A", 0, do_home, 0);
-    add_to_sclist((MMOST|MCODECOMPLETION & ~MBROWSER), "Home", KEY_HOME, do_home, 0);
+    add_to_sclist(((MMOST|MCODECOMPLETION) & ~MBROWSER), "Home", KEY_HOME, do_home, 0);
     add_to_sclist((MMOST & ~MBROWSER), "^E", 0, do_end, 0);
-    add_to_sclist((MMOST|MCODECOMPLETION & ~MBROWSER), "End", KEY_END, do_end, 0);
+    add_to_sclist(((MMOST|MCODECOMPLETION) & ~MBROWSER), "End", KEY_END, do_end, 0);
     add_to_sclist(MMAIN|MHELP|MBROWSER, "^P", 0, do_up_void, 0);
     add_to_sclist(MMAIN|MHELP|MBROWSER|MCODECOMPLETION, "Up", KEY_UP, do_up_void, 0);
     add_to_sclist(MMAIN|MHELP|MBROWSER, "^N", 0, do_down_void, 0);
@@ -1317,7 +1327,7 @@ void shortcut_init(void)
     add_to_sclist(MMAIN, "^Q", 0, xon_complaint, 0);
     add_to_sclist(MMAIN, "^S", 0, xoff_complaint, 0);
 
-    add_to_sclist(((MMOST & ~MMAIN & ~MBROWSER) | MYESNO), "^C", 0, do_cancel, 0);
+    add_to_sclist((((MMOST|MREFACTORRENAME) & ~MMAIN & ~MBROWSER) | MYESNO), "^C", 0, do_cancel, 0);
 
     add_to_sclist(MWHEREIS|MREPLACE, "M-C", 0, case_sens_void, 0);
     add_to_sclist(MWHEREIS|MREPLACE, "M-R", 0, regexp_void, 0);
@@ -1379,12 +1389,12 @@ void shortcut_init(void)
 #endif
     add_to_sclist(MMOST, "^I", 0, do_tab, 0);
     add_to_sclist(MMOST|MCODECOMPLETION, "Tab", TAB_CODE, do_tab, 0);
-    add_to_sclist(MMOST, "^M", 0, do_enter, 0);
-    add_to_sclist(MMOST|MCODECOMPLETION, "Enter", KEY_ENTER, do_enter, 0);
+    add_to_sclist(MMOST|MREFACTORRENAME, "^M", 0, do_enter, 0);
+    add_to_sclist(MMOST|MREFACTORRENAME|MREFACTORRENAME, "Enter", KEY_ENTER, do_enter, 0);
     add_to_sclist(MMOST, "^D", 0, do_delete, 0);
-    add_to_sclist(MMOST|MCODECOMPLETION, "Del", 0, do_delete, 0);
+    add_to_sclist(MMOST|MCODECOMPLETION|MREFACTORRENAME, "Del", 0, do_delete, 0);
     add_to_sclist(MMOST, "^H", 0, do_backspace, 0);
-    add_to_sclist(MMOST|MCODECOMPLETION, "Bsp", KEY_BACKSPACE, do_backspace, 0);
+    add_to_sclist(MMOST|MCODECOMPLETION|MREFACTORRENAME, "Bsp", KEY_BACKSPACE, do_backspace, 0);
 
 #ifdef ENABLE_YCMD
     add_to_sclist(MCODECOMPLETION, "^A", 0, do_code_completion_a, 0);
@@ -1416,30 +1426,32 @@ void shortcut_init(void)
 
     add_to_sclist(MCODECOMPLETION, "^Space", 0, do_end_code_completion, 0);
 
-    add_to_sclist(MCOMPLETERCOMMANDS, "^A", 0, do_completer_command_gotoinclude, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^B", 0, do_completer_command_gotodeclaration, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^C", 0, do_completer_command_gotodefinition, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^D", 0, do_completer_command_goto, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^E", 0, do_completer_command_gotoimprecise, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^F", 0, do_completer_command_gotoreferences, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^G", 0, do_completer_command_gotoimplementation, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^Z", 0, do_completer_command_gotoimplementationelsedeclaration, 0); //overloading ^H seems to conflict with MCODECOMPLETION
-    add_to_sclist(MCOMPLETERCOMMANDS, "^I", 0, do_completer_command_fixit, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^J", 0, do_completer_command_getdoc, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^K", 0, do_completer_command_refactorename, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^L", 0, do_completer_command_gettype, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^M", 0, do_completer_command_gettypeimprecise, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^N", 0, do_completer_command_reloadsolution, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^O", 0, do_completer_command_restartserver, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^P", 0, do_completer_command_gototype, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^Q", 0, do_completer_command_clearcompliationflagcache, 0);
-    add_to_sclist(MCOMPLETERCOMMANDS, "^R", 0, do_completer_command_getparent, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^C", 0, do_completer_command_gotodeclaration, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^D", 0, do_completer_command_gotodefinition, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "M-D", 0, do_completer_command_gotodefinitionelsedeclaration, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^E", 0, do_completer_command_gotoreferences, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^F", 0, do_completer_command_fixit, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^G", 0, do_completer_command_goto, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "M-G", 0, do_completer_command_gotoimprecise, 0);
+    //overloading ^H seems to conflict with MCODECOMPLETION so skipped
+    add_to_sclist(MCOMPLETERCOMMANDS, "^I", 0, do_completer_command_gotoinclude, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^L", 0, do_completer_command_gotoimplementation, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "M-L", 0, do_completer_command_gotoimplementationelsedeclaration, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^O", 0, do_completer_command_getdoc, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "M-O", 0, do_completer_command_getdocimprecise, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^P", 0, do_completer_command_getparent, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^R", 0, do_completer_command_refactorrename, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^S", 0, do_completer_command_solutionfile, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^T", 0, do_completer_command_gettype, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "M-T", 0, do_completer_command_gettypeimprecise, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^Y", 0, do_completer_command_gototype, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^X", 0, do_completer_command_clearcompliationflagcache, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "^Z", 0, do_completer_command_restartserver, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "M-Z", 0, do_completer_command_reloadsolution, 0);
 
     add_to_sclist(MCOMPLETERCOMMANDS, "^Space", 0, do_end_completer_commands, 0);
 
     add_to_sclist(MMAIN, "M-`", 0, do_completer_command_show, 0);
-
-
 #endif
 
 #ifdef DEBUG
@@ -1842,6 +1854,8 @@ int strtomenu(const char *input)
 	return MCODECOMPLETION;
     else if (!strcasecmp(input, "completercommands"))
 	return MCOMPLETERCOMMANDS;
+    else if (!strcasecmp(input, "refactorrename"))
+	return MREFACTORRENAME;
 #endif
     return -1;
 }
