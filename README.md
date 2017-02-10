@@ -82,7 +82,7 @@ No | Yes | Yes | RestartServer | Reloads the subserver
 No | Yes | Yes | GoToType | Goes to a type
 No | Yes | Yes | ClearCompilationFlagCache | Clears and updates FlagsForFile from .ycm_extra_conf.py
 Yes | Yes | Yes | GetParent | Gets parent class or method
-No | No | No | SolutionFile | We don't know yet
+No | No | No | SolutionFile | Gets the path to the solution file
 
 ####Why use ycmd backend over the builtin WORDCOMPLETION?
 
