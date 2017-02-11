@@ -915,10 +915,15 @@ void usage(void)
 #endif
 #ifdef ENABLE_YCMD
     printf("\n");
-    printf("YCM-Generator environment variables");
+    printf("YCM-Generator environment variables support");
     printf("\n");
     printf("YCMG_PROJECT_PATH - full path to the directory containing your top-level build script.  Supported:  CMakeList.txt, configure, GNUmakefile, Makefile, makefile, *.pro\n");
     printf("YCMG_FLAGS - Additional flags to pass to YCM-Generator\n");
+    printf("\n");
+    printf("Ninja compdb environment variables support");
+    printf("\n");
+    printf("NINJA_BUILD_PATH - full path to the directory containing your *.ninja file\n");
+    printf("NINJA_BUILD_TARGETS - Additional build target(s) to pass to Ninja compdb\n");
     printf("\n");
 #endif
 }

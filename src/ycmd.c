@@ -233,9 +233,12 @@ void ycmd_init()
 //returns 1 on success
 int bear_generate(char *project_path)
 {
+#ifdef DEBUG
+	fprintf(stderr, "Entered bear_generate\n");
+#endif
 	char file_path[PATH_MAX];
 	char command[PATH_MAX*2];
-	int ret;
+	int ret = -1;
 
 	snprintf(file_path, PATH_MAX, "%s/compile_commands.json", project_path);
 
@@ -265,6 +268,10 @@ int bear_generate(char *project_path)
 		}
 	}
 	blank_statusbar();
+
+#ifdef DEBUG
+	fprintf(stderr, "bear_generate ret is %d\n", ret);
+#endif
 	return ret == 0;
 }
 
@@ -272,10 +279,30 @@ int bear_generate(char *project_path)
 //returns 1 on success 0 on failure;
 int ninja_compdb_generate(char *project_path)
 {
+#ifdef DEBUG
+	fprintf(stderr, "Entered ninja_compdb_generate\n");
+#endif
 	//try ninja
 	char command[PATH_MAX*2];
 
-	snprintf(command, PATH_MAX*2, "find \"%s\" -maxdepth 1 -name \"*.ninja\" | egrep \"*\" > /dev/null", project_path);
+	char ninja_build_path[PATH_MAX];
+	char *_ninja_build_path = getenv("NINJA_BUILD_PATH");
+	if (_ninja_build_path && strcmp(_ninja_build_path, "(null)") != 0)
+	{
+#ifdef DEBUG
+		fprintf(stderr,"ninja_build_path is not null\n");
+#endif
+		snprintf(ninja_build_path,PATH_MAX,"%s",_ninja_build_path);
+	}
+	else
+	{
+#ifdef DEBUG
+		fprintf(stderr,"ninja_build_path is null\n");
+#endif
+		ninja_build_path[0] = 0;
+	}
+
+	snprintf(command, PATH_MAX*2, "find \"%s\" -maxdepth 1 -name \"*.ninja\" | egrep \"*\" > /dev/null", ninja_build_path);
         int ret = system(command);
 
 	if (ret != 0)
@@ -283,23 +310,41 @@ int ninja_compdb_generate(char *project_path)
 #ifdef DEBUG
 		fprintf(stderr,"No Ninja files found skipping.\n");
 #endif
-		return ret == 0;
-	}
-
-	snprintf(command,PATH_MAX*2, "cd \"%s\";\"%s\" -b compdb", project_path, NINJA_PATH);
-	ret = system(command);
-	total_refresh();
-	if (ret == 0)
-	{
-#ifdef DEBUG
-		fprintf(stderr,"Ninja compdb generated compile_commands.json success.\n");
-#endif
 	}
 	else
 	{
+		char ninja_build_targets[PATH_MAX];
+		char *_ninja_build_targets = getenv("NINJA_BUILD_TARGETS");
+		if (_ninja_build_targets && strcmp(_ninja_build_targets, "(null)") != 0)
+		{
 #ifdef DEBUG
-		fprintf(stderr,"Ninja compdb generated compile_commands.json failed.\n");
+			fprintf(stderr,"ninja_build_targets is not null\n");
 #endif
+			snprintf(ninja_build_targets,PATH_MAX,"%s",_ninja_build_targets);
+		}
+		else
+		{
+#ifdef DEBUG
+			fprintf(stderr,"ninja_build_targets is null\n");
+#endif
+			ninja_build_targets[0] = 0;
+		}
+
+		snprintf(command,PATH_MAX*2, "cd \"%s\";\"%s\" -t compdb %s > %s/compile_commands.json", ninja_build_path, NINJA_PATH, ninja_build_targets, project_path);
+		ret = system(command);
+		total_refresh();
+		if (ret == 0)
+		{
+#ifdef DEBUG
+			fprintf(stderr,"Ninja compdb generated compile_commands.json success.\n");
+#endif
+		}
+		else
+		{
+#ifdef DEBUG
+			fprintf(stderr,"Ninja compdb generated compile_commands.json failed.\n");
+#endif
+		}
 	}
 	return ret == 0;
 }
@@ -1554,7 +1599,6 @@ void do_completer_command_refactorrename(void)
 
 	char *cc_command = strdup("\"RefactorRename\",\"NEW_IDENTIFIER\"");
 
-	char *curranswer;
 	int ret = do_prompt(FALSE, FALSE, MREFACTORRENAME, NULL,
 #ifndef DISABLE_HISTORIES
 		NULL,
