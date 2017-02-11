@@ -181,7 +181,7 @@ The following environmental variables are defined when running nano-ycmd:
 * YCMG_PROJECT_PATH - This should point to the folder containing the top-level Makefile, configure, CMakeList.txt, 
 * YCMG_FLAGS - This adds extra parameters to config_gen.py.  I recommend using make over autotools specifically `-b make` because more include files are exposed instead of allowing YCM-Generator autodetect.
 * NINJA_BUILD_PATH - This should point to the folder containing your *.ninja file
-* NINJA_BUILD_TARGETS - This should be the rule(s) listed under the `# Rules for compiling comment` section and having the line begin with `command = clang` or whatever compiler you are using.
+* NINJA_BUILD_TARGETS - This should be the rule(s) space seperated and listed under the `# Rules for compiling comment` section and having the line begin with `command = clang` or whatever compiler you are using.
 
 For NINJA_BUILD_TARGETS, the contents of gst-transcoder's build.ninja is presented below:
 
