@@ -166,7 +166,7 @@ GOCODE_PATH="/usr/bin/gocode"
 
 YCMG_PATH="/usr/bin/config_gen.py"
 
-####How would the result string look like?
+####What would the resulting string look like to configure ycmd for the autotools build system?
 
 ./autogen.sh
 
