@@ -146,6 +146,8 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace)
 		{
 			if ( p[i+j] == find[j] )
 				cf++;
+			else
+				break;
 		}
 		if (cf == lenf)
 		{
@@ -924,8 +926,8 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 #endif
 	char *content = get_all_content(openfile->fileage);
 
-	char *ft = _ycmd_get_filetype(openfile->filename, content);
-	//char *ft = "filetype_default"; //works
+	char *ft2 = _ycmd_get_filetype(openfile->filename, content); //doesn't work for some reason if used with ycmd_req_run_completer_command
+	char *ft = "filetype_default"; //works when passed to ycmd_req_run_completer_command
 
 	//check server if it is compromised before sending sensitive source code
 	int ready = ycmd_rsp_is_server_ready(ft);
@@ -936,7 +938,7 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 		char path_extra_conf[PATH_MAX];
 
 		//loading required by the c family languages
-		if (is_c_family(ft))
+		if (is_c_family(ft2))
 		{
 			ycmd_gen_extra_conf(openfile->filename, content);
 			get_project_path(path_project);
@@ -958,7 +960,7 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 #endif
 		}
 
-		if (is_c_family(ft))
+		if (is_c_family(ft2))
 			ycmd_req_ignore_extra_conf_file(path_extra_conf);
 	}
 
