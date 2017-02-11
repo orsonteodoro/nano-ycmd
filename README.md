@@ -214,8 +214,7 @@ rule STATIC_LINKER
  description = Static linking library $out
 ```
 
-NINJA_BUILD_TARGETS can only be c_COMPILER or c_PCH but not STATIC_LINKER.
-
+NINJA_BUILD_TARGETS can only be c_COMPILER and/or c_PCH but not STATIC_LINKER.  Also it only works if your project is using both YCMG_PROJECT_PATH and NINJA_BUILD_TARGETS for Ninja support.
 
 So to use it in combination of nano-ycmd (ynano), it would look like:
 
