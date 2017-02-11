@@ -923,7 +923,7 @@ void usage(void)
     printf("Ninja compdb environment variables support");
     printf("\n");
     printf("NINJA_BUILD_PATH - full path to the directory containing your *.ninja file\n");
-    printf("NINJA_BUILD_TARGETS - Additional build target(s) to pass to Ninja compdb\n");
+    printf("NINJA_BUILD_TARGETS - Additional build target(s) space seperated to pass to Ninja compdb\n");
     printf("\n");
 #endif
 }
