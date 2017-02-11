@@ -911,6 +911,12 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	return status_code == 200;
 }
 
+//1 is true, 0 is false
+int is_c_family(char *ft)
+{
+	return !strcmp(ft,"cpp") || !strcmp(ft,"c") || !strcmp(ft,"objc") || !strcmp(ft,"objcpp");
+}
+
 void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *ccr)
 {
 #ifdef DEBUG
@@ -918,8 +924,8 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 #endif
 	char *content = get_all_content(openfile->fileage);
 
-	//char *ft = _ycmd_get_filetype(openfile->filename, content);
-	char *ft = "filetype_default";
+	char *ft = _ycmd_get_filetype(openfile->filename, content);
+	//char *ft = "filetype_default"; //works
 
 	//check server if it is compromised before sending sensitive source code
 	int ready = ycmd_rsp_is_server_ready(ft);
@@ -930,10 +936,13 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 		char path_extra_conf[PATH_MAX];
 
 		//loading required by the c family languages
-		ycmd_gen_extra_conf(openfile->filename, content);
-		get_project_path(path_project);
-		get_extra_conf_path(path_project, path_extra_conf);
-		ycmd_req_load_extra_conf_file(path_extra_conf);
+		if (is_c_family(ft))
+		{
+			ycmd_gen_extra_conf(openfile->filename, content);
+			get_project_path(path_project);
+			get_extra_conf_path(path_project, path_extra_conf);
+			ycmd_req_load_extra_conf_file(path_extra_conf);
+		}
 
 		int ret = ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand, ccr);
 		if (ret == 0)
@@ -949,7 +958,8 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 #endif
 		}
 
-		ycmd_req_ignore_extra_conf_file(path_extra_conf);
+		if (is_c_family(ft))
+			ycmd_req_ignore_extra_conf_file(path_extra_conf);
 	}
 
 	free(content);
@@ -1736,16 +1746,20 @@ void do_completer_command_restartserver(void)
 		char path_extra_conf[PATH_MAX];
 
 		//loading required by the c family languages
-		ycmd_gen_extra_conf(openfile->filename, content);
-		get_project_path(path_project);
-		get_extra_conf_path(path_project, path_extra_conf);
-		ycmd_req_load_extra_conf_file(path_extra_conf);
+		if (is_c_family(ft))
+		{
+			ycmd_gen_extra_conf(openfile->filename, content);
+			get_project_path(path_project);
+			get_extra_conf_path(path_project, path_extra_conf);
+			ycmd_req_load_extra_conf_file(path_extra_conf);
+		}
 
 		COMPLETER_COMMAND_RESULTS ccr;
 		init_completer_command_results(&ccr);
 		ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand, &ccr);
 
-		ycmd_req_ignore_extra_conf_file(path_extra_conf);
+		if (is_c_family(ft))
+			ycmd_req_ignore_extra_conf_file(path_extra_conf);
 
 		parse_completer_command_results(&ccr);
 
@@ -4060,13 +4074,17 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 		char path_project[PATH_MAX];
 		char path_extra_conf[PATH_MAX];
 
-		ycmd_gen_extra_conf(filepath, content);
-		get_project_path(path_project);
-		get_extra_conf_path(path_project, path_extra_conf);
-		ycmd_req_load_extra_conf_file(path_extra_conf);
+		if (is_c_family(ft))
+		{
+			ycmd_gen_extra_conf(filepath, content);
+			get_project_path(path_project);
+			get_extra_conf_path(path_project, path_extra_conf);
+			ycmd_req_load_extra_conf_file(path_extra_conf);
+		}
 		ycmd_json_event_notification(columnnum, linenum, filepath, "FileReadyToParse", content);
 		ycmd_req_completions_suggestions(linenum, columnnum, filepath, content, "filetype_default");
-		ycmd_req_ignore_extra_conf_file(path_extra_conf);
+		if (is_c_family(ft))
+			ycmd_req_ignore_extra_conf_file(path_extra_conf);
 	}
 	free(content);
 }
