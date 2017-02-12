@@ -100,7 +100,7 @@ python, javascript*, typescript, rust, go, C*, C++*, Objective-C*, Objective-C++
 
 Working with some of these languages require additional requirements:
 
-*Javascript support requires a .tern-project project file to work.
+*JavaScript support requires both .tern-project and .tern-config project file to work.
 
 *C# support requires a .sln project file to work.
 
