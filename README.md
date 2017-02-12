@@ -30,7 +30,7 @@ You can use the following which have been tested:
 * Unix, Linux, Cygwin for /dev/null and /dev/random support
 * NXJSON, for server response parsing (A Makefile patch applied to NXJSON package needs to be applied https://github.com/orsonteodoro/oiledmachine-overlay/blob/master/dev-libs/nxjson/files/nxjson-9999.20141019-create-libs.patch so that it is a shared library)
 * compdb (https://github.com/Sarcasm/compdb) and Ninja, for Ninja build system support
-* jq (https://stedolan.github.io/jq/), json beautifier and filter. (OPTIONAL).  This is used to clean the DiagnosticResponse after parsing and an index on the node to allow for nano-ymcd to conveniently to select a fixit based on this index.
+* jq (https://stedolan.github.io/jq/), json beautifier and filter. (OPTIONAL).  This is used to clean the DiagnosticResponse after parsing and an inject an index on the node to allow for nano-ymcd to conveniently to select a fixit based on this index when the user hovers over this line/index with a shortcut key.
 
 ####My distribution doesn't have the required dependencies
 
