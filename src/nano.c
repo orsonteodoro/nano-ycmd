@@ -923,7 +923,7 @@ void usage(void)
     printf("Ninja compdb environment variables support");
     printf("\n");
     printf("NINJA_BUILD_PATH - full path to the directory containing your *.ninja file\n");
-    printf("NINJA_BUILD_TARGETS - Additional build target(s) space sperated to pass to Ninja compdb\n");
+    printf("NINJA_BUILD_TARGETS - Additional build target(s) space separated to pass to Ninja compdb\n");
     printf("\n");
 #endif
 }
@@ -993,6 +993,24 @@ void version(void)
     printf(_("\n   AUTHORS: http://git.savannah.gnu.org/cgit/make.git/tree/AUTHORS"));
     printf(_("\n   License: GPL3+"));
     printf(_("\n   Web: https://www.gnu.org/software/make/"));
+    printf(_("\n"));
+    printf(_("\n  jq"));
+    printf(_("\n   (C) 2012 Stephen Dolan"));
+    printf(_("\n   AUTHORS: https://github.com/stedolan/jq/blob/master/AUTHORS"));
+    printf(_("\n   License: MIT"));
+    printf(_("\n   Web: https://github.com/stedolan/jq"));
+    printf(_("\n"));
+    printf(_("\n  GNU find utils"));
+    printf(_("\n   Copyright (C) 1990-1994, 2000, 2003-2005, 2008-2011, 2016 Free Software Foundation, Inc."));
+    printf(_("\n   AUTHORS: http://cvs.savannah.gnu.org/viewvc/*checkout*/findutils/findutils/AUTHORS?revision=HEAD"));
+    printf(_("\n   License: MIT"));
+    printf(_("\n   Web: https://www.gnu.org/software/findutils/"));
+    printf(_("\n"));
+    printf(_("\n  GNU Coreutils"));
+    printf(_("\n   Copyright (C) 1988-2017 Free Software Foundation, Inc."));
+    printf(_("\n   AUTHORS: http://git.savannah.gnu.org/gitweb/?p=coreutils.git;a=blob;f=AUTHORS;hb=HEAD"));
+    printf(_("\n   License: GPL3+"));
+    printf(_("\n   Web: https://www.gnu.org/software/findutils/"));
     printf(_("\n"));
 #ifdef USE_OPENSSL
     printf(_("\n  OpenSSL:"));
