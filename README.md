@@ -77,7 +77,7 @@ No | No | No | GoToImplementationElseDeclaration | Goes to the implemention firs
 Yes (Procs Randomly/Not deterministic; works for %d->%s format specifier, missing semicolon, identifier spelling errors; tested only in c language) | Maybe (needs more test cases) | Yes | FixIt | Displays trivial changes and fixes chosen ones automatically
 Yes | Yes | Yes | GetDoc | Displays documentation in new buffer
 No | Yes | Yes | GetDocImprecise | Faster version but less accurate version of GetDoc.
-No | No | No | RefactorRename | Renames a symbol in every file in the project
+No | Yes | No | RefactorRename | Renames a symbol in every file in the project
 Yes | Yes | Yes | GetType | Returns the type of a variable or return the function signature.
 Yes | Yes | Yes | GetTypeImprecise | Faster but less accurate version of GetType
 No | Yes | Yes | RestartServer | Reloads the subserver
