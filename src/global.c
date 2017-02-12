@@ -1104,6 +1104,8 @@ void shortcut_init(void)
 	N_("Go To References"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_fixit, MCOMPLETERCOMMANDS,
 	N_("Fix Trivial Problem"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+    add_to_funcs(ycmd_display_parse_results, MCOMPLETERCOMMANDS,
+	N_("Display All FixIts"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_goto, MCOMPLETERCOMMANDS,
 	N_("Go To"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
     add_to_funcs(do_completer_command_gotoimprecise, MCOMPLETERCOMMANDS,
@@ -1431,6 +1433,7 @@ void shortcut_init(void)
     add_to_sclist(MCOMPLETERCOMMANDS, "M-D", 0, do_completer_command_gotodefinitionelsedeclaration, 0);
     add_to_sclist(MCOMPLETERCOMMANDS, "^E", 0, do_completer_command_gotoreferences, 0);
     add_to_sclist(MCOMPLETERCOMMANDS, "^F", 0, do_completer_command_fixit, 0);
+    add_to_sclist(MCOMPLETERCOMMANDS, "M-F", 0, ycmd_display_parse_results, 0);
     add_to_sclist(MCOMPLETERCOMMANDS, "^G", 0, do_completer_command_goto, 0);
     add_to_sclist(MCOMPLETERCOMMANDS, "M-G", 0, do_completer_command_gotoimprecise, 0);
     //overloading ^H seems to conflict with MCODECOMPLETION so skipped

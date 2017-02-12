@@ -570,10 +570,6 @@ void display_buffer(void)
 
     /* Update the content of the edit window straightaway. */
     edit_refresh();
-
-#ifdef ENABLE_YCMD
-    ycmd_event_file_ready_to_parse(openfile->current_x,(long)openfile->current->lineno,openfile->filename, openfile->fileage);
-#endif
 }
 
 #ifndef DISABLE_MULTIBUFFER

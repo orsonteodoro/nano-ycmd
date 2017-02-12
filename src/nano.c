@@ -923,7 +923,7 @@ void usage(void)
     printf("Ninja compdb environment variables support");
     printf("\n");
     printf("NINJA_BUILD_PATH - full path to the directory containing your *.ninja file\n");
-    printf("NINJA_BUILD_TARGETS - Additional build target(s) space seperated to pass to Ninja compdb\n");
+    printf("NINJA_BUILD_TARGETS - Additional build target(s) space sperated to pass to Ninja compdb\n");
     printf("\n");
 #endif
 }
@@ -1748,9 +1748,9 @@ int do_input(bool allow_funcs)
 	}
     }
 
-#if ENABLE_YCMD
+#ifdef ENABLE_YCMD
     if (!have_shortcut)
-        ycmd_event_file_ready_to_parse(openfile->current_x,(long)openfile->current->lineno,openfile->filename,openfile->fileage);
+	ualarm(SEND_TO_SERVER_DELAY,0);
 #endif
 
     if (!have_shortcut)

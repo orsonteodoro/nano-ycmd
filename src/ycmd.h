@@ -32,6 +32,14 @@
 #define SECRET_KEY_LENGTH 16
 #define DIGITS_MAX 11 //including null character
 #define IDLE_SUICIDE_SECONDS 10800 //3 HOURS
+#define SEND_TO_SERVER_DELAY 500000
+
+typedef struct file_ready_to_parse_results
+{
+	int usable;
+	char *json_blob; //diagnostic data for FileReadyToParse
+	int status_code;
+} FILE_READY_TO_PARSE_RESULTS;
 
 typedef struct _ycmd_globals {
 	char *scheme;
@@ -48,6 +56,7 @@ typedef struct _ycmd_globals {
 	pid_t child_pid;
 	size_t apply_column;
 	int clang_completer; //used to fix off by one error for column number
+	FILE_READY_TO_PARSE_RESULTS file_ready_to_parse_results;
 } YCMD_GLOBALS;
 
 extern void ycmd_init();
@@ -115,4 +124,6 @@ extern void do_end_completer_commands(void);
 
 extern void do_completer_refactorrename_apply(void);
 extern void do_completer_refactorrename_cancel(void);
+
+extern void ycmd_display_parse_results(void);
 #endif

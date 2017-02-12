@@ -32,6 +32,9 @@
 #include <fcntl.h>
 #include <sys/wait.h>
 #include <errno.h>
+#ifdef ENABLE_YCMD
+#include "ycmd.h"
+#endif
 
 #ifndef NANO_TINY
 static pid_t pid = -1;
@@ -195,6 +198,10 @@ void do_deletion(undo_type action)
 void do_delete(void)
 {
     do_deletion(DEL);
+
+#ifdef ENABLE_YCMD
+    ualarm(SEND_TO_SERVER_DELAY,0);
+#endif
 }
 
 /* Backspace over one character.  That is, move the cursor left one
@@ -205,6 +212,10 @@ void do_backspace(void)
 	do_left();
 	do_deletion(BACK);
     }
+
+#ifdef ENABLE_YCMD
+    ualarm(SEND_TO_SERVER_DELAY,0);
+#endif
 }
 
 #ifndef NANO_TINY

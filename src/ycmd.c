@@ -56,10 +56,9 @@
 
 //notes:
 //protocol documentation: https://gist.github.com/hydrargyrum/78c6fccc9de622ad9d7b
-//method documentation: http://micbou.github.io/ycmd/
+//http methods documentation: http://micbou.github.io/ycmd/
 //reference client: https://github.com/Valloric/ycmd/blob/master/examples/example_client.py
 //ycm https://github.com/Valloric/YouCompleteMe/blob/master/README.md
-//json escape: http://szydan.github.io/json-escape/
 
 typedef struct completer_command_results
 {
@@ -71,6 +70,10 @@ typedef struct completer_command_results
 	char *json_blob;
 	char *detailed_info;
 	int status_code;
+
+	int have_mmx;
+	int have_sse;
+	int have_sse2;
 } COMPLETER_COMMAND_RESULTS;
 
 typedef struct defined_subcommands_results
@@ -84,6 +87,7 @@ void escape_json(char **buffer);
 char *get_all_content(filestruct *fileage);
 void get_extra_conf_path(char *path_project, char *path_extra_conf);
 void get_project_path(char *path_project);
+void init_file_ready_to_parse_results(FILE_READY_TO_PARSE_RESULTS *frtpr);
 char *_ne_read_response_body_full(ne_request *request);
 char *ycmd_compute_request(char *method, char *path, char *body);
 char *ycmd_compute_response(char *response_body);
@@ -105,22 +109,65 @@ extern char* string_replace(const char* src, const char* find, const char* repla
 
 YCMD_GLOBALS ycmd_globals;
 
-void *_expand(void *ptr, size_t new_size)
+//we count the length to reduce the overhead of expanding/realloc the string by simulating it
+size_t _predict_string_replace_size(char *buffer, char *find, char *replace, int global)
 {
-	void *out;
-	out = realloc(ptr, new_size);
-	if (out == NULL)
+	int lenb = strlen(buffer);
+	int lenf = strlen(find);
+	int lenr = strlen(replace);
+	int cf;
+	int i = 0;
+	int j = 0;
+	char *p;
+
+	p = buffer;
+	size_t outlen = 1;
+	int keep_finding = 1;
+
+	for (i=0;i<lenb;)
 	{
-#ifdef DEBUG
-		fprintf(stderr,"Error\n");
-		exit(-1);
-#endif
+		cf = 0;
+
+		if (keep_finding)
+		{
+			for(j=0;j<lenf && i+j < lenb;j++)
+			{
+				if ( p[i+j] == find[j] )
+					cf++;
+				else
+					break;
+			}
+		}
+
+		if (keep_finding && cf == lenf)
+		{
+			outlen+=lenr;
+			i+=lenf;
+			if (!global)
+				keep_finding = 0;
+		}
+		else
+		{
+			if (!keep_finding)
+			{
+				//simulate dump the remaining
+				outlen+=(lenb-i);
+				i+=(lenb-i);
+			}
+			else
+			{
+				outlen+=1;
+				i++;
+			}
+		}
 	}
-	return out;
+
+	return outlen;
 }
 
 //There was no gpl3+ string replace so I made one from scratch.
-char *string_replace_gpl3(char *buffer, char *find, char *replace)
+//1 for global means search entire buffer.  setting to 0 searches only the first instance of find.  it's useful to eliminating the search space so speed up.
+char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 {
 	char *out;
 	int lenb = strlen(buffer);
@@ -133,37 +180,54 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace)
 	int oi = 0;
 	char *p;
 
-	out = malloc(1);
+	size_t new_length = _predict_string_replace_size(buffer, find, replace, global); //includes null character so +1
+	out = malloc(new_length);
 	out[0] = 0;
 
 	p = buffer;
-	int outlen = 1;
+	int keep_finding = 1;
 
 	for (i=0;i<lenb;)
 	{
 		cf = 0;
-		for(j=0;j<lenf && i+j < lenb;j++)
+
+		if (keep_finding)
 		{
-			if ( p[i+j] == find[j] )
-				cf++;
-			else
-				break;
+			for(j=0;j<lenf && i+j < lenb;j++)
+			{
+				if ( p[i+j] == find[j] )
+					cf++;
+				else
+					break;
+			}
 		}
-		if (cf == lenf)
+
+		if (keep_finding && cf == lenf)
 		{
 #ifdef DEBUG
 		        fprintf(stderr, "string_replace_gpl3 found: %s\n", find);
 #endif
-			out=_expand(out, outlen+=lenr);
 			for(k=0;k<lenr;k++)
 				out[oi++] = replace[k];
 			i+=lenf;
+
+			if (!global)
+				keep_finding = 0;
 		}
 		else
 		{
-			out=_expand(out, outlen+=1);
-			out[oi++]=p[i];
-			i++;
+			if (!keep_finding)
+			{
+				//dump the rest
+				memcpy(out+oi, p+i, lenb-i);
+				oi+=(lenb-i);
+				i+=(lenb-i);
+			}
+			else
+			{
+				out[oi++]=p[i];
+				i++;
+			}
 		}
 	}
 	out[oi]=0;
@@ -176,12 +240,17 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace)
 }
 
 //A wrapper function that takes any string_replace.
-void string_replace_w(char **buffer, char *find, char *replace)
+//1 for global means search entire buffer.  setting to 0 searches only the first instance of find.  it's useful for eliminating the search space so speed up.
+void string_replace_w(char **buffer, char *find, char *replace, int global)
 {
 	char *b;
 	b = *buffer;
-	*buffer = string_replace_gpl3(*buffer, find, replace);
+	*buffer = string_replace_gpl3(*buffer, find, replace, global);
 	free(b);
+}
+
+void send_to_server(int signum) {
+    ycmd_event_file_ready_to_parse(openfile->current_x,(long)openfile->current->lineno,openfile->filename,openfile->fileage);
 }
 
 void ycmd_init()
@@ -196,6 +265,9 @@ void ycmd_init()
 	ycmd_globals.child_pid=-1;
 	ycmd_globals.secret_key_base64 = NULL;
 	ycmd_globals.json = NULL;
+	init_file_ready_to_parse_results(&ycmd_globals.file_ready_to_parse_results);
+
+	signal(SIGALRM, send_to_server);
 
 #ifdef USE_LIBGCRYPT
 	if (!gcry_check_version("1.7.3"))
@@ -588,15 +660,26 @@ void _ycmd_json_replace_file_data(char **json, char *filepath, char *content)
 		getcwd(abs_filepath, PATH_MAX);
 		strcat(abs_filepath,"/");
 		strcat(abs_filepath,filepath);
-		string_replace_w(json, "FILEPATH", abs_filepath);
+		string_replace_w(json, "FILEPATH", abs_filepath, 1);
 	}
 	else
-		string_replace_w(json, "FILEPATH", filepath);
+		string_replace_w(json, "FILEPATH", filepath, 1);
 
 	char *ft = _ycmd_get_filetype(filepath, content);
-	string_replace_w(json, "FILETYPES", ft);
+	string_replace_w(json, "FILETYPES", ft, 0);
 
-	string_replace_w(json, "CONTENTS", content);
+	string_replace_w(json, "CONTENTS", content, 0);
+}
+
+void init_file_ready_to_parse_results(FILE_READY_TO_PARSE_RESULTS *frtpr)
+{
+	memset(frtpr, 0, sizeof(FILE_READY_TO_PARSE_RESULTS));
+}
+
+void destroy_file_ready_to_parse_results(FILE_READY_TO_PARSE_RESULTS *frtpr)
+{
+	if (frtpr->json_blob)
+		free(frtpr->json_blob);
 }
 
 int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, char *eventname, char *content)
@@ -628,10 +711,10 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	snprintf(line_num, DIGITS_MAX, "%d", linenum);
 	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
 
-	string_replace_w(&json, "COLUMN_NUM", column_num);
-	string_replace_w(&json, "EVENT_NAME", eventname);
+	string_replace_w(&json, "COLUMN_NUM", column_num, 0);
+	string_replace_w(&json, "EVENT_NAME", eventname, 0);
 
-	string_replace_w(&json, "LINE_NUM", line_num);
+	string_replace_w(&json, "LINE_NUM", line_num, 0);
 
 	_ycmd_json_replace_file_data(&json, filepath, content);
 
@@ -654,14 +737,39 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 #endif
 
 		int ret = ne_begin_request(request);
-		if (ret >= 0)
+		if (strstr(eventname,"FileReadyToParse"))
+		{
+			destroy_file_ready_to_parse_results(&ycmd_globals.file_ready_to_parse_results);
+			init_file_ready_to_parse_results(&ycmd_globals.file_ready_to_parse_results);
+			ycmd_globals.file_ready_to_parse_results.status_code = status_code;
+		}
+		if (ret == NE_OK)
 		{
 			char *response = _ne_read_response_body_full(request);
+			const char *hmac_remote = ne_get_response_header(request, HTTP_HEADER_YCM_HMAC);
 			ne_end_request(request);
+
+			//attacker could inject malicious code in fixit but user would see it
+			char *hmac_local = ycmd_compute_response(response);
 
 #ifdef DEBUG
 			fprintf(stderr,"Server response: %s\n", response);
 #endif
+
+#ifdef DEBUG
+			fprintf(stderr,"hmac_local is %s\n",hmac_local);
+			fprintf(stderr,"hmac_remote is %s\n",hmac_remote);
+#endif
+//			if (!hmac_local || !hmac_remote || !ycmd_compare_hmac(hmac_remote, hmac_local)) //bugged
+//				;
+//			else
+			{
+				if (strstr(eventname,"FileReadyToParse"))
+				{
+					ycmd_globals.file_ready_to_parse_results.usable = 1;
+					ycmd_globals.file_ready_to_parse_results.json_blob = strdup(response);
+				}
+			}
 
 			free(response);
 		}
@@ -791,9 +899,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	snprintf(line_num, DIGITS_MAX, "%d", linenum);
 	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
 
-	string_replace_w(&json, "LINE_NUM", line_num);
-	string_replace_w(&json, "COLUMN_NUM", column_num);
-	string_replace_w(&json, "COMPLETER_TARGET", completertarget);
+	string_replace_w(&json, "LINE_NUM", line_num, 0);
+	string_replace_w(&json, "COLUMN_NUM", column_num, 0);
+	string_replace_w(&json, "COMPLETER_TARGET", completertarget, 0);
 
 	_ycmd_json_replace_file_data(&json, filepath, content);
 
@@ -815,7 +923,6 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	request = ne_request_create(ycmd_globals.session, method, path);
 	{
 		ne_set_request_flag(request,NE_REQFLAG_IDEMPOTENT,0);
-		char *response_body = NULL;
 
 		ne_add_request_header(request,"content-type","application/json");
 		char *ycmd_b64_hmac = ycmd_compute_request(method, path, json);
@@ -823,9 +930,10 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 		ne_set_request_body_buffer(request, json, strlen(json));
 
 		int ret = ne_begin_request(request);
-		if (ret >= 0)
+		status_code = ne_get_status(request)->code;
+		if (ret == NE_OK)
 		{
-			response_body = _ne_read_response_body_full(request);
+			char *response_body = _ne_read_response_body_full(request);
 			const char *hmac_remote = ne_get_response_header(request, HTTP_HEADER_YCM_HMAC);
 			ne_end_request(request);
 
@@ -838,69 +946,72 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 #endif
 
 			if (!hmac_local || !hmac_remote || !ycmd_compare_hmac(hmac_remote, hmac_local))
-				goto compromised_exit;
+				;
+			else
+			{
+
+				//output should look like:
+				//{"errors": [], "completion_start_column": 22, "completions": [{"insertion_text": "Wri", "extra_menu_info": "[ID]"}, {"insertion_text": "WriteLine", "extra_menu_info": "[ID]"}]}
+
+				int found_cc_entry = 0;
+				if (response_body && strstr(response_body, "completion_start_column"))
+				{
+					const nx_json *pjson = nx_json_parse_utf8(response_body);
+
+					const nx_json *completions = nx_json_get(pjson, "completions");
+					int i = 0;
+					int j = 0;
+					int maxlist = MAIN_VISIBLE;
+#ifdef DEBUG
+					fprintf(stderr,"maxlist = %d, cols = %d\n", maxlist, COLS);
+#endif
+
+					for (i = 0; i < completions->length && j < maxlist && j < 26 && func; i++, j++) //26 for 26 letters A-Z
+					{
+						const nx_json *candidate = nx_json_item(completions, i);
+						const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
+						if (func->desc != NULL)
+							free((void *)func->desc);
+						func->desc = strdup(insertion_text->text_value);
+#ifdef DEBUG
+						fprintf(stderr,">Added completion entry to nano toolbar: %s\n", insertion_text->text_value);
+#endif
+						found_cc_entry = 1;
+						func = func->next;
+					}
+					for (i = j; i < maxlist && i < 26 && func; i++, func = func->next)
+					{
+						if (func->desc != NULL)
+							free((void *)func->desc);
+						func->desc = strdup("");
+#ifdef DEBUG
+						fprintf(stderr,">Deleting unused entry: %d\n", i);
+#endif
+					}
+					ycmd_globals.apply_column = nx_json_get(pjson, "completion_start_column")->int_value;
+
+					nx_json_free(pjson);
+				}
+
+				if (found_cc_entry)
+				{
+#ifdef DEBUG
+					fprintf(stderr,"Showing completion bar.\n");
+#endif
+					bottombars(MCODECOMPLETION);
+					statusline(HUSH, "Code completion triggered");
+				}
+			}
 
 #ifdef DEBUG
 			fprintf(stderr,"Server response (SUGGESTIONS): %s\n", response_body);
 #endif
+
+			if (response_body)
+				free(response_body);
+
 		}
 
-		//output should look like:
-		//{"errors": [], "completion_start_column": 22, "completions": [{"insertion_text": "Wri", "extra_menu_info": "[ID]"}, {"insertion_text": "WriteLine", "extra_menu_info": "[ID]"}]}
-
-		status_code = ne_get_status(request)->code;
-		int found_cc_entry = 0;
-		if (response_body && strstr(response_body, "completion_start_column"))
-		{
-			const nx_json *pjson = nx_json_parse_utf8(response_body);
-
-			const nx_json *completions = nx_json_get(pjson, "completions");
-			int i = 0;
-			int j = 0;
-			int maxlist = MAIN_VISIBLE;
-#ifdef DEBUG
-			fprintf(stderr,"maxlist = %d, cols = %d\n", maxlist, COLS);
-#endif
-
-			for (i = 0; i < completions->length && j < maxlist && j < 26 && func; i++, j++) //26 for 26 letters A-Z
-			{
-				const nx_json *candidate = nx_json_item(completions, i);
-				const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
-				if (func->desc != NULL)
-					free((void *)func->desc);
-				func->desc = strdup(insertion_text->text_value);
-#ifdef DEBUG
-				fprintf(stderr,">Added completion entry to nano toolbar: %s\n", insertion_text->text_value);
-#endif
-				found_cc_entry = 1;
-				func = func->next;
-			}
-			for (i = j; i < maxlist && i < 26 && func; i++, func = func->next)
-			{
-				if (func->desc != NULL)
-					free((void *)func->desc);
-				func->desc = strdup("");
-#ifdef DEBUG
-				fprintf(stderr,">Deleting unused entry: %d\n", i);
-#endif
-			}
-			ycmd_globals.apply_column = nx_json_get(pjson, "completion_start_column")->int_value;
-
-			nx_json_free(pjson);
-		}
-
-		if (found_cc_entry)
-		{
-#ifdef DEBUG
-			fprintf(stderr,"Showing completion bar.\n");
-#endif
-			bottombars(MCODECOMPLETION);
-			statusline(HUSH, "Code completion triggered");
-		}
-
-		compromised_exit:
-		if (response_body)
-			free(response_body);
 	}
 	ne_request_destroy(request);
 
@@ -1623,7 +1734,7 @@ void do_completer_command_refactorrename(void)
 
 	if (ret == 0) //0 enter, -1 cancel
 	{
-		string_replace_w(&cc_command, "NEW_IDENTIFIER", answer);
+		string_replace_w(&cc_command, "NEW_IDENTIFIER", answer, 0);
 
 		statusline(HUSH, "Applying refactor rename...");
 
@@ -1737,7 +1848,7 @@ void do_completer_command_restartserver(void)
 	char *content = get_all_content(openfile->fileage);
 	//char *ft = _ycmd_get_filetype(openfile->filename, content);
 	char *ft = "filetype_default";
-	string_replace_w(&completercommand, "LANG", ft);
+	string_replace_w(&completercommand, "LANG", ft, 0);
 
 	//check server if it is compromised before sending sensitive source code
 	int ready = ycmd_rsp_is_server_ready(ft);
@@ -2036,10 +2147,10 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, c
 	snprintf(line_num, DIGITS_MAX, "%d", linenum);
 	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
 
-	string_replace_w(&json, "LINE_NUM", line_num);
-	string_replace_w(&json, "COLUMN_NUM", column_num);
-	string_replace_w(&json, "COMPLETER_TARGET", completertarget);
-	string_replace_w(&json, "COMMAND_ARGUMENTS", completercommand);
+	string_replace_w(&json, "LINE_NUM", line_num, 0);
+	string_replace_w(&json, "COLUMN_NUM", column_num, 0);
+	string_replace_w(&json, "COMPLETER_TARGET", completertarget, 0);
+	string_replace_w(&json, "COMMAND_ARGUMENTS", completercommand, 0);
 
 	_ycmd_json_replace_file_data(&json, filepath, content);
 
@@ -2062,7 +2173,7 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, c
 		int ret = ne_begin_request(request);
 		status_code = ne_get_status(request)->code;
 		ccr->status_code = status_code; //sometimes the subservers will throw exceptions so capture that
-		if (ret >= 0)
+		if (ret == NE_OK)
 		{
 			response_body = _ne_read_response_body_full(request);
 
@@ -2083,13 +2194,15 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, c
 
 
 			if (!hmac_local || !hmac_remote || !ycmd_compare_hmac(hmac_remote, hmac_local))
-				goto compromised_exit;
-
-			ccr->json_blob = strdup(response_body);
+				;
+			else
+			{
+				ccr->json_blob = strdup(response_body);
 #ifdef DEBUG
-			fprintf(stderr,"Setting usable COMPLETER_COMMAND_RESULTS flag\n");
+				fprintf(stderr,"Setting usable COMPLETER_COMMAND_RESULTS flag\n");
 #endif
-			ccr->usable = 1;
+				ccr->usable = 1;
+			}
 		}
 		else
 		{
@@ -2098,7 +2211,6 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, c
 #endif
 		}
 
-		compromised_exit:
 		if (response_body)
 			free(response_body);
 	}
@@ -2132,7 +2244,7 @@ int ycmd_rsp_is_healthy_simple()
 		ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, ycmd_b64_hmac);
 
 		int ret = ne_begin_request(request);
-		if (ret >= 0)
+		if (ret == NE_OK)
 		{
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
@@ -2172,9 +2284,9 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	body = strdup(_body);
 
 	if (include_subservers)
-		string_replace_w(&path, "VALUE", "1");
+		string_replace_w(&path, "VALUE", "1", 0);
 	else
-		string_replace_w(&path, "VALUE", "0");
+		string_replace_w(&path, "VALUE", "0", 0);
 
 	int status_code = 0;
 	ne_request *request;
@@ -2186,7 +2298,7 @@ int ycmd_rsp_is_healthy(int include_subservers)
 		ne_set_request_body_buffer(request, body, strlen(body));
 
 		int ret = ne_begin_request(request);
-		if (ret >= 0)
+		if (ret == NE_OK)
 		{
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
@@ -2225,7 +2337,7 @@ int ycmd_rsp_is_server_ready(char *filetype)
 	char *body;
 	body = strdup(_body);
 
-	string_replace_w(&body, "FILE_TYPE", filetype);
+	string_replace_w(&body, "FILE_TYPE", filetype, 0);
 
 #ifdef DEBUG
 	fprintf(stderr,"ycmd_rsp_is_server_ready path is %s\n",path);
@@ -2243,7 +2355,7 @@ int ycmd_rsp_is_server_ready(char *filetype)
 		ne_set_request_body_buffer(request, body, strlen(body));
 
 		int ret = ne_begin_request(request);
-		if (ret >= 0)
+		if (ret == NE_OK)
 		{
 			char *response_body = _ne_read_response_body_full(request);
 			const char *hmac_remote = ne_get_response_header(request, HTTP_HEADER_YCM_HMAC);
@@ -2305,8 +2417,8 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	snprintf(line_num, DIGITS_MAX, "%d", linenum);
 	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
 
-	string_replace_w(&json, "LINE_NUM", line_num);
-	string_replace_w(&json, "COLUMN_NUM", column_num);
+	string_replace_w(&json, "LINE_NUM", line_num, 0);
+	string_replace_w(&json, "COLUMN_NUM", column_num, 0);
 
 	_ycmd_json_replace_file_data(&json, filepath, content);
 
@@ -2329,7 +2441,7 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 		ne_set_request_body_buffer(request, json, strlen(json));
 
 		int ret = ne_begin_request(request);
-		if (ret >= 0)
+		if (ret == NE_OK)
 		{
 			char *response_body = _ne_read_response_body_full(request);
 			ne_end_request(request);
@@ -2387,9 +2499,9 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, cha
 	snprintf(line_num, DIGITS_MAX, "%d", linenum);
 	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
 
-	string_replace_w(&json, "LINE_NUM", line_num);
-	string_replace_w(&json, "COLUMN_NUM", column_num);
-	string_replace_w(&json, "COMPLETER_TARGET", completertarget);
+	string_replace_w(&json, "LINE_NUM", line_num, 0);
+	string_replace_w(&json, "COLUMN_NUM", column_num, 0);
+	string_replace_w(&json, "COMPLETER_TARGET", completertarget, 0);
 
 	_ycmd_json_replace_file_data(&json, filepath, content);
 
@@ -2412,7 +2524,7 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, cha
 		int ret = ne_begin_request(request);
 		status_code = ne_get_status(request)->code;
 		dsr->status_code = status_code; //sometimes the subservers will throw exceptions so capture that
-		if (ret >= 0)
+		if (ret == NE_OK)
 		{
 			response_body = _ne_read_response_body_full(request);
 
@@ -2433,13 +2545,15 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, cha
 
 
 			if (!hmac_local || !hmac_remote || !ycmd_compare_hmac(hmac_remote, hmac_local))
-				goto compromised_exit;
-
-			dsr->json_blob = strdup(response_body);
+				;
+			else
+			{
+				dsr->json_blob = strdup(response_body);
 #ifdef DEBUG
-			fprintf(stderr,"Setting usable COMPLETER_COMMAND_RESULTS flag\n");
+				fprintf(stderr,"Setting usable COMPLETER_COMMAND_RESULTS flag\n");
 #endif
-			dsr->usable = 1;
+				dsr->usable = 1;
+			}
 		}
 		else
 		{
@@ -2448,7 +2562,6 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, cha
 #endif
 		}
 
-		compromised_exit:
 		if (response_body)
 			free(response_body);
 	}
@@ -2557,6 +2670,7 @@ void ycmd_destroy()
 {
 	if (ycmd_globals.secret_key_base64)
 		free(ycmd_globals.secret_key_base64);
+	destroy_file_ready_to_parse_results(&ycmd_globals.file_ready_to_parse_results);
 
 #ifdef DEBUG
 	fprintf(stderr, "Called ycmd_destroy.\n");
@@ -2585,12 +2699,12 @@ void ycmd_start_server()
 
 	ycmd_globals.json = ycmd_create_default_json();
 
-	string_replace_w(&ycmd_globals.json, "HMAC_SECRET", ycmd_globals.secret_key_base64);
-	string_replace_w(&ycmd_globals.json, "GOCODE_PATH", GOCODE_PATH);
-	string_replace_w(&ycmd_globals.json, "GODEF_PATH", GODEF_PATH);
-	string_replace_w(&ycmd_globals.json, "RUST_SRC_PATH", RUST_SRC_PATH);
-	string_replace_w(&ycmd_globals.json, "RACERD_PATH", RACERD_PATH);
-	string_replace_w(&ycmd_globals.json, "PYTHON_PATH", PYTHON_PATH);
+	string_replace_w(&ycmd_globals.json, "HMAC_SECRET", ycmd_globals.secret_key_base64, 0);
+	string_replace_w(&ycmd_globals.json, "GOCODE_PATH", GOCODE_PATH, 0);
+	string_replace_w(&ycmd_globals.json, "GODEF_PATH", GODEF_PATH, 0);
+	string_replace_w(&ycmd_globals.json, "RUST_SRC_PATH", RUST_SRC_PATH, 0);
+	string_replace_w(&ycmd_globals.json, "RACERD_PATH", RACERD_PATH, 0);
+	string_replace_w(&ycmd_globals.json, "PYTHON_PATH", PYTHON_PATH, 0);
 
 #ifdef DEBUG
 	fprintf(stderr,"JSON file contents: %s\n",ycmd_globals.json);
@@ -2694,7 +2808,7 @@ void ycmd_start_server()
 	statusline(HUSH, "Letting the server initialize.  Wait...");
 
 	//give time for the server initialize
-	usleep(5000000);
+	usleep(1250000);
 
 	statusline(HUSH, "Checking server health...");
 
@@ -2786,7 +2900,7 @@ void ycmd_generate_secret_raw(char *secret)
 	total_refresh();
 	statusline(HUSH, "Please stop typing.  Clearing input buffer...");
 
-	usleep(1000000*5);
+	usleep(1000000);
 	fflush(stdin);
 
 	total_refresh();
@@ -2989,16 +3103,92 @@ char *ycmd_compute_response(char *response_body)
 	return b64_response;
 }
 
+//scopes out the new length so we can avoid the overhead of many calls to _expand or realloc
+size_t _predict_new_json_escape_size(char **buffer)
+{
+	int i = 0;
+	int len = strlen(*buffer);
+
+	size_t outlen;
+	outlen = 1;
+
+	char *p = *buffer;
+	for (i = 0; i < len; i++)
+	{
+		switch(p[i])
+		{
+			//details about json sequences in page 3-4: https://www.ietf.org/rfc/rfc4627.txt
+
+			//not all commented out because it breaks test cases (ycmd.c and solutiondetection.py)
+
+			//escape already escaped
+			case '\\': //x5c
+
+			//c escape sequences
+			case '\b': //x08
+			case '\t': //x09
+			case '\n': //x0a
+			case '\v': //x0b
+			case '\f': //x0c
+			case '\r': //x0d
+			case '\"': //x22 "
+			case '/': outlen+=2; break; //x2f
+
+			//escape control characters
+			case '\x01':
+			case '\x02':
+			case '\x03':
+			case '\x04':
+			case '\x05':
+			case '\x06':
+			case '\x07':
+
+			//duplicate cases for c escape sequences
+			//case '\x08':
+			//case '\x09':
+			//case '\x0a':
+			//case '\x0b':
+			//case '\x0c':
+			//case '\x0d':
+
+			case '\x0e':
+			case '\x0f':
+
+			case '\x10':
+			case '\x11':
+			case '\x12':
+			case '\x13':
+			case '\x14':
+			case '\x15':
+			case '\x16':
+			case '\x17':
+			case '\x18':
+			case '\x19':
+			case '\x1a':
+			case '\x1b':
+			case '\x1c':
+			case '\x1d':
+			case '\x1e':
+			case '\x1f': outlen+=6; break;
+
+			//delete character
+			//case '\x7f': outlen+=6; break;
+			default: outlen+=1; break;
+		}
+	}
+
+	return outlen;
+}
+
 void escape_json(char **buffer)
 {
 	int i = 0;
 	int len = strlen(*buffer);
 	char *out;
 
-	out = malloc(1);
+	size_t new_length = _predict_new_json_escape_size(buffer);
+	out = malloc(new_length);
 	out[0] = '\0';
-	int outlen;
-	outlen = 1;
 
 	int j = 0;
 	char *p = *buffer;
@@ -3011,58 +3201,58 @@ void escape_json(char **buffer)
 			//not all commented out because it breaks test cases (ycmd.c and solutiondetection.py)
 
 			//escape already escaped
-			case '\\': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='\\'; break; //x5c
+			case '\\': out[j++]='\\'; out[j++]='\\'; break; //x5c
 
 			//c escape sequences
-			case '\b': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='b'; break; //x08
-			case '\t': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='t'; break; //x09
-			case '\n': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='n'; break; //x0a
-			case '\v': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='v'; break; //x0b
-			case '\f': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='f'; break; //x0c
-			case '\r': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='r'; break; //x0d
-			case '\"': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='\"'; break; //x22 "
-			case '/': out=_expand(out, outlen+=2); out[j++]='\\'; out[j++]='/'; break; //x2f
+			case '\b': out[j++]='\\'; out[j++]='b'; break; //x08
+			case '\t': out[j++]='\\'; out[j++]='t'; break; //x09
+			case '\n': out[j++]='\\'; out[j++]='n'; break; //x0a
+			case '\v': out[j++]='\\'; out[j++]='v'; break; //x0b
+			case '\f': out[j++]='\\'; out[j++]='f'; break; //x0c
+			case '\r': out[j++]='\\'; out[j++]='r'; break; //x0d
+			case '\"': out[j++]='\\'; out[j++]='\"'; break; //x22 "
+			case '/': out[j++]='\\'; out[j++]='/'; break; //x2f
 
 			//escape control characters
-			case '\x01': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='1'; break;
-			case '\x02': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='2'; break;
-			case '\x03': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='3'; break;
-			case '\x04': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='4'; break;
-			case '\x05': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='5'; break;
-			case '\x06': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='6'; break;
-			case '\x07': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='7'; break;
+			case '\x01': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='1'; break;
+			case '\x02': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='2'; break;
+			case '\x03': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='3'; break;
+			case '\x04': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='4'; break;
+			case '\x05': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='5'; break;
+			case '\x06': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='6'; break;
+			case '\x07': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='7'; break;
 
 			//duplicate cases for c escape sequences
-			//case '\x08': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='8'; break;
-			//case '\x09': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='9'; break;
-			//case '\x0a': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='a'; break;
-			//case '\x0b': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='b'; break;
-			//case '\x0c': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='c'; break;
-			//case '\x0d': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='d'; break;
+			//case '\x08': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='8'; break;
+			//case '\x09': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='9'; break;
+			//case '\x0a': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='a'; break;
+			//case '\x0b': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='b'; break;
+			//case '\x0c': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='c'; break;
+			//case '\x0d': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='d'; break;
 
-			case '\x0e': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='e'; break;
-			case '\x0f': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='f'; break;
+			case '\x0e': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='e'; break;
+			case '\x0f': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='f'; break;
 
-			case '\x10': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='0'; break;
-			case '\x11': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='1'; break;
-			case '\x12': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='2'; break;
-			case '\x13': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='3'; break;
-			case '\x14': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='4'; break;
-			case '\x15': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='5'; break;
-			case '\x16': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='6'; break;
-			case '\x17': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='7'; break;
-			case '\x18': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='8'; break;
-			case '\x19': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='9'; break;
-			case '\x1a': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='a'; break;
-			case '\x1b': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='b'; break;
-			case '\x1c': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='c'; break;
-			case '\x1d': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='d'; break;
-			case '\x1e': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='e'; break;
-			case '\x1f': out=_expand(out, outlen+=6); out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='f'; break;
+			case '\x10': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='0'; break;
+			case '\x11': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='1'; break;
+			case '\x12': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='2'; break;
+			case '\x13': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='3'; break;
+			case '\x14': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='4'; break;
+			case '\x15': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='5'; break;
+			case '\x16': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='6'; break;
+			case '\x17': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='7'; break;
+			case '\x18': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='8'; break;
+			case '\x19': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='9'; break;
+			case '\x1a': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='a'; break;
+			case '\x1b': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='b'; break;
+			case '\x1c': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='c'; break;
+			case '\x1d': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='d'; break;
+			case '\x1e': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='e'; break;
+			case '\x1f': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='f'; break;
 
 			//delete character
-			//case '\x7f': out=_expand(out, outlen+=6); out[j++]='\\'; out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='7'; out[j++]='f'; break;
-			default: out=_expand(out, outlen+=1); out[j++] = p[i]; break;
+			//case '\x7f': out[j++]='\\'; out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='7'; out[j++]='f'; break;
+			default: out[j++] = p[i]; break;
 		}
 	}
 	out[j] = 0;
@@ -3158,6 +3348,8 @@ char *_ycmd_get_filetype(char *filepath, char *content)
 		strcpy(type, "python");
 	else if (strstr(filepath,".ts"))
 		strcpy(type, "typescript");
+	else
+		strcpy(type, "filetype_default"); //try to quiet error.  it doesn't accept ''
 
 	return type;
 }
@@ -4480,6 +4672,8 @@ void do_completer_command_show(void)
 	 		else if (s->scfunc == do_completer_command_clearcompliationflagcache && strstr(dsr.json_blob,"\"ClearCompilationFlagCache\"")) 			s->visibility = 1;
 			else if (s->scfunc == do_completer_command_getparent && strstr(dsr.json_blob,"\"GetParent\"")) 							s->visibility = 1;
 			else if (s->scfunc == do_completer_command_solutionfile && strstr(dsr.json_blob,"\"SolutionFile\""))						s->visibility = 1;
+
+			if (s->scfunc == ycmd_display_parse_results) s->visibility = 1;
 		}
 	}
 	else
@@ -4504,3 +4698,39 @@ void do_completer_refactorrename_cancel(void)
 	bottombars(MMAIN);
 }
 
+void ycmd_display_parse_results()
+{
+	if (!ycmd_globals.file_ready_to_parse_results.json_blob)
+	{
+		statusline(HUSH, "Parse results are not usable.");
+
+		return;
+	}
+
+	char doc_filename[PATH_MAX];
+	strcpy(doc_filename,"/tmp/nanoXXXXXX");
+	int fdtemp = mkstemp(doc_filename);
+#ifdef DEBUG
+	fprintf(stderr, "tempname is %s\n", doc_filename);
+#endif
+	FILE *f = fdopen(fdtemp,"w+");
+	//todo put id to make it easier to hash to object
+	fprintf(f, "%s", ycmd_globals.file_ready_to_parse_results.json_blob);
+	fclose(f);
+
+	char command[PATH_MAX*5];
+	snprintf(command, PATH_MAX*5, "cat \"%s\" | jq \"to_entries | map({name:.value, index:.key})\" > \"%s.t\"; mv \"%s.t\" \"%s\"", doc_filename, doc_filename, doc_filename, doc_filename);
+	system(command);
+
+#ifndef DISABLE_MULTIBUFFER
+	SET(MULTIBUFFER);
+#else
+	//todo non multibuffer
+#endif
+
+	//do_output doesn't handle \n properly and displays it as ^@ so we do it this way
+	open_buffer(doc_filename, FALSE);
+	display_buffer();
+
+	unlink(doc_filename);
+}
