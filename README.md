@@ -218,9 +218,13 @@ rule STATIC_LINKER
 
 NINJA_BUILD_TARGETS can only be c_COMPILER and/or c_PCH but not STATIC_LINKER.  Also it only works if your project is using both YCMG_PROJECT_PATH and NINJA_BUILD_TARGETS for Ninja support.
 
-So to use it in combination of nano-ycmd (ynano), it would look like:
+So to use it in combination of nano-ycmd (ynano) without Ninja, it would look like:
 
 YCMG_FLAGS="-b make" YCMG_PROJECT_PATH="/var/tmp/portage/app-editors/nano-ycmd-9999.20170201/work/nano-ycmd-7611e4eb827980da1057f6768d00bd322fa1c58f" ynano ycmd.c
+
+For Ninja + Other build system, it should look like:
+
+NINJA_BUILD_PATH="/var/tmp/portage/media-plugins/gst-transcoder-1.8.2-r1/work/gst-transcoder-1.8.2/mesonbuild" NINJA_BUILD_TARGETS="c_COMPILER" YCMG_PROJECT_PATH="/var/tmp/portage/media-plugins/gst-transcoder-1.8.2-r1/work/gst-transcoder-1.8.2" ynano gst/transcode/gst-cpu-throttling-clock.c 2>out.txt
 
 Also, if you add new libraries or files, you should delete both the .ycm_extra_conf.py and compile_commands.json so that nano-ycmd can regenerate them.
 
