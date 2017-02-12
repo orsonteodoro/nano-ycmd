@@ -177,13 +177,26 @@ make
 
 The -g adds debugging information for developers for the gdb debugger but not needed for regular users. 
 
-####YCM-Generator and Ninja support
-The following environmental variables are defined by nano-ycmd:
+####YCM-Generator
+The following environmental variables are defined by nano-ycmd are required for C family support (C/C++/ObjC/ObjC++):
 
-* YCMG_PROJECT_PATH - This should point to the folder containing the top-level Makefile, configure, CMakeList.txt, 
-* YCMG_FLAGS - This adds extra parameters to config_gen.py.  I recommend using make over autotools specifically `-b make` because more include files are exposed instead of allowing YCM-Generator autodetect.
-* NINJA_BUILD_PATH - This should point to the folder containing your *.ninja file
-* NINJA_BUILD_TARGETS - This should be the rule(s) space seperated and listed under the `# Rules for compiling comment` section and having the line begin with `command = clang` or whatever compiler you are using.
+* YCMG_PROJECT_PATH - This should point to the folder containing the top-level Makefile, configure, CMakeList.txt. (REQUIRED)
+* YCMG_FLAGS - This adds extra parameters to config_gen.py.  I recommend using make over autotools specifically `-b make` because more include files are exposed instead of allowing YCM-Generator autodetect.  This environment variable is optional but recommended be in use in certain situations.
+
+So to use it in combination of nano-ycmd (ynano) without Ninja, it would look like:
+
+`YCMG_FLAGS="-b make" YCMG_PROJECT_PATH="/var/tmp/portage/app-editors/nano-ycmd-9999.20170201/work/nano-ycmd-7611e4eb827980da1057f6768d00bd322fa1c58f" ynano ycmd.c`
+
+Also, if you add new libraries or files, you should delete both the .ycm_extra_conf.py and compile_commands.json so that nano-ycmd can regenerate them.
+
+Also, if you change languages between C, C++, Objective-C, Objective-C++ because your project uses multiple languages, you should regenerate them when using them because it will produce new header include lists for that particular language.  Currently no hotkey exist to delete and regenerate those files.  nano-ycmd automatically skips generation to save time if they already exist.
+
+####Ninja + YCM-Generator together
+
+We need the YCMG_PROJECT_PATH above plus the two required environment variables below:
+
+* NINJA_BUILD_PATH - This should point to the folder containing your *.ninja file (REQUIRED)
+* NINJA_BUILD_TARGETS - This should be the rule(s) space seperated and listed under the `# Rules for compiling comment` section and having the line begin with `command = clang` or whatever compiler you are using. (REQUIRED)
 
 For NINJA_BUILD_TARGETS, the contents of gst-transcoder's build.ninja is presented below:
 
@@ -218,10 +231,6 @@ rule STATIC_LINKER
 
 NINJA_BUILD_TARGETS can only be c_COMPILER and/or c_PCH but not STATIC_LINKER.  Also it only works if your project is using both YCMG_PROJECT_PATH and NINJA_BUILD_TARGETS for Ninja support.
 
-So to use it in combination of nano-ycmd (ynano) without Ninja, it would look like:
-
-`YCMG_FLAGS="-b make" YCMG_PROJECT_PATH="/var/tmp/portage/app-editors/nano-ycmd-9999.20170201/work/nano-ycmd-7611e4eb827980da1057f6768d00bd322fa1c58f" ynano ycmd.c`
-
 In the above example, we have a Makefile and a configure.  We override the YCM-Generator autodetection because the .ycm_extra_conf.py contains more headers with the Makefile preference over the autodetected configure with first come first serve priority.
 
 For Ninja + Other build system, it should look like:
@@ -229,10 +238,6 @@ For Ninja + Other build system, it should look like:
 `NINJA_BUILD_PATH="/var/tmp/portage/media-plugins/gst-transcoder-1.8.2-r1/work/gst-transcoder-1.8.2/mesonbuild" NINJA_BUILD_TARGETS="c_COMPILER" YCMG_PROJECT_PATH="/var/tmp/portage/media-plugins/gst-transcoder-1.8.2-r1/work/gst-transcoder-1.8.2" ynano gst/transcode/gst-cpu-throttling-clock.c 2>out.txt`
 
 In the above example there is only a configure script in /var/tmp/portage/media-plugins/gst-transcoder-1.8.2-r1/work/gst-transcoder-1.8.2 folder and is autodetected by YCM-Generator.  A build.ninja file is located in /var/tmp/portage/media-plugins/gst-transcoder-1.8.2-r1/work/gst-transcoder-1.8.2/mesonbuild folder.
-
-Also, if you add new libraries or files, you should delete both the .ycm_extra_conf.py and compile_commands.json so that nano-ycmd can regenerate them.
-
-Also, if you change languages, between C, C++, Objective-C, Objective-C++, you should regenerate them.  Currently no hotkey exist to delete and regenerate those files.  nano-ycmd automatically skips generation to save time if they already exist.
 
 ####Why does the user experience suck?
 We are working on that.  Feel free to merge your changes.
