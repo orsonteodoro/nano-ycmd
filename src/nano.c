@@ -1000,10 +1000,10 @@ void version(void)
     printf(_("\n   License: MIT"));
     printf(_("\n   Web: https://github.com/stedolan/jq"));
     printf(_("\n"));
-    printf(_("\n  GNU find utils"));
+    printf(_("\n  GNU Find Utils"));
     printf(_("\n   Copyright (C) 1990-1994, 2000, 2003-2005, 2008-2011, 2016 Free Software Foundation, Inc."));
     printf(_("\n   AUTHORS: http://cvs.savannah.gnu.org/viewvc/*checkout*/findutils/findutils/AUTHORS?revision=HEAD"));
-    printf(_("\n   License: MIT"));
+    printf(_("\n   License: GPL3+"));
     printf(_("\n   Web: https://www.gnu.org/software/findutils/"));
     printf(_("\n"));
     printf(_("\n  GNU Coreutils"));
