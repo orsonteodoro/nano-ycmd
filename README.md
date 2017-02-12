@@ -178,7 +178,7 @@ make
 The -g adds debugging information for developers for the gdb debugger but not needed for regular users. 
 
 ####YCM-Generator and Ninja support
-The following environmental variables are defined for nano-ycmd:
+The following environmental variables are defined by nano-ycmd:
 
 * YCMG_PROJECT_PATH - This should point to the folder containing the top-level Makefile, configure, CMakeList.txt, 
 * YCMG_FLAGS - This adds extra parameters to config_gen.py.  I recommend using make over autotools specifically `-b make` because more include files are exposed instead of allowing YCM-Generator autodetect.
