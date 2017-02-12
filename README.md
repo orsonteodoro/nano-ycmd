@@ -104,7 +104,7 @@ Working with some of these languages require additional requirements:
 
 *C# support requires a .sln project file to work.
 
-*C, C++, Objective-C, Objective-C++ requires a *.pro, CMakeList.txt, GNUmakefile, Makefile, makefile, *.ninja file to work.
+*C, C++, Objective-C, Objective-C++ requires either a *.pro, CMakeList.txt, GNUmakefile, Makefile, or makefile to work.  An optional *.ninja file may be supplied in your project and would require additional steps to handle.
 
 ####Why does the autocompleter not work with C, C++, Objective C, Objective C++ with a single hello world file?
 
