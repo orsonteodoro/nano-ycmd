@@ -13,8 +13,7 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
-* 2fe8dfc43c3da72b3549f93bd8cb58cf8d6ea9d1 (recently tested)
-* 052b4866f3b24caeed877ae6f017f422d1443ed9 (old)
+* 1f1a50665877e6dd6f6d09999de3166f4b84a9a2 (recently tested)
 
 ####Dependencies
 * ycmd >= commits later than April 17, 2015, with new hmac computation (https://github.com/Valloric/ycmd/commit/426833360adec8db72ed6cef9d7aa7f037e6a5b8)
@@ -31,6 +30,7 @@ You can use the following which have been tested:
 * Unix, Linux, Cygwin for /dev/null and /dev/random support
 * NXJSON, for server response parsing (A Makefile patch applied to NXJSON package needs to be applied https://github.com/orsonteodoro/oiledmachine-overlay/blob/master/dev-libs/nxjson/files/nxjson-9999.20141019-create-libs.patch so that it is a shared library)
 * compdb (https://github.com/Sarcasm/compdb) and Ninja, for Ninja build system support
+* jq (https://stedolan.github.io/jq/), json beautifier and filter. (OPTIONAL).  This is used to clean the DiagnosticResponse after parsing and an index on the node to allow for nano-ymcd to conveniently to select a fixit based on this index.
 
 ####My distribution doesn't have the required dependencies
 
@@ -246,7 +246,7 @@ It is GPL version 3 or newer
 
 Add better user interface or user interaction.  Emacs-ycmd is a good example.
 
-Speed up the loading time.  It is currently using timers and works almost always.  An attempt was done to do an event based solution but it didn't work as expected.  It is currently slow and just works at this time for reliability and productivity reasons.
+Fix bugs or improve the speed.  Solve why clang/llvm 3.9.1 doesn't show FixIts 100% of the time as expected.
 
 ####When will it be considered ready for review to be included in the official GNU nano?
 
