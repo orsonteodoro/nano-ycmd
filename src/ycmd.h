@@ -57,6 +57,19 @@ typedef struct _ycmd_globals {
 	size_t apply_column;
 	int clang_completer; //used to fix off by one error for column number
 	FILE_READY_TO_PARSE_RESULTS file_ready_to_parse_results;
+
+	//requires gcc5.3 or later  or  clang 3.7.0 or later.  curently disabled since i only have gcc 4.9.4 and clang 3.9.1
+	//int have_avx512vl;
+	//int have_avx512f;
+	//int have_avx512bw;
+	int have_avx2;
+	int have_sse2;
+	int have_sse;
+	int have_sse4_1;
+	int have_sse4_2;
+	int have_mmx;
+	int have_popcnt;
+	int have_cmov;
 } YCMD_GLOBALS;
 
 extern void ycmd_init();

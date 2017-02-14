@@ -44,6 +44,33 @@
 #error "You must choose a crypto library to use ycmd code completion support.  Currently nettle, openssl, libgcrypt are supported."
 #endif
 
+#ifdef __MMX__
+#include <mmintrin.h>
+#endif
+
+#ifdef __SSE2__
+#include <emmintrin.h>
+#endif
+
+#ifdef __SSE4_1__
+#include <smmintrin.h>
+#endif
+
+#ifdef __AVX__
+#include <immintrin.h>
+#endif
+
+#ifdef __AVX2__
+#include <immintrin.h>
+#endif
+
+#ifdef __AVX512__
+#include <immintrin.h>
+#include <zmmintrin.h>
+#endif
+
+#include <popcntintrin.h> //sse4a on AMD or sse4.2 on Intel or fallback to non simd algorithm
+
 #include <ne_request.h>
 #include <netinet/ip.h>
 #include <nxjson.h>
@@ -70,10 +97,6 @@ typedef struct completer_command_results
 	char *json_blob;
 	char *detailed_info;
 	int status_code;
-
-	int have_mmx;
-	int have_sse;
-	int have_sse2;
 } COMPLETER_COMMAND_RESULTS;
 
 typedef struct defined_subcommands_results
@@ -165,10 +188,15 @@ size_t _predict_string_replace_size(char *buffer, char *find, char *replace, int
 	return outlen;
 }
 
+//simd version
 //There was no gpl3+ string replace so I made one from scratch.
 //1 for global means search entire buffer.  setting to 0 searches only the first instance of find.  it's useful to eliminating the search space so speed up.
 char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 {
+#ifdef DEBUG
+        fprintf(stderr, "string_replace_gpl3 find arg: %s\n", find);
+        fprintf(stderr, "string_replace_gpl3 replace arg: %s\n", replace);
+#endif
 	char *out;
 	int lenb = strlen(buffer);
 	int lenf = strlen(find);
@@ -176,7 +204,6 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 	int cf;
 	int i = 0;
 	int j = 0;
-	int k = 0;
 	int oi = 0;
 	char *p;
 
@@ -189,6 +216,9 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 
 	for (i=0;i<lenb;)
 	{
+#ifdef DEBUG
+	        fprintf(stderr, "string_replace_gpl3 out is currently (befor): %s\n", out);
+#endif
 		cf = 0;
 
 		if (keep_finding)
@@ -207,8 +237,8 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 #ifdef DEBUG
 		        fprintf(stderr, "string_replace_gpl3 found: %s\n", find);
 #endif
-			for(k=0;k<lenr;k++)
-				out[oi++] = replace[k];
+			memcpy(out+oi, replace, lenr);
+			oi+=lenr;
 			i+=lenf;
 
 			if (!global)
@@ -219,21 +249,223 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 			if (!keep_finding)
 			{
 				//dump the rest
-				memcpy(out+oi, p+i, lenb-i);
+				memcpy(out+oi, p+i, lenb-i); //hopefully memcpy is simd/multicore optimized
 				oi+=(lenb-i);
 				i+=(lenb-i);
+#ifdef DEBUG
+				out[oi] = 0;
+#endif
 			}
 			else
 			{
-				out[oi++]=p[i];
-				i++;
+				//this section scans a chunk without find[0] character
+				//if no find[0] in chunk, transfer mmx/sse/avx256/avx512 full register sized chunks instead of a byte at a time ahead of finding the chunk
+				unsigned int fragsize = 1;
+				if (0)
+					;
+#ifdef __AVX512__
+				else if (((ycmd_globals.have_avx512vl && ycmd_globals.have_avx512f) || ycmd_globals.have_avx512bw) && lenb-i > (fragsize=64)) //avx2 needs testing
+				{
+					__m512i find_mask, chunk_data, rb0, rb1;
+					__m256i rb0, rb1;
+					find_mask = _mm512_set1_epi8(find[0]);
+					memcpy(&chunk_data, p+i, fragsize);
+
+					unsigned long long result = 0;
+					if (ycmd_globals.have_avx512f)
+					{
+						result = _mm512_cmpeq_epi64_mask(chunk_data, find_mask); //mask is 16
+					}
+					else if (ycmd_globals.have_avx512vl && ycmd_globals.have_avx512f)
+					{
+						result r = _mm512_cmpeq_epi8_mask(chunk_data, find_mask); //mask is 64
+					}
+					else if (ycmd_globals.have_avx512bw)
+					{
+						result = _mm512_cmp_epi8_mask(chunk_data, find_mask, 0); //mask is 64
+					}
+					else
+					{
+						goto avx2_fallback;
+					}
+
+					if (result)
+						goto byte_at_a_time;
+					else
+					{
+						//transfer 64 bytes at a time
+						memcpy(out+oi, p+i, fragsize);
+						oi+=fragsize;
+						i+=fragsize;
+					}
+				}
+#endif
+#ifdef __AVX2__
+				else if (ycmd_globals.have_avx2 && lenb-i > (fragsize=32)) //avx needs testing
+				{
+					avx2_fallback:
+					__m256i find_mask, chunk_data;
+					find_mask = _mm256_set1_epi8(find[0]);
+					memcpy(&chunk_data, p+i, fragsize);
+
+					r = _mm256_cmpeq_epi8(chunk_data, find_mask);
+					int result = _mm256_movemask_epi8(r);
+					if (result)
+						goto byte_at_a_time;
+					else
+					{
+#ifdef DEBUG
+						fprintf(stderr, "used avx string_replace_gpl3 section\n");
+#endif
+						//transfer 32 bytes at a time
+						memcpy(out+oi, p+i, fragsize);
+						oi+=fragsize;
+						i+=fragsize;
+					}
+
+				}
+#endif
+#ifdef __SSE2__
+				else if (ycmd_globals.have_sse2 && lenb-i > (fragsize=16)) //sse2
+				{
+					__m128i find_mask, chunk_data, rb;
+					find_mask = _mm_set1_epi8(find[0]);
+					memcpy(&chunk_data, p+i, fragsize);
+
+					unsigned int result;
+#if defined(__AVX512__)
+					if (ycmd_globals.have_avx512vl && ycmd_globals.have_avx512bw)
+						result = _mm_cmpeq_epi8_mask(chunk_data, find_mask); //fastest
+					else
+						goto sse_fallback;
+#else /* SSE2 */
+					sse_fallback:
+					rb = _mm_cmpeq_epi8(chunk_data, find_mask);
+					result = _mm_movemask_epi8(rb);
+#endif
+
+					if (result)
+						goto byte_at_a_time;
+					else
+					{
+#ifdef DEBUG
+						fprintf(stderr, "used sse2 string_replace_gpl3 section\n");
+#endif
+						//transfer 16 we don't see the start of string
+						memcpy(out+oi, p+i, fragsize);
+						oi+=fragsize;
+						i+=fragsize;
+					}
+				}
+#endif
+				else if (lenb-i > (fragsize=8) && sizeof(long) == 8) //64 bit machine check... lacking simd
+				{
+					unsigned long long find_mask;
+					find_mask = 0x0101010101010101 * find[0]; //propagate the byte across the mask
+					unsigned long long chunk_data;
+					memcpy(&chunk_data, p+i, fragsize);
+					if (chunk_data & find_mask)
+						goto byte_at_a_time;
+					else
+					{
+#ifdef DEBUG
+						fprintf(stderr, "used alu 32 bits string_replace_gpl3 section\n");
+#endif
+						//transfer 8 we don't see the start of string
+						memcpy(out+oi, p+i, fragsize);
+						oi+=fragsize;
+						i+=fragsize;
+					}
+				}
+#ifdef __MMX__
+				else if (sizeof(long) == 4 && ycmd_globals.have_mmx && lenb-i > (fragsize=8)) //mmx for older 32 bit cpus... could be slightly shower on 64 bit because it requires 2 steps here (cmpeq+movemask) and the above just require 1 (chunk_data & find_mask)
+				{
+					__m64 find_mask, chunk_data, r;
+					find_mask = _mm_set1_pi8(find[0]);
+					memcpy(&chunk_data, p+i, fragsize);
+
+					r = _mm_cmpeq_pi8(chunk_data, find_mask);
+
+					int result;
+#ifdef __SSE__
+					result = _mm_movemask_pi8(r); //fastest because popcount is pretty costly
+#else
+					result = __builtin_popcountll((unsigned long long)r) > 0; //either simd or non simd version
+#endif
+
+					if (result)
+						goto byte_at_a_time;
+					else
+					{
+#ifdef DEBUG
+						fprintf(stderr, "used mmx string_replace_gpl3 section\n");
+#endif
+						//transfer 16 we don't see start of string
+						memcpy(out+oi, p+i, fragsize);
+						oi+=fragsize;
+						i+=fragsize;
+					}
+				}
+#endif
+				else if (lenb-i > (fragsize=4) && sizeof(long) == 4) //32 bit machine... lacking simd
+				{
+					unsigned int find_mask;
+					find_mask = 0x01010101 * find[0]; //propagate the byte across the mask
+					unsigned int chunk_data;
+					memcpy(&chunk_data, p+i, fragsize);
+					if (chunk_data & find_mask)
+						goto byte_at_a_time;
+					else
+					{
+#ifdef DEBUG
+						fprintf(stderr, "used alu 32 bit string_replace_gpl3 section\n");
+#endif
+						//transfer 4 at a time.  we don't see the start of string.
+						memcpy(out+oi, p+i, fragsize);
+						oi+=fragsize;
+						i+=fragsize;
+					}
+				}
+				else if (lenb-i > (fragsize=2))
+				{
+					unsigned short find_mask;
+					find_mask = 0x01010101 * find[0]; //propagate the byte across the mask
+					unsigned short chunk_data;
+					memcpy(&chunk_data, p+i, fragsize);
+					if (chunk_data & find_mask)
+						goto byte_at_a_time;
+					else
+					{
+#ifdef DEBUG
+						fprintf(stderr, "used alu 16 bit string_replace_gpl3 section\n");
+#endif
+						//transfer 2 at a time.  we don't see the start of string.
+						memcpy(out+oi, p+i, fragsize);
+						oi+=fragsize;
+						i+=fragsize;
+					}
+				}
+				else
+				{
+					byte_at_a_time:
+#ifdef DEBUG
+					fprintf(stderr, "using byte at a time string_replace_gpl3 section\n");
+#endif
+					out[oi]=p[i]; //transfer 1 at a time since we seen the head in the chunk
+					oi++;
+					i++;
+				}
 			}
 		}
+#ifdef DEBUG
+		out[oi] = 0;
+	        fprintf(stderr, "string_replace_gpl3 out is currently (after): %s\n", out);
+#endif
 	}
 	out[oi]=0;
 
 #ifdef DEBUG
-	fprintf(stderr, "string_replace_gpl3: %s\n", out);
+	fprintf(stderr, "string_replace_gpl3 final: %s\n", out);
 #endif
 
 	return out;
@@ -268,6 +500,97 @@ void ycmd_init()
 	init_file_ready_to_parse_results(&ycmd_globals.file_ready_to_parse_results);
 
 	signal(SIGALRM, send_to_server);
+
+#if 0 //requires gcc5.3 or later  or  clang 3.7.0 or later.  currently disabled since i run gcc 4.9.4 and clang 3.9.1 
+	ycmd_globals.have_avx512vl = __builtin_cpu_supports("avx512vl");
+	if (ycmd_globals.have_avx512vl)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected avx512vl.\n");
+#endif
+	}
+
+	ycmd_globals.have_avx512f = __builtin_cpu_supports("avx512f");
+	if (ycmd_globals.have_avx512f)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected avx512f.\n");
+#endif
+	}
+
+
+	ycmd_globals.have_avx512bw = __builtin_cpu_supports("avx512bw");
+	if (ycmd_globals.have_avx512bw)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected avx512bw.\n");
+#endif
+	}
+#endif
+
+	ycmd_globals.have_avx2 = __builtin_cpu_supports("avx2");
+	if (ycmd_globals.have_avx2)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected avx2.\n");
+#endif
+	}
+
+	ycmd_globals.have_sse4_2 = __builtin_cpu_supports("sse4.2");
+	if (ycmd_globals.have_sse4_2)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected sse4.2.\n");
+#endif
+	}
+
+	ycmd_globals.have_sse4_1 = __builtin_cpu_supports("sse4.1");
+	if (ycmd_globals.have_sse4_1)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected sse4.1.\n");
+#endif
+	}
+
+	ycmd_globals.have_sse2 = __builtin_cpu_supports("sse2");
+	if (ycmd_globals.have_sse2)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected sse2.\n");
+#endif
+	}
+
+	ycmd_globals.have_sse2 = __builtin_cpu_supports("sse");
+	if (ycmd_globals.have_sse)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected sse.\n");
+#endif
+	}
+
+	ycmd_globals.have_mmx = __builtin_cpu_supports("mmx");
+	if (ycmd_globals.have_mmx)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected mmx.\n");
+#endif
+	}
+
+	ycmd_globals.have_popcnt = __builtin_cpu_supports("popcnt");
+	if (ycmd_globals.have_popcnt)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected popcnt.\n");
+#endif
+	}
+
+	ycmd_globals.have_popcnt = __builtin_cpu_supports("cmov");
+	if (ycmd_globals.have_cmov)
+	{
+#ifdef DEBUG
+		fprintf(stderr, "Detected cmov.\n");
+#endif
+	}
 
 #ifdef USE_LIBGCRYPT
 	if (!gcry_check_version("1.7.3"))
@@ -3180,6 +3503,8 @@ size_t _predict_new_json_escape_size(char **buffer)
 	return outlen;
 }
 
+//gprof reports this function takes 33% time
+//we don't use simd because the distance between collisions for the head of the sequence is very short with high probability so register size transfers via sse/avx for headless marked segments are rare
 void escape_json(char **buffer)
 {
 	int i = 0;
@@ -3194,6 +3519,7 @@ void escape_json(char **buffer)
 	char *p = *buffer;
 	for (i = 0; i < len; i++)
 	{
+
 		switch(p[i])
 		{
 			//details about json sequences in page 3-4: https://www.ietf.org/rfc/rfc4627.txt
@@ -3201,57 +3527,57 @@ void escape_json(char **buffer)
 			//not all commented out because it breaks test cases (ycmd.c and solutiondetection.py)
 
 			//escape already escaped
-			case '\\': out[j++]='\\'; out[j++]='\\'; break; //x5c
+			case '\\': memcpy(out+j, "\\\\", 2); j+=2; break; //x5c
 
 			//c escape sequences
-			case '\b': out[j++]='\\'; out[j++]='b'; break; //x08
-			case '\t': out[j++]='\\'; out[j++]='t'; break; //x09
-			case '\n': out[j++]='\\'; out[j++]='n'; break; //x0a
-			case '\v': out[j++]='\\'; out[j++]='v'; break; //x0b
-			case '\f': out[j++]='\\'; out[j++]='f'; break; //x0c
-			case '\r': out[j++]='\\'; out[j++]='r'; break; //x0d
-			case '\"': out[j++]='\\'; out[j++]='\"'; break; //x22 "
-			case '/': out[j++]='\\'; out[j++]='/'; break; //x2f
+			case '\b': memcpy(out+j, "\\b", 2); j+=2; break; //x08
+			case '\t': memcpy(out+j, "\\t", 2); j+=2; break; //x09
+			case '\n': memcpy(out+j, "\\n", 2); j+=2; break; //x0a
+			case '\v': memcpy(out+j, "\\v", 2); j+=2; break; //x0b
+			case '\f': memcpy(out+j, "\\f", 2); j+=2; break; //x0c
+			case '\r': memcpy(out+j, "\\r", 2); j+=2; break; //x0d
+			case '\"': memcpy(out+j, "\\\"", 2); j+=2; break; //x22 "
+			case '/': memcpy(out+j, "\\/", 2); j+=2; break; //x2f
 
 			//escape control characters
-			case '\x01': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='1'; break;
-			case '\x02': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='2'; break;
-			case '\x03': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='3'; break;
-			case '\x04': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='4'; break;
-			case '\x05': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='5'; break;
-			case '\x06': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='6'; break;
-			case '\x07': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='7'; break;
+			case '\x01': memcpy(out+j, "\\u0001", 6); j+=6; break;
+			case '\x02': memcpy(out+j, "\\u0002", 6); j+=6; break;
+			case '\x03': memcpy(out+j, "\\u0003", 6); j+=6; break;
+			case '\x04': memcpy(out+j, "\\u0004", 6); j+=6; break;
+			case '\x05': memcpy(out+j, "\\u0005", 6); j+=6; break;
+			case '\x06': memcpy(out+j, "\\u0006", 6); j+=6; break;
+			case '\x07': memcpy(out+j, "\\u0007", 6); j+=6; break;
 
 			//duplicate cases for c escape sequences
-			//case '\x08': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='8'; break;
-			//case '\x09': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='9'; break;
-			//case '\x0a': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='a'; break;
-			//case '\x0b': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='b'; break;
-			//case '\x0c': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='c'; break;
-			//case '\x0d': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='d'; break;
+			//case '\x08': memcpy(out+j, "\\u0008", 6); j+=6; break;
+			//case '\x09': memcpy(out+j, "\\u0009", 6); j+=6; break;
+			//case '\x0a': memcpy(out+j, "\\u000a", 6); j+=6; break;
+			//case '\x0b': memcpy(out+j, "\\u000b", 6); j+=6; break;
+			//case '\x0c': memcpy(out+j, "\\u000c", 6); j+=6; break;
+			//case '\x0d': memcpy(out+j, "\\u000d", 6); j+=6; break;
 
-			case '\x0e': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='e'; break;
-			case '\x0f': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='0'; out[j++]='f'; break;
+			case '\x0e': memcpy(out+j, "\\u000e", 6); j+=6; break;
+			case '\x0f': memcpy(out+j, "\\u000f", 6); j+=6; break;
 
-			case '\x10': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='0'; break;
-			case '\x11': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='1'; break;
-			case '\x12': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='2'; break;
-			case '\x13': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='3'; break;
-			case '\x14': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='4'; break;
-			case '\x15': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='5'; break;
-			case '\x16': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='6'; break;
-			case '\x17': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='7'; break;
-			case '\x18': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='8'; break;
-			case '\x19': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='9'; break;
-			case '\x1a': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='a'; break;
-			case '\x1b': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='b'; break;
-			case '\x1c': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='c'; break;
-			case '\x1d': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='d'; break;
-			case '\x1e': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='e'; break;
-			case '\x1f': out[j++]='\\';out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='1'; out[j++]='f'; break;
+			case '\x10': memcpy(out+j, "\\u0010", 6); j+=6; break;
+			case '\x11': memcpy(out+j, "\\u0011", 6); j+=6; break;
+			case '\x12': memcpy(out+j, "\\u0012", 6); j+=6; break;
+			case '\x13': memcpy(out+j, "\\u0013", 6); j+=6; break;
+			case '\x14': memcpy(out+j, "\\u0014", 6); j+=6; break;
+			case '\x15': memcpy(out+j, "\\u0015", 6); j+=6; break;
+			case '\x16': memcpy(out+j, "\\u0016", 6); j+=6; break;
+			case '\x17': memcpy(out+j, "\\u0017", 6); j+=6; break;
+			case '\x18': memcpy(out+j, "\\u0018", 6); j+=6; break;
+			case '\x19': memcpy(out+j, "\\u0019", 6); j+=6; break;
+			case '\x1a': memcpy(out+j, "\\u001a", 6); j+=6; break;
+			case '\x1b': memcpy(out+j, "\\u001b", 6); j+=6; break;
+			case '\x1c': memcpy(out+j, "\\u001c", 6); j+=6; break;
+			case '\x1d': memcpy(out+j, "\\u001d", 6); j+=6; break;
+			case '\x1e': memcpy(out+j, "\\u001e", 6); j+=6; break;
+			case '\x1f': memcpy(out+j, "\\u001f", 6); j+=6; break;
 
 			//delete character
-			//case '\x7f': out[j++]='\\'; out[j++]='u'; out[j++]='0'; out[j++]='0'; out[j++]='7'; out[j++]='f'; break;
+			//case '\x7f': memcpy(out+j, "\\u007f", 6); j+=6; break;
 			default: out[j++] = p[i]; break;
 		}
 	}
