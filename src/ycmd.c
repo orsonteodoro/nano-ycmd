@@ -264,7 +264,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				if (0)
 					;
 #ifdef __AVX512__
-				else if (((ycmd_globals.have_avx512vl && ycmd_globals.have_avx512f) || ycmd_globals.have_avx512bw) && lenb-i > (fragsize=64)) //avx2 needs testing
+				else if (((ycmd_globals.have_avx512vl && ycmd_globals.have_avx512f) || ycmd_globals.have_avx512bw) && lenb-i > (fragsize=64)) //avx512 needs testing
 				{
 					__m512i find_mask, chunk_data, rb0, rb1;
 					__m256i rb0, rb1;
@@ -309,7 +309,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				}
 #endif
 #ifdef __AVX2__
-				else if (ycmd_globals.have_avx2 && lenb-i > (fragsize=32)) //avx needs testing
+				else if (ycmd_globals.have_avx2 && lenb-i > (fragsize=32)) //avx2 needs testing
 				{
 					avx2_fallback:
 					__m256i find_mask, chunk_data;
@@ -3493,65 +3493,18 @@ size_t _predict_new_json_escape_size(char **buffer)
 	char *p = *buffer;
 	for (i = 0; i < len; i++)
 	{
-		switch(p[i])
+		char c = p[i];
+		if (c == '\\' || ('\b' >= c && c <= '\r') || c == '\"' || c == '/') // \\   //escape already escape and c escape sequences
 		{
-			//details about json sequences in page 3-4: https://www.ietf.org/rfc/rfc4627.txt
-
-			//not all commented out because it breaks test cases (ycmd.c and solutiondetection.py)
-
-			//escape already escaped
-			case '\\': //x5c
-
-			//c escape sequences
-			case '\b': //x08
-			case '\t': //x09
-			case '\n': //x0a
-			case '\v': //x0b
-			case '\f': //x0c
-			case '\r': //x0d
-			case '\"': //x22 "
-			case '/': outlen+=2; break; //x2f
-
-			//escape control characters
-			case '\x01':
-			case '\x02':
-			case '\x03':
-			case '\x04':
-			case '\x05':
-			case '\x06':
-			case '\x07':
-
-			//duplicate cases for c escape sequences
-			//case '\x08':
-			//case '\x09':
-			//case '\x0a':
-			//case '\x0b':
-			//case '\x0c':
-			//case '\x0d':
-
-			case '\x0e':
-			case '\x0f':
-
-			case '\x10':
-			case '\x11':
-			case '\x12':
-			case '\x13':
-			case '\x14':
-			case '\x15':
-			case '\x16':
-			case '\x17':
-			case '\x18':
-			case '\x19':
-			case '\x1a':
-			case '\x1b':
-			case '\x1c':
-			case '\x1d':
-			case '\x1e':
-			case '\x1f': outlen+=6; break;
-
-			//delete character
-			//case '\x7f': outlen+=6; break;
-			default: outlen+=1; break;
+			outlen+=2;
+		}
+		else if (('\x01' <= c && c <= '\x1f') /* || p[i] == 0x7f delete char */) //escape control characters
+		{
+			outlen+=6;
+		}
+		else
+		{
+			outlen++;
 		}
 	}
 
@@ -3562,6 +3515,9 @@ size_t _predict_new_json_escape_size(char **buffer)
 //we don't use simd because the distance between collisions for the head of the sequence is very short with high probability so register size transfers via sse/avx for headless marked segments are rare
 void escape_json(char **buffer)
 {
+#ifdef DEBUG
+	fprintf(stderr, "Entered escape_json...\n");
+#endif
 	int i = 0;
 	int len = strlen(*buffer);
 	char *out;
@@ -3574,66 +3530,44 @@ void escape_json(char **buffer)
 	char *p = *buffer;
 	for (i = 0; i < len; i++)
 	{
-
-		switch(p[i])
+		char c = p[i];
+		//reduce the number of comparisons because switch case in assembly is just test jump statements
+		//the original had 34 case statements so 34 test instructions... currently have 7 test instructions with the if/else chain
+		if (c == '\\') // \\   //escape already escape
 		{
-			//details about json sequences in page 3-4: https://www.ietf.org/rfc/rfc4627.txt
+			memcpy(out+j, "\\\\", 2);
+			j+=2;
+		}
+		else if (('\b' <= c && c <= '\r'))
+		{
+			char table[6] = {'b','t','n','v','f','r'};
+			char tbuf[3];
+			sprintf(tbuf, "\\%c", table[p[i]-0x08]);
+			memcpy(out+j, tbuf, 2);
+			j+=2;
 
-			//not all commented out because it breaks test cases (ycmd.c and solutiondetection.py)
+		}
+		else if (c == '\"')
+		{
+			memcpy(out+j, "\\\"", 2);
+			j+=2;
+		}
+		else if (c == '/')
+		{
+			memcpy(out+j, "\\/", 2);
+			j+=2;
 
-			//escape already escaped
-			case '\\': memcpy(out+j, "\\\\", 2); j+=2; break; //x5c
-
-			//c escape sequences
-			case '\b': memcpy(out+j, "\\b", 2); j+=2; break; //x08
-			case '\t': memcpy(out+j, "\\t", 2); j+=2; break; //x09
-			case '\n': memcpy(out+j, "\\n", 2); j+=2; break; //x0a
-			case '\v': memcpy(out+j, "\\v", 2); j+=2; break; //x0b
-			case '\f': memcpy(out+j, "\\f", 2); j+=2; break; //x0c
-			case '\r': memcpy(out+j, "\\r", 2); j+=2; break; //x0d
-			case '\"': memcpy(out+j, "\\\"", 2); j+=2; break; //x22 "
-			case '/': memcpy(out+j, "\\/", 2); j+=2; break; //x2f
-
-			//escape control characters
-			case '\x01': memcpy(out+j, "\\u0001", 6); j+=6; break;
-			case '\x02': memcpy(out+j, "\\u0002", 6); j+=6; break;
-			case '\x03': memcpy(out+j, "\\u0003", 6); j+=6; break;
-			case '\x04': memcpy(out+j, "\\u0004", 6); j+=6; break;
-			case '\x05': memcpy(out+j, "\\u0005", 6); j+=6; break;
-			case '\x06': memcpy(out+j, "\\u0006", 6); j+=6; break;
-			case '\x07': memcpy(out+j, "\\u0007", 6); j+=6; break;
-
-			//duplicate cases for c escape sequences
-			//case '\x08': memcpy(out+j, "\\u0008", 6); j+=6; break;
-			//case '\x09': memcpy(out+j, "\\u0009", 6); j+=6; break;
-			//case '\x0a': memcpy(out+j, "\\u000a", 6); j+=6; break;
-			//case '\x0b': memcpy(out+j, "\\u000b", 6); j+=6; break;
-			//case '\x0c': memcpy(out+j, "\\u000c", 6); j+=6; break;
-			//case '\x0d': memcpy(out+j, "\\u000d", 6); j+=6; break;
-
-			case '\x0e': memcpy(out+j, "\\u000e", 6); j+=6; break;
-			case '\x0f': memcpy(out+j, "\\u000f", 6); j+=6; break;
-
-			case '\x10': memcpy(out+j, "\\u0010", 6); j+=6; break;
-			case '\x11': memcpy(out+j, "\\u0011", 6); j+=6; break;
-			case '\x12': memcpy(out+j, "\\u0012", 6); j+=6; break;
-			case '\x13': memcpy(out+j, "\\u0013", 6); j+=6; break;
-			case '\x14': memcpy(out+j, "\\u0014", 6); j+=6; break;
-			case '\x15': memcpy(out+j, "\\u0015", 6); j+=6; break;
-			case '\x16': memcpy(out+j, "\\u0016", 6); j+=6; break;
-			case '\x17': memcpy(out+j, "\\u0017", 6); j+=6; break;
-			case '\x18': memcpy(out+j, "\\u0018", 6); j+=6; break;
-			case '\x19': memcpy(out+j, "\\u0019", 6); j+=6; break;
-			case '\x1a': memcpy(out+j, "\\u001a", 6); j+=6; break;
-			case '\x1b': memcpy(out+j, "\\u001b", 6); j+=6; break;
-			case '\x1c': memcpy(out+j, "\\u001c", 6); j+=6; break;
-			case '\x1d': memcpy(out+j, "\\u001d", 6); j+=6; break;
-			case '\x1e': memcpy(out+j, "\\u001e", 6); j+=6; break;
-			case '\x1f': memcpy(out+j, "\\u001f", 6); j+=6; break;
-
-			//delete character
-			//case '\x7f': memcpy(out+j, "\\u007f", 6); j+=6; break;
-			default: out[j++] = p[i]; break;
+		}
+		else if (('\x01' <= c && c <= '\x1f') /* || p[i] == 0x7f delete char */) //escape control characters
+		{
+			char tbuf[8];
+			sprintf(tbuf, "\\u00%02x", c);
+			memcpy(out+j, tbuf, 6);
+			j+=6;
+		}
+		else
+		{
+			out[j++] = c;
 		}
 	}
 	out[j] = 0;
