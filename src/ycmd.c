@@ -3494,7 +3494,7 @@ size_t _predict_new_json_escape_size(char **buffer)
 	for (i = 0; i < len; i++)
 	{
 		char c = p[i];
-		if (c == '\\' || ('\b' >= c && c <= '\r') || c == '\"' || c == '/') // \\   //escape already escape and c escape sequences
+		if (c == '\\' || ('\b' <= c && c <= '\r') || c == '\"' || c == '/') // \\   //escape already escape and c escape sequences
 		{
 			outlen+=2;
 		}
@@ -3532,7 +3532,7 @@ void escape_json(char **buffer)
 	{
 		char c = p[i];
 		//reduce the number of comparisons because switch case in assembly is just test jump statements
-		//the original had 34 case statements so 34 test instructions... currently have 7 test instructions with the if/else chain
+		//the original had 34 case statements so 34 test instructions... currently have 9 test instructions with the if/else chain
 		if (c == '\\') // \\   //escape already escape
 		{
 			memcpy(out+j, "\\\\", 2);
