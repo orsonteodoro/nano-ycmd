@@ -290,7 +290,15 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 					}
 
 					if (result)
-						goto byte_at_a_time;
+					{
+						//dump everything leading up to the header to avoid overhead cost of calling simd set and compare
+						do
+						{
+							out[oi]=p[i]; //transfer 1 at a time since we seen the head in the chunk
+							oi++;
+							i++;
+						} while(i < lenb && p[i] != find[0]);
+					}
 					else
 					{
 						//transfer 64 bytes at a time
@@ -311,7 +319,15 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 					r = _mm256_cmpeq_epi8(chunk_data, find_mask);
 					int result = _mm256_movemask_epi8(r);
 					if (result)
-						goto byte_at_a_time;
+					{
+						//dump everything leading up to the header to avoid overhead cost of calling simd set and compare
+						do
+						{
+							out[oi]=p[i]; //transfer 1 at a time since we seen the head in the chunk
+							oi++;
+							i++;
+						} while(i < lenb && p[i] != find[0]);
+					}
 					else
 					{
 #ifdef DEBUG
@@ -345,7 +361,15 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 #endif
 
 					if (result)
-						goto byte_at_a_time;
+					{
+						//dump everything leading up to the header to avoid overhead cost of calling simd set and compare
+						do
+						{
+							out[oi]=p[i]; //transfer 1 at a time since we seen the head in the chunk
+							oi++;
+							i++;
+						} while(i < lenb && p[i] != find[0]);
+					}
 					else
 					{
 #ifdef DEBUG
@@ -365,7 +389,15 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 					unsigned long long chunk_data;
 					memcpy(&chunk_data, p+i, fragsize);
 					if (chunk_data & find_mask)
-						goto byte_at_a_time;
+					{
+						//dump everything leading up to the header to avoid overhead cost of calling simd set and compare
+						do
+						{
+							out[oi]=p[i]; //transfer 1 at a time since we seen the head in the chunk
+							oi++;
+							i++;
+						} while(i < lenb && p[i] != find[0]);
+					}
 					else
 					{
 #ifdef DEBUG
@@ -394,13 +426,21 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 #endif
 
 					if (result)
-						goto byte_at_a_time;
+					{
+						//dump everything leading up to the header to avoid overhead cost of calling simd set and compare
+						do
+						{
+							out[oi]=p[i]; //transfer 1 at a time since we seen the head in the chunk
+							oi++;
+							i++;
+						} while(i < lenb && p[i] != find[0]);
+					}
 					else
 					{
 #ifdef DEBUG
 						fprintf(stderr, "used mmx string_replace_gpl3 section\n");
 #endif
-						//transfer 16 we don't see start of string
+						//transfer 8 we don't see start of string
 						memcpy(out+oi, p+i, fragsize);
 						oi+=fragsize;
 						i+=fragsize;
@@ -414,7 +454,15 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 					unsigned int chunk_data;
 					memcpy(&chunk_data, p+i, fragsize);
 					if (chunk_data & find_mask)
-						goto byte_at_a_time;
+					{
+						//dump everything leading up to the header to avoid overhead cost of calling simd set and compare
+						do
+						{
+							out[oi]=p[i]; //transfer 1 at a time since we seen the head in the chunk
+							oi++;
+							i++;
+						} while(i < lenb && p[i] != find[0]);
+					}
 					else
 					{
 #ifdef DEBUG
@@ -429,11 +477,19 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				else if (lenb-i > (fragsize=2))
 				{
 					unsigned short find_mask;
-					find_mask = 0x01010101 * find[0]; //propagate the byte across the mask
+					find_mask = 0x0101 * find[0]; //propagate the byte across the mask
 					unsigned short chunk_data;
 					memcpy(&chunk_data, p+i, fragsize);
 					if (chunk_data & find_mask)
-						goto byte_at_a_time;
+					{
+						//dump everything leading up to the header to avoid overhead cost of calling simd set and compare
+						do
+						{
+							out[oi]=p[i]; //transfer 1 at a time since we seen the head in the chunk
+							oi++;
+							i++;
+						} while(i < lenb && p[i] != find[0]);
+					}
 					else
 					{
 #ifdef DEBUG
@@ -447,7 +503,6 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				}
 				else
 				{
-					byte_at_a_time:
 #ifdef DEBUG
 					fprintf(stderr, "using byte at a time string_replace_gpl3 section\n");
 #endif
