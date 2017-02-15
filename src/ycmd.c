@@ -3514,6 +3514,7 @@ char *ycmd_compute_response(char *response_body)
 	return b64_response;
 }
 
+#if USE_OPENMP
 //the final length measured can be like 197466 bytes for this file so simd and multicore seems reasonable to use versus the naive algorithm.
 //use multicore and simd to count the number of start sequence
 size_t _predict_new_json_escape_size_multicore(char **buffer)
@@ -4109,6 +4110,7 @@ size_t _predict_new_json_escape_size_multicore(char **buffer)
 
 	return outlen_sum;
 }
+#endif
 
 //naive version for unicore and non simd
 //scopes out the new length so we can avoid the overhead of many calls to _expand or realloc
