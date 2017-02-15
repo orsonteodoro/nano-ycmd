@@ -13,6 +13,7 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
+* cbdfcadbb05af84fe0e65520d5ed68a3ac8f3052 (recently tested; experimental)
 * 1f1a50665877e6dd6f6d09999de3166f4b84a9a2 (recently tested)
 
 ####Dependencies
@@ -33,6 +34,8 @@ You can use the following which have been tested:
 * jq (https://stedolan.github.io/jq/) (OPTIONAL) is json beautifier and filter.  This is used to clean the DiagnosticResponse after parsing and inject an index on the node to allow for nano-ymcd to conveniently to find a FixIt based on an index selected by the user when the user hovers over this line/index with a shortcut key.  Currently, the `Display All FixIts` is broken because of the non-deterministic bug.
 * GNU findutils, requires for the find utility to search for Makefile, configure, *.ninja, *.pro, files.
 * GNU coreutils, nano-ycmd needs tac command to reverse the clang system includes order for SIMD headers.
+* AVX512, AVX2, SSE2, MMX (OPTIONAL and undergoing testing) for string_replace and escape_json.
+* OpenMP (OPTIONAL and undergoing testing) via --with-openmp for multicore escape_json.
 
 ####My distribution doesn't have the required dependencies
 
