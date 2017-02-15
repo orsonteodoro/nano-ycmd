@@ -269,7 +269,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				if (0)
 					;
 #ifdef __AVX512__
-				else if (((ycmd_globals.have_avx512vl && ycmd_globals.have_avx512f) || ycmd_globals.have_avx512bw) && lenb-i > (fragsize=64)) //avx512 needs testing
+				else if (ycmd_globals.have_avx512bw && lenb-i > (fragsize=64)) //avx512 needs testing
 				{
 					__m512i find_mask, chunk_data, rb0, rb1;
 					__m256i rb0, rb1;
@@ -277,22 +277,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 					memcpy(&chunk_data, p+i, fragsize);
 
 					unsigned long long result = 0;
-					if (ycmd_globals.have_avx512f)
-					{
-						result = _mm512_cmpeq_epi64_mask(chunk_data, find_mask); //mask is 16
-					}
-					else if (ycmd_globals.have_avx512vl && ycmd_globals.have_avx512f)
-					{
-						result r = _mm512_cmpeq_epi8_mask(chunk_data, find_mask); //mask is 64
-					}
-					else if (ycmd_globals.have_avx512bw)
-					{
-						result = _mm512_cmp_epi8_mask(chunk_data, find_mask, 0); //mask is 64
-					}
-					else
-					{
-						goto avx2_fallback;
-					}
+					result r = _mm512_cmpeq_epi8_mask(chunk_data, find_mask); //mask is 64
 
 					if (result)
 					{
@@ -3778,7 +3763,7 @@ size_t _predict_new_json_escape_size_multicore(char **buffer)
 			memcpy(&ch0, i+p, 8);
 			memcpy(&ch1, i+p+8, 8);
 			__m128i chunk = _mm_set_epi64x(ch0, ch1);
-			__m128i r0,r1,r2,r3,rf0,rf1,rf2,rf3,rf4;
+			__m128i r0,r1,r2,r3,rf0,rf1,rf2,rf3;
 
 			//check 2 byte sequences
 			__m128i c0 = _mm_set1_epi8('\\'); //5c
