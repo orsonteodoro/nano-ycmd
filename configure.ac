@@ -222,6 +222,7 @@ AC_ARG_VAR([NINJA_PATH],[Define the full path to ninja for the Ninja build syste
 AC_ARG_WITH(openssl,AS_HELP_STRING([--with-openssl], [Enable openssl support for ycmd]))
 AC_ARG_WITH(nettle,AS_HELP_STRING([--with-nettle], [Enable nettle support for ycmd]))
 AC_ARG_WITH(libgcrypt,AS_HELP_STRING([--with-libgcrypt], [Enable libgcrypt support for ycmd]))
+AC_ARG_WITH(openmp,AS_HELP_STRING([--with-openmp], [Enable openmp support for ycmd (optional)]))
 AC_ARG_ENABLE(ycmd,
 AS_HELP_STRING([--enable-ycmd], [Enable code completion support via ycmd]))
 have_ycmd=no
@@ -242,6 +243,13 @@ if test "x$enable_ycmd" = xyes; then
     AC_SEARCH_LIBS([nx_json_get], [nxjson], [], [
         AC_MSG_ERROR([unable to find the nx_json_get() function])
     ])
+
+    if test "x$with_openmp" = xyes; then
+        AC_SEARCH_LIBS([omp_get_thread_num], [omp], [], [
+            AC_MSG_ERROR([unable to find the omp_get_thread_num() function])
+        ])
+        have_openmp=yes
+    fi
 
     if test "x$with_openssl" = xyes; then
         PKG_CHECK_MODULES([OPENSSL], [openssl], [
@@ -302,6 +310,7 @@ AM_CONDITIONAL([HAVE_YCMD], [test x$have_ycmd = xyes])
 AM_CONDITIONAL([HAVE_OPENSSL], [test x$have_openssl = xyes])
 AM_CONDITIONAL([HAVE_NETTLE], [test x$have_nettle = xyes])
 AM_CONDITIONAL([HAVE_LIBGCRYPT], [test x$have_libgcrypt = xyes])
+AM_CONDITIONAL([HAVE_OPENMP], [test x$have_openmp = xyes])
 
 AC_ARG_ENABLE(tiny,
 AS_HELP_STRING([--enable-tiny], [Disable features for the sake of size]))

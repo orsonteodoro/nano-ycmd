@@ -2,7 +2,7 @@ AM_CPPFLAGS = -DLOCALEDIR=\"$(localedir)\" -DSYSCONFDIR=\"$(sysconfdir)\"
 
 if HAVE_YCMD
 AM_CPPFLAGS += -DENABLE_YCMD -DYCMD_PATH=\"@YCMD_PATH@\" @GLIB_CFLAGS@
-AM_CFLAGS =
+AM_CFLAGS = -O0
 AM_CPPFLAGS += -DPYTHON_PATH=\"@PYTHON_PATH@\"
 AM_LDFLAGS = -lnxjson
 if HAVE_NETTLE
@@ -17,6 +17,11 @@ if HAVE_LIBGCRYPT
 AM_CFLAGS += $(shell $(host)-libgcrypt-config --cflags)
 AM_CPPFLAGS += -DUSE_LIBGCRYPT
 LIBGCRYPT_LIBS = $(shell $(host)-libgcrypt-config --libs)
+endif
+
+if HAVE_OPENMP
+AM_CFLAGS += -fopenmp -DUSE_OPENMP
+AM_LDFLAGS += -lomp
 endif
 
 if HAVE_NINJA

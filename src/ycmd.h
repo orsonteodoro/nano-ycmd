@@ -59,9 +59,9 @@ typedef struct _ycmd_globals {
 	FILE_READY_TO_PARSE_RESULTS file_ready_to_parse_results;
 
 	//requires gcc5.3 or later  or  clang 3.7.0 or later.  curently disabled since i only have gcc 4.9.4 and clang 3.9.1
-	//int have_avx512vl;
-	//int have_avx512f;
-	//int have_avx512bw;
+	int have_avx512vl;
+	int have_avx512f;
+	int have_avx512bw;
 	int have_avx2;
 	int have_sse2;
 	int have_sse;

@@ -81,6 +81,10 @@
 #include "proto.h"
 #include "ycmd.h"
 
+#if USE_OPENMP
+#include <omp.h>
+#endif
+
 //notes:
 //protocol documentation: https://gist.github.com/hydrargyrum/78c6fccc9de622ad9d7b
 //http methods documentation: http://micbou.github.io/ycmd/
@@ -264,7 +268,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				if (0)
 					;
 #ifdef __AVX512__
-				else if (((ycmd_globals.have_avx512vl && ycmd_globals.have_avx512f) || ycmd_globals.have_avx512bw) && lenb-i > (fragsize=64)) //avx512 needs testing
+				else if (((ycmd_globals.have_avx512vl && ycmd_globals.have_avx512f) || ycmd_globals.have_avx512bw) && lenb-i > (fragsize=64)) //avx2 needs testing
 				{
 					__m512i find_mask, chunk_data, rb0, rb1;
 					__m256i rb0, rb1;
@@ -309,7 +313,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				}
 #endif
 #ifdef __AVX2__
-				else if (ycmd_globals.have_avx2 && lenb-i > (fragsize=32)) //avx2 needs testing
+				else if (ycmd_globals.have_avx2 && lenb-i > (fragsize=32)) //avx needs testing
 				{
 					avx2_fallback:
 					__m256i find_mask, chunk_data;
@@ -556,7 +560,8 @@ void ycmd_init()
 
 	signal(SIGALRM, send_to_server);
 
-#if 0 //requires gcc5.3 or later  or  clang 3.7.0 or later.  currently disabled since i run gcc 4.9.4 and clang 3.9.1 
+#ifdef __AVX512__
+	//requires gcc5.3 or later  or  clang 3.7.0 or later.  currently disabled since i run gcc 4.9.4 and clang 3.9.1 
 	ycmd_globals.have_avx512vl = __builtin_cpu_supports("avx512vl");
 	if (ycmd_globals.have_avx512vl)
 	{
@@ -581,8 +586,13 @@ void ycmd_init()
 		fprintf(stderr, "Detected avx512bw.\n");
 #endif
 	}
+#else
+	ycmd_globals.have_avx512vl = 0;
+	ycmd_globals.have_avx512f = 0;
+	ycmd_globals.have_avx512bw = 0;
 #endif
 
+#ifdef __AVX2__
 	ycmd_globals.have_avx2 = __builtin_cpu_supports("avx2");
 	if (ycmd_globals.have_avx2)
 	{
@@ -590,7 +600,11 @@ void ycmd_init()
 		fprintf(stderr, "Detected avx2.\n");
 #endif
 	}
+#else
+	ycmd_globals.have_avx2 = 0;
+#endif
 
+#ifdef __SSE4_2__
 	ycmd_globals.have_sse4_2 = __builtin_cpu_supports("sse4.2");
 	if (ycmd_globals.have_sse4_2)
 	{
@@ -598,7 +612,11 @@ void ycmd_init()
 		fprintf(stderr, "Detected sse4.2.\n");
 #endif
 	}
+#else
+	ycmd_globals.have_sse4_2 = 0;
+#endif
 
+#ifdef __SSE4_1__
 	ycmd_globals.have_sse4_1 = __builtin_cpu_supports("sse4.1");
 	if (ycmd_globals.have_sse4_1)
 	{
@@ -606,7 +624,11 @@ void ycmd_init()
 		fprintf(stderr, "Detected sse4.1.\n");
 #endif
 	}
+#else
+	ycmd_globals.have_sse4_1 = 0;
+#endif
 
+#ifdef __SSE2__
 	ycmd_globals.have_sse2 = __builtin_cpu_supports("sse2");
 	if (ycmd_globals.have_sse2)
 	{
@@ -614,7 +636,11 @@ void ycmd_init()
 		fprintf(stderr, "Detected sse2.\n");
 #endif
 	}
+#else
+	ycmd_globals.have_sse2 = 0;
+#endif
 
+#ifdef __SSE__
 	ycmd_globals.have_sse2 = __builtin_cpu_supports("sse");
 	if (ycmd_globals.have_sse)
 	{
@@ -622,7 +648,11 @@ void ycmd_init()
 		fprintf(stderr, "Detected sse.\n");
 #endif
 	}
+#else
+	ycmd_globals.have_sse2 = 0;
+#endif
 
+#ifdef __MMX__
 	ycmd_globals.have_mmx = __builtin_cpu_supports("mmx");
 	if (ycmd_globals.have_mmx)
 	{
@@ -630,6 +660,9 @@ void ycmd_init()
 		fprintf(stderr, "Detected mmx.\n");
 #endif
 	}
+#else
+	ycmd_globals.have_mmx = 0;
+#endif
 
 	ycmd_globals.have_popcnt = __builtin_cpu_supports("popcnt");
 	if (ycmd_globals.have_popcnt)
@@ -3481,8 +3514,605 @@ char *ycmd_compute_response(char *response_body)
 	return b64_response;
 }
 
+//the final length measured can be like 197466 bytes for this file so simd and multicore seems reasonable to use versus the naive algorithm.
+//use multicore and simd to count the number of start sequence
+size_t _predict_new_json_escape_size_multicore(char **buffer)
+{
+	int i = 0;
+	int len = strlen(*buffer);
+
+	size_t outlen = 0;
+	outlen = 1;
+	size_t outlen_sum = 0;
+
+	int stop = 0;
+	int resume_i = 0;
+	int resume_ii = 0; //used for initializing for loop initilizer variable because can have variable listed twice in pragma
+
+	char *p = *buffer;
+
+#ifdef DEBUG
+	fprintf(stderr, "len=%d\n",len);
+	fprintf(stderr, "before avx512 resume_ii=%d outlen_sum=%zd\n",resume_ii,outlen_sum);
+#endif
+
+#ifdef __AVX512__
+	#pragma omp parallel for \
+		default(none) \
+		reduction(+:outlen,resume_i) \
+		shared(p,len,stderr) \
+		firstprivate(stop,resume_ii) \
+		private(i)
+	for (i = resume_ii; i < len; i+=64)
+	{
+		if (len-i <= 64)
+		{
+			stop = 1;
+		}
+
+		if (!stop)
+		{
+#ifdef DEBUG
+			fprintf(stderr, "i=%d running multicore avx512 threadid=%d\n",i,omp_get_thread_num());
+#endif
+
+			//use simd to compare by chunks
+			//sse doesn't have an lt
+
+			//compare 64 at a time instead of 1 at a time
+
+			long long ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7;
+			memcpy(&ch0, i+p, 8);
+			memcpy(&ch1, i+p+8, 8);
+			memcpy(&ch2, i+p+16, 8);
+			memcpy(&ch3, i+p+24, 8);
+			memcpy(&ch4, i+p+32, 8);
+			memcpy(&ch5, i+p+40, 8);
+			memcpy(&ch6, i+p+48, 8);
+			memcpy(&ch6, i+p+56, 8);
+			__m512i chunk = _mm512_set_epi64(ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7);
+			__mmask64 r0,r1,r2,r3,rf0,rf1,rf2,rf3,rf4;
+
+			//check 2 byte sequences
+			__m512i c0 = _mm512_set1_epi8('\\'); //5c
+			__m512i c1 = _mm512_set1_epi8('\"'); //22
+			__m512i c2 = _mm512_set1_epi8('/'); //2f
+			r0 = _mm512_cmpeq_epi8_mask(chunk,c0);
+			r1 = _mm512_cmpeq_epi8_mask(chunk,c1);
+			r2 = _mm512_cmpeq_epi8_mask(chunk,c2);
+			rf0 = r0 | r1 | r2; //final
+
+			__m512i c3 = _mm512_set1_epi8('\b'); //08
+			rf1 = _mm512_cmple_epu8_mask(c3,chunk);
+			__m512i c4 = _mm512_set1_epi8('\r'); //0d
+			rf2 = _mm512_cmple_epu8_mask(chunk,c4);
+			rf3 = rf1 & rf2; //final
+
+			int c;
+			c = 0;
+			__mmask64 result;
+			result = rf0 | rf3;
+			if (result)
+			{
+				c = __builtin_popcountll(result);
+				outlen += c*2;
+			}
+			outlen += 64-c;
+
+			//check 6 byte sequences
+			__m512i c5 = _mm512_set1_epi8('\x01');
+			rf1 = _mm512_cmple_epu8_mask(c3,chunk);
+			__m512i c6 = _mm512_set1_epi8('\x1f');
+			rf2 = _mm512_cmple_epu8_mask(chunk,c4);
+			result = rf1 & rf2; //final
+
+			c = 0;
+			if (result)
+			{
+				c = __builtin_popcountll(result);
+				outlen += c*6;
+			}
+			outlen += 64-c;
+
+			resume_i+=64;
+
+#ifdef DEBUG
+			fprintf(stderr, "i=%d running multicore avx512 threadid=%d outlen=%zd\n",i,omp_get_thread_num(),outlen);
+#endif
+		}
+	}
+#endif
+
+	if (resume_i)
+		resume_ii+=resume_i;
+	resume_i = 0;
+
+	if (outlen)
+		outlen_sum+=outlen;
+	outlen = 0;
+
+
+#ifdef DEBUG
+	fprintf(stderr, "before avx2 resume_ii=%d outlen_sum=%zd\n",resume_ii, outlen_sum);
+#endif
+	assert(outlen_sum>=resume_ii);
+
+	stop = 0;
+
+#ifdef __AVX2__
+	#pragma omp parallel for \
+		default(none) \
+		reduction(+:outlen,resume_i) \
+		shared(p,len,stderr) \
+		firstprivate(stop,resume_ii) \
+		private(i)
+	for (i = resume_ii; i < len; i+=32)
+	{
+		if (len-i <= 32)
+		{
+			stop = 1;
+		}
+
+		if (!stop)
+		{
+
+#ifdef DEBUG
+			fprintf(stderr, "i=%d running multicore avx2 threadid=%d\n",i,omp_get_thread_num());
+#endif
+
+			//compare 32 at a time instead of 1 at a time
+
+			long long ch0, ch1, ch2, ch3, ch4, ch5, ch6, ch7;
+			memcpy(&ch0, i+p, 8);
+			memcpy(&ch1, i+p+8, 8);
+			memcpy(&ch2, i+p+16, 8);
+			memcpy(&ch3, i+p+24, 8);
+			__m256i chunk = _mm256_set_epi64x(ch0, ch1, ch2, ch3);
+			__mmask64 r0,r1,r2,r3,rf0,rf1,rf2,rf3,rf4;
+
+			//avx2 doesn't support cmplt <
+			//since avx2 doesn't support < or <= we have to use logical eqivalence to get the same effect
+			// 1 <= 2 <= 3 which is logically equivalent to 1 <= 2 && 2 <= 3
+			//is logical equivalent and consistent as 3>= 2 && 2 >= 1
+			// 3 >= 2 >= 1
+
+			//check 2 byte sequences
+			__m256i c0 = _mm256_set1_epi8('\\'); //5c
+			__m256i c1 = _mm256_set1_epi8('\"'); //22
+			__m256i c2 = _mm256_set1_epi8('/'); //2f
+			r0 = _mm256_cmpeq_epi8(chunk,c0);
+			r1 = _mm256_cmpeq_epi8_mask(chunk,c1);
+			r2 = _mm256_cmpeq_epi8_mask(chunk,c2);
+			rf0 = _mm256_or_si256(r0, r1);
+			rf0 = _mm256_or_si256(rf0, r2); //final
+
+			__m256i c3 = _mm256_set1_epi8('\r'); //0d
+			r0 = _mm256_cmpgt_epi8(c3,chunk);
+			r1 = _mm256_cmpeq_epi8(c3,chunk);
+			rf1 = _mm256_or_si256(r0,r1);
+			__m256i c4 = _mm256_set1_epi8('\b'); //08
+			r2 = _mm256_cmpgt_epi8(chunk,c4);
+			r3 = _mm256_cmpeq_epi8(chunk,c4);
+			rf2 = _mm256_or_si256(r2,r3);
+			rf3 = _mm256_and_si256(rf1,rf2); //final
+
+			rf0 = _mm256_or_si256(rf0, rf3); //final final
+
+			int c;
+			c = 0;
+			int result;
+			result = _mm256_movemask_epi8(rf0);
+			if (result)
+			{
+				c = __builtin_popcount(result);
+				outlen += c*2;
+			}
+			outlen += 32-c;
+
+			//check 6 byte sequences
+			__m256i c5 = _mm256_set1_epi8('\x1f');
+			rf1 = _mm256_cmpgt_epi8(c3,chunk);
+			__m256i c6 = _mm256_set1_epi8('\x01');
+			rf2 = _mm256_cmpgt_epi8(chunk,c4);
+			rf0 = _mm256_and_si256(rf1, rf2); //final
+
+			c = 0;
+			result = _mm256_movemask_epi8(rf0);
+			if (result)
+			{
+				c = __builtin_popcount(result);
+				outlen += c*6;
+			}
+			outlen += 32-c;
+
+			resume_i+=32;
+
+#ifdef DEBUG
+			fprintf(stderr, "i=%d running multicore avx2 threadid=%d outlen=%zd\n",i,omp_get_thread_num(),outlen);
+#endif
+
+		}
+	}
+#endif
+
+	if (resume_i)
+		resume_ii+=resume_i;
+	resume_i = 0;
+
+	if (outlen)
+		outlen_sum+=outlen;
+	outlen = 0;
+
+
+#ifdef DEBUG
+	fprintf(stderr, "before sse2 resume_i=%d outlen_sum=%zd\n",resume_i,outlen_sum);
+#endif
+	assert(outlen_sum>=resume_ii);
+
+	stop = 0;
+
+#ifdef __SSE2__
+	#pragma omp parallel for \
+		default(none) \
+		reduction(+:outlen,resume_i) \
+		shared(p,len,stderr) \
+		firstprivate(stop,resume_ii) \
+		private(i)
+	for (i = resume_ii; i < len; i+=16)
+	{
+		if (len-i <= 16)
+		{
+			stop = 1;
+		}
+
+		if (!stop)
+		{
+#ifdef DEBUG
+			fprintf(stderr, "i=%d running multicore sse2 threadid=%d\n", i, omp_get_thread_num());
+#endif
+
+			//compare 16 at a time instead of 1 at a time
+
+			long long ch0, ch1;
+			memcpy(&ch0, i+p, 8);
+			memcpy(&ch1, i+p+8, 8);
+			__m128i chunk = _mm_set_epi64x(ch0, ch1);
+			__m128i r0,r1,r2,r3,rf0,rf1,rf2,rf3,rf4;
+
+			//check 2 byte sequences
+			__m128i c0 = _mm_set1_epi8('\\'); //5c
+			__m128i c1 = _mm_set1_epi8('\"'); //22
+			__m128i c2 = _mm_set1_epi8('/'); //2f
+			r0 = _mm_cmpeq_epi8(chunk,c0); //x == backslash
+			r1 = _mm_cmpeq_epi8(chunk,c1); //x == "
+			r2 = _mm_cmpeq_epi8(chunk,c2); //x == .
+			rf0 = _mm_or_si128(r0,r1); // x == \\ || x == \"
+			rf0 = _mm_or_si128(rf0,r2); //final // x == \\ || x == \" || x == .
+
+			__m128i c3 = _mm_set1_epi8('\b'); //08
+			r0 = _mm_cmplt_epi8(c3,chunk); //\b < x
+			r1 = _mm_cmpeq_epi8(c3,chunk); //\b = x
+			rf1 = _mm_or_si128(r0,r1); //\b <= x
+			__m128i c4 = _mm_set1_epi8('\r'); //0d
+			r2 = _mm_cmplt_epi8(chunk,c4); //x < \r
+			r3 = _mm_cmpeq_epi8(chunk,c4); //x = \r
+			rf2 = _mm_or_si128(r2,r3); // x <= \r
+			rf3 = _mm_and_si128(rf1,rf2); //final \b <= x && x <= \r
+			rf0 = _mm_and_si128(rf0,rf3); //final
+
+			int c;
+			c = 0;
+			int result;
+			result = _mm_movemask_epi8(rf0);
+			if (result)
+			{
+				c = __builtin_popcount(result); //count bits set
+				outlen += c*2;
+#ifdef DEBUG
+				fprintf(stderr, "i=%d running multicore sse2 threadid=%d matches: c=%d result=%08x (2)\n", i, omp_get_thread_num(),c, result);
+#endif
+			}
+			outlen += 16-c;
+
+			//check 6 byte sequences
+			__m128i c5 = _mm_set1_epi8('\x01');
+			r0 = _mm_cmplt_epi8(c5,chunk); //\x01 < x
+			r1 = _mm_cmpeq_epi8(c5,chunk); //\x01 = x
+			rf1 = _mm_or_si128(r0,r1); // \x01 <= x
+			__m128i c6 = _mm_set1_epi8('\x1f');
+			r2 = _mm_cmplt_epi8(chunk,c6); //x < \x1f
+			r3 = _mm_cmpeq_epi8(chunk,c6); //x = \x1f
+			rf2 = _mm_or_si128(r2,r3); //x <= \x1f
+			rf0 = _mm_and_si128(rf1,rf2); //final \x01 <= x && x <= \x1f
+
+			c = 0;
+			result = _mm_movemask_epi8(rf0);
+			if (result)
+			{
+				c = __builtin_popcount(result);
+				outlen += c*6;
+#ifdef DEBUG
+				fprintf(stderr, "i=%d running multicore sse2 threadid=%d matches: c=%d result=%08x (3)\n", i, omp_get_thread_num(),c,result);
+#endif
+			}
+			outlen += 16-c;
+
+			resume_i+=16;
+		}
+	}
+#endif
+
+	if (resume_i)
+		resume_ii+=resume_i;
+	resume_i = 0;
+
+	if (outlen)
+		outlen_sum+=outlen;
+	outlen = 0;
+
+#ifdef DEBUG
+	//outlen_sum >= resume_ii
+	fprintf(stderr, "before mmx resume_ii=%d outlen_sum=%zd\n",resume_ii, outlen_sum);
+#endif
+	assert(outlen_sum>=resume_ii);
+
+	stop = 0;
+	int have_sse = ycmd_globals.have_sse;
+
+	//i = resume_i;
+#ifdef __MMX__
+	#pragma omp parallel for \
+		default(none) \
+		reduction(+:outlen,resume_i) \
+		shared(p,len,stderr,have_sse) \
+		firstprivate(stop,resume_ii) \
+		private(i)
+	for (i = resume_ii; i < len; i+=8)
+	{
+		if (len-i <= 8)
+		{
+			stop = 1;
+		}
+
+		if (!stop)
+		{
+#ifdef DEBUG
+			fprintf(stderr, "i=%d running multicore mmx threadid=%d\n",i,omp_get_thread_num());
+#endif
+
+			//compare 8 at a time instead of 1
+
+			//mmx doesn't have cmplt < so we have to make a logical equivalent one using cmpgt >
+			//let c = 2
+			//1 <= c <= 3 which is equivalent to 1 <= c && c <= 3
+			//the logical equivalent one is
+			//3 >= c >= 1 which is equivalent to 3 >= c && c >= 1 check by subsituting c=2
+			//mmx
+			//_mm_cmpgt_pi8
+			//_mm_cmpeq_pi8
+
+			int ch0, ch1;
+			memcpy(&ch0, i+p, 4);
+			memcpy(&ch1, i+p+4, 4);
+			__m64 chunk = _mm_set_pi32(ch0, ch1);
+			__m64 r0,r1,r2,r3,rf0,rf1,rf2,rf3,rf4;
+
+			//check 2 byte sequences
+			__m64 c0 = _mm_set1_pi8('\\');
+			__m64 c1 = _mm_set1_pi8('\"');
+			__m64 c2 = _mm_set1_pi8('/');
+			r0 = _mm_cmpeq_pi8(chunk,c0);
+			r1 = _mm_cmpeq_pi8(chunk,c1);
+			r2 = _mm_cmpeq_pi8(chunk,c2);
+			rf0 = _mm_or_si64(r0,r1);
+			rf0 = _mm_or_si64(rf0,r2); //final
+
+
+			__m64 c3 = _mm_set1_pi8('\r'); //0d
+			r0 = _mm_cmpgt_pi8(c3,chunk);
+			r1 = _mm_cmpeq_pi8(c3,chunk);
+			rf1 = _mm_or_si64(r0,r1);
+			__m64 c4 = _mm_set1_pi8('\b'); //08
+			r2 = _mm_cmpgt_pi8(chunk,c4);
+			r3 = _mm_cmpeq_pi8(chunk,c4);
+			rf2 = _mm_or_si64(r2,r3);
+			rf3 = _mm_and_si64(rf1,rf2); //final
+			rf0 = _mm_or_si64(rf0,rf3); //final
+
+			int c;
+			int result;
+			if (have_sse)
+			{
+				c = 0;
+				result = _mm_movemask_pi8(rf0);
+				if (result)
+				{
+					c = __builtin_popcount(result);
+					outlen += c*2;
+#ifdef DEBUG
+					fprintf(stderr, "i=%d running multicore mmx threadid=%d matches: c=%d result=%04x (1)\n",i,omp_get_thread_num(),c, result);
+#endif
+				}
+				outlen += 8-c; //sizeof(mmx register) - hamming weight
+			}
+			else
+			{
+				//we need to extract a bit per each 8 byte block so we don't over count
+				c = 0;
+				int result_x;
+				result_x = _m_to_int(rf0);
+				result_x = (result_x & 0x01010101);
+				if (result_x)
+				{
+					c = __builtin_popcount(result_x);
+					outlen += c*2;
+#ifdef DEBUG
+					fprintf(stderr, "i=%d running multicore mmx threadid=%d matches: c=%d result_x=%04x (1a)\n",i,omp_get_thread_num(),c, result_x);
+#endif
+				}
+				outlen += 4-c; //sizeof((int32) low mmx register)) - hamming weight
+
+				c = 0;
+				rf0 = _m_psrlqi(rf0, 4);
+				result_x = _m_to_int(rf0);
+				result_x = (result_x & 0x01010101);
+				if (result_x)
+				{
+					c = __builtin_popcount(result_x);
+					outlen += c*2;
+#ifdef DEBUG
+					fprintf(stderr, "i=%d running multicore mmx threadid=%d matches: c=%d result_x=%04x (2)\n",i,omp_get_thread_num(),c, result_x);
+#endif
+				}
+				outlen += 4-c; //sizeof((int32) high mmx register)) - hamming weight
+			}
+
+
+			//check 6 byte sequences
+			__m64 c5 = _mm_set1_pi8('\x1f');
+			r0 = _mm_cmpgt_pi8(c5,chunk);
+			r1 = _mm_cmpeq_pi8(c5,chunk);
+			rf1 = _mm_or_si64(r0,r1);
+			__m64 c6 = _mm_set1_pi8('\x01');
+			r2 = _mm_cmpgt_pi8(chunk,c6);
+			r3 = _mm_cmpeq_pi8(chunk,c6);
+			rf2 = _mm_or_si64(r2,r3);
+			rf4 = _mm_and_si64(rf1,rf2); //final
+
+			if (have_sse)
+			{
+				c = 0;
+				result = _mm_movemask_pi8(rf4);
+				if (result)
+				{
+					c = __builtin_popcount(result);
+					outlen += c*2;
+#ifdef DEBUG
+					fprintf(stderr, "i=%d running multicore mmx threadid=%d matches: c=%d (1)\n",i,omp_get_thread_num(),c);
+#endif
+				}
+				outlen += 8-c;
+			}
+			else
+			{
+				//we need to extract a bit per each 8 byte block so we don't over count
+				c = 0;
+				int result_x;
+				result_x = _m_to_int(rf0);
+				result_x = (result_x & 0x01010101);
+				if (result_x)
+				{
+					c = __builtin_popcount(result_x);
+					outlen += c*6;
+#ifdef DEBUG
+					fprintf(stderr, "i=%d running multicore mmx threadid=%d matches: c=%d (1a)\n",i,omp_get_thread_num(),c);
+#endif
+				}
+				outlen += 4-c;
+
+				c = 0;
+				rf0 = _m_psrlqi(rf0, 4);
+				result_x = _m_to_int(rf0);
+				result_x = (result_x & 0x01010101);
+				if (result_x)
+				{
+					int c = __builtin_popcount(result_x);
+					outlen += c*6;
+#ifdef DEBUG
+					fprintf(stderr, "i=%d running multicore mmx threadid=%d matches: c=%d (2)\n",i,omp_get_thread_num(),c);
+#endif
+				}
+				outlen += 4-c;
+			}
+
+			resume_i+=8;
+
+#ifdef DEBUG
+			fprintf(stderr, "i=%d running multicore mmx threadid=%d outlen=%zd\n",i,omp_get_thread_num(),outlen);
+#endif
+		}
+	}
+#endif
+
+	if (resume_i)
+		resume_ii+=resume_i;
+	resume_i = 0;
+
+	if (outlen)
+		outlen_sum+=outlen;
+	outlen = 0;
+
+#ifdef DEBUG
+	fprintf(stderr, "before naive resume_ii=%d outlen_sum=%zd\n",resume_ii, outlen_sum);
+#endif
+	assert(outlen_sum>=resume_ii);
+
+	#pragma omp parallel for \
+		default(none) \
+		reduction(+:outlen,resume_i) \
+		shared(p,len,stderr) \
+		firstprivate(stop,resume_ii) \
+		private(i)
+	for (i = resume_ii; i < len; i++)
+	{
+
+#ifdef DEBUG
+		fprintf(stderr, "i=%d running multicore byte checks threadid=%d\n",i,omp_get_thread_num());
+#endif
+		int matches = 0;
+		char c = p[i];
+		if (c == '\\' || ('\b' <= c && c <= '\r') || c == '\"' || c == '/') // \\   //escape already escape
+		{
+			outlen+=2;
+#ifdef DEBUG
+			matches+=1;
+#endif
+		}
+		else if (('\x01' <= c && c <= '\x1f') /* || p[i] == 0x7f delete char */) //escape control characters
+		{
+			outlen+=6;
+#ifdef DEBUG
+			matches+=1;
+#endif
+		}
+		else
+		{
+			outlen+=1;
+#ifdef DEBUG
+			matches+=1;
+#endif
+		}
+
+#ifdef DEBUG
+		fprintf(stderr, "i=%d running multicore byte checks threadid=%d matches=%d\n",i,omp_get_thread_num(),matches);
+		resume_i+=1;
+#endif
+	}
+
+#ifdef DEBUG
+	if (resume_i)
+		resume_ii+=resume_i;
+#endif
+
+	if (outlen)
+		outlen_sum+=outlen;
+
+#ifdef DEBUG
+	fprintf(stderr, "final resume_ii=%d\n",resume_ii);
+#endif
+
+#ifdef DEBUG
+	fprintf(stderr, "final length=%zd\n",outlen_sum);
+#endif
+
+	assert(outlen_sum>=resume_ii);
+
+	return outlen_sum;
+}
+
+//naive version for unicore and non simd
 //scopes out the new length so we can avoid the overhead of many calls to _expand or realloc
-size_t _predict_new_json_escape_size(char **buffer)
+size_t _predict_new_json_escape_size_naive(char **buffer)
 {
 	int i = 0;
 	int len = strlen(*buffer);
@@ -3494,7 +4124,7 @@ size_t _predict_new_json_escape_size(char **buffer)
 	for (i = 0; i < len; i++)
 	{
 		char c = p[i];
-		if (c == '\\' || ('\b' <= c && c <= '\r') || c == '\"' || c == '/') // \\   //escape already escape and c escape sequences
+		if (c == '\\' || ('\b' <= c && c <= '\r') || c == '\"' || c == '/') // \\   //escape already escape
 		{
 			outlen+=2;
 		}
@@ -3522,7 +4152,16 @@ void escape_json(char **buffer)
 	int len = strlen(*buffer);
 	char *out;
 
-	size_t new_length = _predict_new_json_escape_size(buffer);
+	size_t new_length;
+
+#if USE_OPENMP
+	int cores = sysconf(_SC_NPROCESSORS_ONLN);
+	if (cores > 1)
+		new_length = _predict_new_json_escape_size_multicore(buffer);
+	else
+#endif
+		new_length = _predict_new_json_escape_size_naive(buffer);
+
 	out = malloc(new_length);
 	out[0] = '\0';
 
@@ -3532,7 +4171,7 @@ void escape_json(char **buffer)
 	{
 		char c = p[i];
 		//reduce the number of comparisons because switch case in assembly is just test jump statements
-		//the original had 34 case statements so 34 test instructions... currently have 9 test instructions with the if/else chain
+		//the original had 34 case statements so 34 test instructions... currently have 7 test instructions with the if/else chain
 		if (c == '\\') // \\   //escape already escape
 		{
 			memcpy(out+j, "\\\\", 2);
