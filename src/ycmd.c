@@ -64,6 +64,7 @@
 #include <immintrin.h>
 #endif
 
+//avx512 requires gcc5.3 or later  or  clang 3.7.0 or later.
 #ifdef __AVX512__
 #include <immintrin.h>
 #include <zmmintrin.h>
@@ -268,7 +269,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				if (0)
 					;
 #ifdef __AVX512__
-				else if (((ycmd_globals.have_avx512vl && ycmd_globals.have_avx512f) || ycmd_globals.have_avx512bw) && lenb-i > (fragsize=64)) //avx2 needs testing
+				else if (((ycmd_globals.have_avx512vl && ycmd_globals.have_avx512f) || ycmd_globals.have_avx512bw) && lenb-i > (fragsize=64)) //avx512 needs testing
 				{
 					__m512i find_mask, chunk_data, rb0, rb1;
 					__m256i rb0, rb1;
@@ -313,7 +314,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				}
 #endif
 #ifdef __AVX2__
-				else if (ycmd_globals.have_avx2 && lenb-i > (fragsize=32)) //avx needs testing
+				else if (ycmd_globals.have_avx2 && lenb-i > (fragsize=32)) //avx2 needs testing
 				{
 					avx2_fallback:
 					__m256i find_mask, chunk_data;
@@ -561,7 +562,6 @@ void ycmd_init()
 	signal(SIGALRM, send_to_server);
 
 #ifdef __AVX512__
-	//requires gcc5.3 or later  or  clang 3.7.0 or later.  currently disabled since i run gcc 4.9.4 and clang 3.9.1 
 	ycmd_globals.have_avx512vl = __builtin_cpu_supports("avx512vl");
 	if (ycmd_globals.have_avx512vl)
 	{
@@ -4171,13 +4171,13 @@ void escape_json(char **buffer)
 	{
 		char c = p[i];
 		//reduce the number of comparisons because switch case in assembly is just test jump statements
-		//the original had 34 case statements so 34 test instructions... currently have 7 test instructions with the if/else chain
+		//the original had 34 case statements so 34 test instructions... currently have 9 test instructions with the if/else chain
 		if (c == '\\') // \\   //escape already escape
 		{
 			memcpy(out+j, "\\\\", 2);
 			j+=2;
 		}
-		else if (('\b' <= c && c <= '\r'))
+		else if ('\b' <= c && c <= '\r') // c escape sequences
 		{
 			char table[6] = {'b','t','n','v','f','r'};
 			char tbuf[3];

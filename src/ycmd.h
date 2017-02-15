@@ -58,7 +58,7 @@ typedef struct _ycmd_globals {
 	int clang_completer; //used to fix off by one error for column number
 	FILE_READY_TO_PARSE_RESULTS file_ready_to_parse_results;
 
-	//requires gcc5.3 or later  or  clang 3.7.0 or later.  curently disabled since i only have gcc 4.9.4 and clang 3.9.1
+	//avx512 requires gcc5.3 or later  or  clang 3.7.0 or later.
 	int have_avx512vl;
 	int have_avx512f;
 	int have_avx512bw;
