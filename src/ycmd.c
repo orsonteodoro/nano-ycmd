@@ -3681,8 +3681,8 @@ size_t _predict_new_json_escape_size_multicore(char **buffer)
 			__m256i c1 = _mm256_set1_epi8('\"'); //22
 			__m256i c2 = _mm256_set1_epi8('/'); //2f
 			r0 = _mm256_cmpeq_epi8(chunk,c0);
-			r1 = _mm256_cmpeq_epi8_mask(chunk,c1);
-			r2 = _mm256_cmpeq_epi8_mask(chunk,c2);
+			r1 = _mm256_cmpeq_epi8(chunk,c1);
+			r2 = _mm256_cmpeq_epi8(chunk,c2);
 			rf0 = _mm256_or_si256(r0, r1);
 			rf0 = _mm256_or_si256(rf0, r2); //final
 
