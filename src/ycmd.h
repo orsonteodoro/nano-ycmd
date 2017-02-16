@@ -59,6 +59,7 @@ typedef struct _ycmd_globals {
 	FILE_READY_TO_PARSE_RESULTS file_ready_to_parse_results;
 
 	//avx512 requires gcc5.3 or later  or  clang 3.7.0 or later.
+	int cpu_cores;
 	int have_avx512vl;
 	int have_avx512f;
 	int have_avx512bw;
