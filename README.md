@@ -35,7 +35,7 @@ You can use the following which have been tested:
 * GNU findutils, requires for the find utility to search for Makefile, configure, *.ninja, *.pro, files.
 * GNU coreutils, nano-ycmd needs tac command to reverse the clang system includes order for SIMD headers.
 * AVX512, AVX2, SSE2, MMX (OPTIONAL and undergoing testing) for string_replace and escape_json.
-* OpenMP (OPTIONAL and undergoing testing) via --with-openmp for multicore escape_json.
+* OpenMP (OPTIONAL and undergoing testing) via --with-openmp for multicore string_replace and escape_json.
 
 ####My distribution doesn't have the required dependencies
 
