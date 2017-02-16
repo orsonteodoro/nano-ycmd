@@ -319,7 +319,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 							//compare 32 bytes at a time * ncores
 							int c;
 							c = 0;
-							//need to simulate sse4.2 behavior but extened to 64 bytes
+							//need to simulate sse4.2 behavior but extened to 32 bytes
 							__mmask64 result = _mm512_cmpeq_epi8_mask(a,b);
 							c = __builtin_popcountll(result);
 							cf += c;
@@ -487,7 +487,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 #else //SINGLE CORE NO SIMD
 				else
 				{
-					//use multicore only but single bit comparisons
+					//use multicore only but single bit comparisons.  for quad core, it counts 4 bytes at a time using naive algorithm.
 					#pragma omp parallel for \
 						default(none) \
 						reduction(+:cf) \
@@ -520,7 +520,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 			else //single core
 #endif //end USE_OPENMP
 			{
-				//naive algorithm
+				//naive algorithm should be faster for many random comparisons but not long chains
 				for(j=0;j<lenf && i+j < lenb;j++)
 				{
 					if ( p[i+j] == find[j] )
