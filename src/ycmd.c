@@ -308,9 +308,9 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 #endif
 							//just count
 
-							__m512i a, b;
-							a = _mm512_setzero();
-							b = _mm512_setzero();
+							__m256i a, b;
+							a = _mm256_setzero_si256();
+							b = _mm256_setzero_si256();
 							int a_size = lenb < width ? lenb : width;
 							int b_size = lenf < width ? lenf : width;
 							memcpy(&a, p+i+j, a_size);
@@ -320,8 +320,9 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 							int c;
 							c = 0;
 							//need to simulate sse4.2 behavior but extened to 32 bytes
-							__mmask64 result = _mm512_cmpeq_epi8_mask(a,b);
-							c = __builtin_popcountll(result);
+							__m256i result = _mm256_cmpeq_epi8(a,b);
+							int mask _mm256_movemask_epi8(result);
+							c = __builtin_popcount(mask);
 							cf += c;
 							if (b_size != c)
 								stop = 1;
