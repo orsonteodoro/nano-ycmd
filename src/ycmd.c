@@ -330,7 +330,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 						}
 					}
 				}
-#elif defined(__SSE2__) && 0
+#elif defined(__SSE2__)
 				else if (ycmd_globals.have_sse2)
 				{
 					int resume_j;
