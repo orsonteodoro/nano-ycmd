@@ -13,8 +13,9 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
-* 34484505268f91bd890c2bc6fade4fc6dfe9db5c (recently tested; experimental)
-* 1f1a50665877e6dd6f6d09999de3166f4b84a9a2 (recently tested)
+* 33dc7bc1fd85bc199dd8e0fd5d6d5f64c4d26c0e (recently tested; experimental)
+* 34484505268f91bd890c2bc6fade4fc6dfe9db5c (recently tested but old; experimental)
+* 1f1a50665877e6dd6f6d09999de3166f4b84a9a2 (recently tested but old;  non-simd non-multicore)
 
 ####Dependencies
 * ycmd >= commits later than April 17, 2015, with new hmac computation (https://github.com/Valloric/ycmd/commit/426833360adec8db72ed6cef9d7aa7f037e6a5b8)
