@@ -3,12 +3,12 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 
 ![Alt text](csharp-ynano-example.png?raw=true "CSharp IntelliSense with OmniSharp and ycmd.")
 
-####Branches
+#### Branches
 
 * The master branch contains upstreams gnu nano source code untouched.
 * The ymcd-code-completion contains a modification to gnu nano that has ycmd support.
 
-####Which commits are working?  Which one should I clone?
+#### Which commits are working?  Which one should I clone?
 
 The latest may be broken.
 
@@ -16,7 +16,7 @@ You can use the following which have been tested:
 * 011aff80e9b53785c4bac0da6763e37042d7d7eb (recently tested; experimental)
 * 1f1a50665877e6dd6f6d09999de3166f4b84a9a2 (recently tested but old; non-simd non-multicore)
 
-####Dependencies
+#### Dependencies
 * ycmd >= commits later than April 17, 2015, with new hmac computation (https://github.com/Valloric/ycmd/commit/426833360adec8db72ed6cef9d7aa7f037e6a5b8)
 * >=jedi 0.10, for python support and for completer commands to work.
 * Latest jedihttp, for python completion commands support.
@@ -37,21 +37,21 @@ You can use the following which have been tested:
 * AVX512, AVX2, SSE2, MMX (OPTIONAL and undergoing testing) for string_replace and escape_json.
 * OpenMP (OPTIONAL and undergoing testing) via --with-openmp for multicore string_replace and escape_json.
 
-####My distribution doesn't have the required dependencies
+#### My distribution doesn't have the required dependencies
 
 You can look at my gentoo package overlay https://github.com/orsonteodoro/oiledmachine-overlay to see how to properly compile them or you can research them to build packages for your distribution.
 
-####What are the new hot keys to use this functionality?
+#### What are the new hot keys to use this functionality?
 
 See https://github.com/orsonteodoro/nano-ycmd/blob/ymcd-code-completion/src/global.c#L1389 .
 
 Some of these features require the user to begin to type their code before the menu shows.
 
-####Why does the completer command "Get Documentation" not work for c-sharp?
+#### Why does the completer command "Get Documentation" not work for c-sharp?
 
 Your distribution has not packaged the xml files properly.  Compile nano-ycmd in debug mode and inspect the logs (ynano.txt, jedihttp_*.log, omnisharp_*.log) in the /tmp folder to see which xml documentation files are required.
 
-####Which completer commands work and how do I access them and what is the expected behavior?
+#### Which completer commands work and how do I access them and what is the expected behavior?
 
 Completer commands add beyond code completion.  It is optional but powerful features for the developer.
 
@@ -89,15 +89,15 @@ No | Yes | Yes | ClearCompilationFlagCache | Clears and updates FlagsForFile fro
 Yes | Yes | Yes | GetParent | Gets parent class or method
 No | No | No | SolutionFile | Gets the path to the solution file
 
-####Why use ycmd backend over the builtin WORDCOMPLETION?
+#### Why use ycmd backend over the builtin WORDCOMPLETION?
 
 ycmd allows to you use IntelliSense for C# sources using omnisharp-server/omnisharp-roslyn that the big IDE editors have.  It goes beyond word completion providing documentation about method signatures and real time syntax checking (currently not supported in nano-ycmd).
 
-####How do I use this code completion feature?
+#### How do I use this code completion feature?
 
 Just type and press CTRL-LETTER.  Use Ctrl-space to exit the code completion selections.
 
-####What languages supported?
+#### What languages supported?
 python, javascript*, typescript, rust, go, C*, C++*, Objective-C*, Objective-C++*, C#*
 
 
@@ -109,28 +109,28 @@ Working with some of these languages require additional requirements:
 
 *C, C++, Objective-C, Objective-C++ requires either a *.pro, configure, CMakeList.txt, GNUmakefile, Makefile, or makefile to work.  An optional *.ninja file may be supplied in your project and would require additional steps to handle.
 
-####Why does the autocompleter not work with C, C++, Objective C, Objective C++ with a single hello world file?
+#### Why does the autocompleter not work with C, C++, Objective C, Objective C++ with a single hello world file?
 
 You may forgot to have a Makefile, makefile GNUmakefile for make, *.pro for qmake, configure for autotools, CMakeLists.txt for cmake or forgot to set the YCMG_PROJECT_PATH to point to your top level project folder.  nano-ycmd will pass it to bear and YCM-Generator to properly create a .ycm_extra_conf.py and compile_commands.json.  The compile_commands.json is for clang compliation database system (http://clang.llvm.org/docs/JSONCompilationDatabase.html).  .ycm_extra_conf.py contains headers and constants that are per project.
 
-####The completer commands doesn't work for C, C++, Objective C, Objective C++
+#### The completer commands doesn't work for C, C++, Objective C, Objective C++
 
 Try deleting the compile_commands.json file and .ycm_extra_conf.py in the current (working) directory.  Those files should be only in the directory mentioned in the YCMG_PROJECT_PATH environmental variable passed into nano-ycmd.
 
-####Why is my intellisense not working with my C#?
+#### Why is my intellisense not working with my C#?
 You didn't set up ycmd correctly.  It needs to see a sln file or maybe project.json file if json is supported in ycmd.
 
-####Why is the master branch old?
+#### Why is the master branch old?
 I don't have an update bot yet.
 
-####Why is this not a plugin?
+#### Why is this not a plugin?
 I don't see any plugin support in nano.
 
-####What do i need to pass to configure?
+#### What do i need to pass to configure?
 
 Your setup may vary depending on if your distro patched ycmd.  In my case, I modified ycmd to use absolute paths.  The vanilla ycmd uses relative path to the thirdparty folder.
 
-####You need a crypto library.  Choose one of either:
+#### You need a crypto library.  Choose one of either:
 
 --with-openssl
 
@@ -142,36 +142,36 @@ or
 
 --with-libgcrypt
 
-####You need to enable ycmd support
+#### You need to enable ycmd support
 
 --enable-ycmd
 
-####You need to set up environmental variables to pass to the configure script:
+#### You need to set up environmental variables to pass to the configure script:
 
 (IMPORTANT) The python version must be the same as the compiled ycmd scripts.
 
 YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd"
 PYTHON_PATH="/usr/bin/python3.4" 
 
-####The following are optional environmental variables to pass to the configure script pass empty "" if you don't want support:
+#### The following are optional environmental variables to pass to the configure script pass empty "" if you don't want support:
 
-####for rust language:
+#### for rust language:
 
 RACERD_PATH="/usr/bin/racerd" 
 
 RUST_SRC_PATH="/usr/share/rust/src" 
 
-####for go language:
+#### for go language:
 
 GODEF_PATH="/usr/bin/godef" 
 
 GOCODE_PATH="/usr/bin/gocode" 
 
-####for C / C++ / Objective-C / Objective-C++ language:
+#### for C / C++ / Objective-C / Objective-C++ language:
 
 YCMG_PATH="/usr/bin/config_gen.py"
 
-####What would the resulting string look like to configure ycmd for the autotools build system?
+#### What would the resulting string look like to configure ycmd for the autotools build system?
 
 ./autogen.sh
 
@@ -180,7 +180,7 @@ make
 
 The -g adds debugging information for developers for the gdb debugger but not needed for regular users. 
 
-####YCM-Generator
+#### YCM-Generator
 The following environmental variables are defined by nano-ycmd are required for C family support (C/C++/ObjC/ObjC++):
 
 * YCMG_PROJECT_PATH - This should point to the folder containing the top-level Makefile, configure, CMakeList.txt. (REQUIRED)
@@ -194,7 +194,7 @@ Also, if you add new libraries or files, you should delete both the .ycm_extra_c
 
 Also, if you change languages between C, C++, Objective-C, Objective-C++ because your project uses multiple languages, you should regenerate them when using them because it will produce new header include lists for that particular language.  Currently no hotkey exist to delete and regenerate those files.  nano-ycmd automatically skips generation to save time if they already exist.
 
-####Ninja + YCM-Generator together
+#### Ninja + YCM-Generator together
 
 We need the YCMG_PROJECT_PATH above plus the two required environment variables below:
 
@@ -242,52 +242,52 @@ For Ninja + Other build system, it should look like:
 
 In the above example there is only a configure script in /var/tmp/portage/media-plugins/gst-transcoder-1.8.2-r1/work/gst-transcoder-1.8.2 folder and is autodetected by YCM-Generator.  A build.ninja file is located in /var/tmp/portage/media-plugins/gst-transcoder-1.8.2-r1/work/gst-transcoder-1.8.2/mesonbuild folder.
 
-####Why does the user experience suck?
+#### Why does the user experience suck?
 We are working on that.  Feel free to merge your changes.
 
-####Why does it do only word matching within a single source code?
+#### Why does it do only word matching within a single source code?
 The example reference script used it that way.
 
-####Quality?  Is it finished or complete?
+#### Quality?  Is it finished or complete?
 
 Code completion as in looking outside of the current opened buffers in nano is feature complete but the entire feature set of the completer commands is not feature complete.  The UX could also be improved.
 
-####What license is GNU nano released under?
+#### What license is GNU nano released under?
 
 GPL version 3 or newer
 
-####What license is nano-ycmd feature set released under?
+#### What license is nano-ycmd feature set released under?
 
 It is GPL version 3 or newer
 
-####What could I do to help?
+#### What could I do to help?
 
 Add better user interface or user interaction.  Emacs-ycmd is a good example.
 
 Fix bugs or improve the speed.  Solve why clang/llvm 3.9.1 doesn't show FixIts 100% of the time as expected.
 
-####When will it be considered ready for review to be included in the official GNU nano?
+#### When will it be considered ready for review to be included in the official GNU nano?
 
 After the UX has been polished and all the features are feature complete.  If they do not want to include this patchset, we will fork nano.  I want this merged eventually if possible or someone do it if I am gone or no longer working on it.
 
-####Can I install both vanilla nano and nano-ycmd along side each other?
+#### Can I install both vanilla nano and nano-ycmd along side each other?
 
 Yes you can, but you need to change the src/Makefile.am.  Rerun autogen.sh.  Do configure again specifying features then make.  Just keep the binary only.  I recommend installing both since nano-ycmd is still a work in progress.
 
-####What is up with the debug spew?
+#### What is up with the debug spew?
 
 If you compiled nano-ycmd with --enable-debug then you can redirect the stderr to a file to inspect it later.  You should use --disable-debug if you are not a developer.
 
 For example:
 nano 2>/tmp/out.txt
 
-####Special thanks goes to...
+#### Special thanks goes to...
 
 marchelzo and twkm from freenode ##C channel for the clear excess stdin fix.
 
 Also see --version or https://github.com/orsonteodoro/nano-ycmd/blob/052b4866f3b24caeed877ae6f017f422d1443ed9/src/nano.c#L929 for other credits
 
-####How do I add changes?
+#### How do I add changes?
 1. Click fork at the top of this page to create a repository on your account
 2. git clone https://github.com/orsonteodoro/nano-ycmd.git
 3. cd into folder
