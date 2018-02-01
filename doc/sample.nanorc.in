@@ -15,10 +15,9 @@
 ## its end.  For example, for the "brackets" option, ""')>]}" will match
 ## ", ', ), >, ], and }.
 
-## Silently ignore problems with unknown directives in the nanorc file.
-## Useful when your nanorc file might be read on systems with multiple
-## versions of nano installed (e.g. your home directory is on NFS).
-# set quiet
+## When soft line wrapping is enabled, make it wrap lines at blanks
+## (tabs and spaces) instead of always at the edge of the screen.
+# set atblanks
 
 ## Use auto-indentation.
 # set autoindent
@@ -28,9 +27,6 @@
 
 ## The directory to put unique backup files in.
 # set backupdir ""
-
-## Do backwards searches by default.
-# set backwards
 
 ## Use bold text instead of reverse video text.
 # set boldtext
@@ -44,13 +40,14 @@
 ## Do case-sensitive searches by default.
 # set casesensitive
 
-## Constantly display the cursor position in the statusbar.  Note that
+## Constantly display the cursor position in the status bar.  Note that
 ## this overrides "quickblank".
 # set constantshow
 ## (The old form, 'const', is deprecated.)
 
-## Use cut-to-end-of-line by default.
-# set cut
+## Use cut-from-cursor-to-end-of-line by default.
+# set cutfromcursor
+## (The old form, 'cut', is deprecated.)
 
 ## Set the line length for wrapping text and justifying paragraphs.
 ## If the value is 0 or less, the wrapping point will be the screen
@@ -60,14 +57,11 @@
 ## Remember the used search/replace strings for the next session.
 # set historylog
 
-## Make the justify command kill whitespace at the end of lines.
-# set justifytrim
-
 ## Display line numbers to the left of the text.
 # set linenumbers
 
 ## Enable vim-style lock-files.  This is just to let a vim user know you
-## are editing a file [s]he is trying to edit and vice versa. There are
+## are editing a file [s]he is trying to edit and vice versa.  There are
 ## no plans to implement vim-style undo state in these files.
 # set locking
 
@@ -76,7 +70,7 @@
 ## come before the latter set, and both must be in the same order.
 # set matchbrackets "(<[{)>]}"
 
-## Use the blank line below the titlebar as extra editing space.
+## Use the blank line below the title bar as extra editing space.
 # set morespace
 
 ## Enable mouse support, if available for your system.  When enabled,
@@ -94,6 +88,10 @@
 
 ## Don't display the helpful shortcut lists at the bottom of the screen.
 # set nohelp
+
+## Don't pause between warnings at startup.  Which means that only the
+## last one will be readable (when there are multiple ones).
+# set nopauses
 
 ## Don't add newlines to the ends of files.
 # set nonewlines
@@ -120,8 +118,8 @@
 ## sentences.
 # set punct "!.?"
 
-## Do quick statusbar blanking.  Statusbar messages will disappear after
-## 1 keystroke instead of 26.  Note that "const" overrides this.
+## Do quick status-bar blanking.  Status-bar messages will disappear after
+## 1 keystroke instead of 26.  Note that "constantshow" overrides this.
 # set quickblank
 
 ## The email-quote string, used to justify email-quoted paragraphs.
@@ -159,7 +157,7 @@
 # set softwrap
 
 ## Use this spelling checker instead of the internal one.  This option
-## does not properly have a default value.
+## does not have a default value.
 # set speller "aspell -x -c"
 
 ## Allow nano to be suspended.
@@ -173,6 +171,9 @@
 
 ## Save automatically on exit; don't prompt.
 # set tempfile
+
+## Snip whitespace at the end of lines when justifying or hard-wrapping.
+# set trimblanks
 
 ## Disallow file modification.  Why would you want this in an rcfile? ;)
 # set view
@@ -198,10 +199,18 @@
 ## Paint the interface elements of nano.
 ## These are examples; by default there are no colors.
 # set titlecolor brightwhite,blue
-# set numbercolor cyan
 # set statuscolor brightwhite,green
-# set keycolor green
-# set functioncolor yellow
+# set selectedcolor brightwhite,magenta
+# set numbercolor cyan
+# set keycolor cyan
+# set functioncolor green
+## In root's .nanorc you might want to use:
+# set titlecolor brightwhite,red
+# set statuscolor brightwhite,red
+# set selectedcolor brightwhite,cyan
+# set numbercolor magenta
+# set keycolor brightmagenta
+# set functioncolor magenta
 
 
 ## Setup of syntax coloring.
@@ -252,11 +261,8 @@
 ## Key bindings.
 ## See nanorc(5) (section REBINDING KEYS) for more details on this.
 ##
-## The following five functions are not bound to any key by default.
-## You may wish to choose different keys than the ones suggested here.
-# bind ^S savefile main
-# bind M-Q findprevious main
-# bind M-W findnext main
+## The following two functions are not bound to any key by default.
+## You may wish to choose other keys than the ones suggested here.
 # bind M-B cutwordleft main
 # bind M-N cutwordright main
 

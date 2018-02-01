@@ -11,10 +11,10 @@ Prerequisites
 To successfully compile GNU nano from git, you'll need the following
 packages:
 
-- autoconf    (version >= 2.61)
-- automake    (version >= 1.7)
-- autopoint   (version >= 0.11.5)
-- gettext     (version >= 0.11.5)
+- autoconf    (version >= 2.69)
+- automake    (version >= 1.14)
+- autopoint   (version >= 0.18.3)
+- gettext     (version >= 0.18.3)
 - git         (version >= 2.7.4)
 - groff       (version >= 1.12)
 - pkg-config  (version >= 0.22)
@@ -24,8 +24,6 @@ packages:
 
 If you want UTF-8 support, you will also need libncursesw5-dev installed
 (version >= 5.7), or libslang2-dev (version >= 2.0) if you use --with-slang.
-If your system doesn't have 'snprintf' or 'vsnprintf' (which the configure
-script will check for), you will also need glib-2.x installed.
 
 These should all be available in your distro's package manager or software
 center, or otherwise on any GNU mirror.
@@ -95,14 +93,24 @@ first create a branch off of master:
 
     $ git checkout -b somename
 
-Then change the code so it does what you want, and commit it, with in the
-commit message (after the one-line summary) a rationale for the change:
+Then change the code so it does what you want, and commit it together
+with your Sign-off:
 
     $ git commit -as
 
-Then create a patch (or patches):
+In the commit message (after the one-line summary) give a rationale
+for the change.  With your Signed-off-by you declare that the code is
+yours, or that you are free to reuse it, and that you submit it under
+the license that covers nano.  Then create a patch (or patches):
 
     $ git format-patch master
 
 Send that patch (or patches) to <nano-devel@gnu.org>, as an attachment
 or with git send-email.
+
+To keep most lines of nano's source code within a width of 80 characters,
+a tab size of four should be used.  So in your nanorc file you may want
+to include 'set tabsize 4', or you could use -T4 on the command line.
+To make git display things as intended, you can do:
+
+    $ git config --local core.pager "less -x1,5"

@@ -1,6 +1,24 @@
 Improvements in GNU nano
 ========================
 
+Since 2.9.0:
+  - <Tab> and <Shift+Tab> can be used to indent/unindent a marked region.
+  - Can snip trailing whitespace while typing, with 'set trimblanks'.
+  - The ability to record and replay a series of keystrokes (a macro).
+  - Assigned functions to ^S (save file) and ^Q (start backward search).
+  - Indenting and unindenting have been integrated into the undo system.
+  - Support for $XDG_CONFIG_HOME for the nanorc file, and $XDG_DATA_HOME
+    for the history files (of search strings and cursor positions).
+
+Since 2.8.0:
+  - Meta-Up/Meta-Down will search the previous/next occurrence.
+  - ^U pastes the first line of the cutbuffer at a prompt.
+  - Softwrapping can be done at whitespace (with --soft --atblanks).
+  - The ^G help texts have become searchable (with ^W and M-W).
+  - Ctrl+Home and Ctrl+End jump to start and end of file.
+  - In softwrap mode the cursor now moves per visual row instead of
+    per logical line, and the screen will scroll per row.
+
 Since 2.7.0:
   - The keystroke ^] to complete a fragment to an existing full word.
   - The ability to display line numbers in front of the text (M-#).
