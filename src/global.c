@@ -1206,7 +1206,7 @@ void shortcut_init(void)
 	add_to_sclist(MMOST|MCODECOMPLETION|MREFACTORRENAME, "Bsp", KEY_BACKSPACE, do_backspace, 0);
 #else
 	add_to_sclist(MMOST, "Bsp", KEY_BACKSPACE, do_backspace, 0);
-#end
+#endif
 
 #ifdef ENABLE_YCMD
 	add_to_sclist(MCODECOMPLETION, "^A", 0, do_code_completion_a, 0);
