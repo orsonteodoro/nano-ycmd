@@ -2315,7 +2315,7 @@ void do_completer_command_fixit(void)
 				{
 					if (replacement_text && strlen(replacement_text))
 					{
-						openfile->mark_set = 1; //assume flag was previously set
+						//openfile->mark_set = 1; //assume flag was previously set
 						do_gotolinecolumn(fcrs_line_num, 1, FALSE, FALSE); //nano column num means distance within a tab character.  ycmd column num means treat tabs as indivisible.
 						openfile->current_x = fcrs_column_num-1; //nano treats current_x as 0 based and linenum as 1 based
 #ifdef DEBUG
