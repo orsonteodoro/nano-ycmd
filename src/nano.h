@@ -456,6 +456,7 @@ typedef struct subnfunc {
 	char *desc;
 #else
 	const char *desc;
+#endif
 		/* The function's short description, for example "Where Is". */
 #ifdef ENABLE_HELP
 	const char *help;

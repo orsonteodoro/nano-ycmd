@@ -1180,6 +1180,7 @@ void shortcut_init(void)
 
 	add_to_funcs(do_completer_command_show, MMAIN,
 	N_("Show Completer Commands"), IFSCHELP(nano_ycmd_command_msg), TOGETHER, NOVIEW);
+#endif
 
 
 	add_to_funcs(discard_buffer, MWRITEFILE,
