@@ -77,6 +77,7 @@
 #include <nxjson.h>
 #include <string.h>
 #include <sys/wait.h>
+#include "config.h"
 #include <unistd.h>
 
 #include "proto.h"
@@ -1871,7 +1872,7 @@ void _do_goto(COMPLETER_COMMAND_RESULTS *ccr)
 		//todo non multibuffer
 #endif
 		open_buffer(ccr->filepath, FALSE);
-		display_buffer();
+		prepare_for_display();
 		do_gotolinecolumn(ccr->line_num, 1, FALSE, FALSE);
 		openfile->current_x = ccr->column_num-1;
 	}
@@ -2387,7 +2388,7 @@ void _do_completer_command_getdoc(char *command)
 
 		//do_output doesn't handle \n properly and displays it as ^@ so we do it this way
 		open_buffer(doc_filename, FALSE);
-		display_buffer();
+		prepare_for_display();
 
 		unlink(doc_filename);
 	}
@@ -5955,7 +5956,7 @@ void ycmd_display_parse_results()
 
 	//do_output doesn't handle \n properly and displays it as ^@ so we do it this way
 	open_buffer(doc_filename, FALSE);
-	display_buffer();
+	prepare_for_display();
 
 	unlink(doc_filename);
 }
