@@ -1289,6 +1289,7 @@ char *ycmd_create_default_json()
 		"  \"collect_identifiers_from_comments_and_strings\": 0,"
 		"  \"collect_identifiers_from_tags_files\": 0,"
 		"  \"max_num_identifier_candidates\": 10,"
+		"  \"max_num_candidates\": 50,"
 		"  \"extra_conf_globlist\": [],"
 		"  \"global_ycm_extra_conf\": \"\","
 		"  \"confirm_extra_conf\": 1,"
