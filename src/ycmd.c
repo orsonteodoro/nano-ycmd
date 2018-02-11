@@ -588,9 +588,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				memcpy(out+oi, p+i, lenb-i); //hopefully memcpy is simd/multicore optimized
 				oi+=(lenb-i);
 				i+=(lenb-i);
-#ifdef DEBUG
 				out[oi] = 0;
-#endif
 			}
 			else
 			{
@@ -837,8 +835,8 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 				}
 			}
 		}
-#ifdef DEBUG
 		out[oi] = 0;
+#ifdef DEBUG
 	        fprintf(stderr, "string_replace_gpl3 out is currently (after): %s\n", out);
 #endif
 	}
@@ -1364,11 +1362,11 @@ char *ycmd_create_default_json()
 		"  \"csharp_server_port\": 0,"
 		"  \"hmac_secret\": \"HMAC_SECRET\","
 		"  \"server_keep_logfiles\": 0,"
-		"  \"python_binary_path\": \"YCMD_PYTHON_PATH\""
+		"  \"python_binary_path\": \"YCMD_PYTHON_PATH\","
 		"  \"gocode_binary_path\": \"GOCODE_PATH\","
 		"  \"godef_binary_path\": \"GODEF_PATH\","
 		"  \"rust_src_path\": \"RUST_SRC_PATH\","
-		"  \"racerd_binary_path\": \"RACERD_PATH\","
+		"  \"racerd_binary_path\": \"RACERD_PATH\""
 		"}";
 
 	static char *json;
@@ -4398,35 +4396,27 @@ size_t _predict_new_json_escape_size_multicore(char **buffer)
 		if (c == '\\' || ('\b' <= c && c <= '\r') || c == '\"' || c == '/') // \\   //escape already escape
 		{
 			outlen+=2;
-#ifdef DEBUG
 			matches+=1;
-#endif
 		}
 		else if (('\x01' <= c && c <= '\x1f') /* || p[i] == 0x7f delete char */) //escape control characters
 		{
 			outlen+=6;
-#ifdef DEBUG
 			matches+=1;
-#endif
 		}
 		else
 		{
 			outlen+=1;
-#ifdef DEBUG
 			matches+=1;
-#endif
 		}
 
 #ifdef DEBUG
 		fprintf(stderr, "i=%d running multicore byte checks threadid=%d matches=%d\n",i,omp_get_thread_num(),matches);
-		resume_i+=1;
 #endif
+		resume_i+=1;
 	}
 
-#ifdef DEBUG
 	if (resume_i)
 		resume_ii+=resume_i;
-#endif
 
 	if (outlen)
 		outlen_sum+=outlen;
