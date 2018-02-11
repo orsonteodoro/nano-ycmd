@@ -17,7 +17,7 @@ You can use the following which have been tested:
 * [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) (works, recently tested but old; non-simd non-multicore. A Feb 11, 2017 build.) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip)
 
 #### Dependencies
-* ycmd >= commits later than April 17, 2015, with new hmac computation (https://github.com/Valloric/ycmd/commit/426833360adec8db72ed6cef9d7aa7f037e6a5b8)
+* ycmd, confirmed working for 20180210 (commit 1a83224202c4381d6d791c245a893ce25db7a974)
 * <code>>=</code>jedi 0.10, for python support and for completer commands to work.
 * Latest jedihttp, for python completion commands support.
 * Either nettle, openssl, or "libgcrypt with glib" cryptographic library, to mitigate MITM attack between ycmd and nano text editor
