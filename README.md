@@ -13,6 +13,7 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
+* [61b82be3e3b18b642ef75a1eee693f890127ba77](https://github.com/orsonteodoro/nano-ycmd/tree/61b82be3e3b18b642ef75a1eee693f890127ba77) (TESTING, fixes 011aff80e9b53785c4bac0da6763e37042d7d7eb) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/61b82be3e3b18b642ef75a1eee693f890127ba77.zip)
 * [011aff80e9b53785c4bac0da6763e37042d7d7eb](https://github.com/orsonteodoro/nano-ycmd/tree/011aff80e9b53785c4bac0da6763e37042d7d7eb) (BROKEN see [issue](https://github.com/orsonteodoro/nano-ycmd/issues/3), recently tested; experimental) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/011aff80e9b53785c4bac0da6763e37042d7d7eb.zip)
 * [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) (RECOMMENED, recently tested but old; non-simd non-multicore) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip)
 
@@ -22,7 +23,7 @@ You can use the following which have been tested:
 * Latest jedihttp, for python completion commands support.
 * Either nettle, openssl, or "libgcrypt with glib" cryptographic library, to mitigate MITM attack between ycmd and nano text editor
 * neon, for http interprocess communication between nano editor and ycmd server
-* YCM-Generator (https://github.com/rdnetto/YCM-Generator), for C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py
+* YCM-Generator (https://github.com/rdnetto/YCM-Generator), for C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py.  It requires Python 2 and tested working on Python 2.7.  Python 3 requires a patch.
 * Bear (https://github.com/rizsotto/Bear), for C/C++/Objective-C/Objective-C++ support to generate a compile_commands.json.
 * Clang, for C/C++/Objective-C/Objective-C++ code completion.
 * GNU Make, to clean up the project files
@@ -175,10 +176,14 @@ YCMG_PATH="/usr/bin/config_gen.py"
 
 ./autogen.sh
 
-CFLAGS="-g" YCMG_PATH="/usr/bin/config_gen.py" PYTHON_PATH="/usr/bin/python3.4" RACERD_PATH="/usr/bin/racerd" RUST_SRC_PATH="/usr/share/rust/src" GODEF_PATH="/usr/bin/godef" GOCODE_PATH="/usr/bin/gocode" YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd" ./configure --enable-ycmd --with-openssl
+CFLAGS="-g" YCMG_PATH="/usr/bin/config_gen.py" YCMG_PYTHON_PATH="/usr/bin/python2" YCMD_PYTHON_PATH="/usr/bin/python3" RACERD_PATH="/usr/bin/racerd" RUST_SRC_PATH="/usr/share/rust/src" GODEF_PATH="/usr/bin/godef" GOCODE_PATH="/usr/bin/gocode" YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd" ./configure --enable-ycmd --with-openssl
 make
 
 The -g adds debugging information for developers for the gdb debugger but not needed for regular users. 
+
+* YCMG_PYTHON_PATH, YCMD_PYTHON_PATH is used in commit 61b82be3e3b18b642ef75a1eee693f890127ba77.  YCMG is refers to ycm-generator.
+
+* PYTHON_PATH is used for earlier builds.
 
 #### YCM-Generator
 The following environmental variables are defined by nano-ycmd are required for C family support (C/C++/ObjC/ObjC++):
