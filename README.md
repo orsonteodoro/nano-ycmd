@@ -13,9 +13,8 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
-* [61b82be3e3b18b642ef75a1eee693f890127ba77](https://github.com/orsonteodoro/nano-ycmd/tree/61b82be3e3b18b642ef75a1eee693f890127ba77) (TESTING, fixes 011aff80e9b53785c4bac0da6763e37042d7d7eb) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/61b82be3e3b18b642ef75a1eee693f890127ba77.zip)
-* [011aff80e9b53785c4bac0da6763e37042d7d7eb](https://github.com/orsonteodoro/nano-ycmd/tree/011aff80e9b53785c4bac0da6763e37042d7d7eb) (BROKEN see [issue](https://github.com/orsonteodoro/nano-ycmd/issues/3), recently tested; experimental) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/011aff80e9b53785c4bac0da6763e37042d7d7eb.zip)
-* [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) (RECOMMENED, recently tested but old; non-simd non-multicore) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip)
+* [14e4255c52c9f64cabaa2af28354e9752d27ae65](https://github.com/orsonteodoro/nano-ycmd/tree/14e4255c52c9f64cabaa2af28354e9752d27ae65) (RECOMMENDED, tested working on Feb 11, 2018) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.zip)
+* [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) (works, recently tested but old; non-simd non-multicore. A Feb 11, 2017 build.) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip)
 
 #### Dependencies
 * ycmd >= commits later than April 17, 2015, with new hmac computation (https://github.com/Valloric/ycmd/commit/426833360adec8db72ed6cef9d7aa7f037e6a5b8)
