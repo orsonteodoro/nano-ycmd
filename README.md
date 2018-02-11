@@ -104,11 +104,11 @@ python, javascript*, typescript, rust, go, C*, C++*, Objective-C*, Objective-C++
 
 Working with some of these languages require additional requirements:
 
-*JavaScript support requires both .tern-project and .tern-config project file to work.
+* JavaScript support requires both .tern-project and .tern-config project file to work.
 
-*C# support requires a .sln project file to work.
+* C# support requires a .sln project file to work.
 
-*C, C++, Objective-C, Objective-C++ requires either a *.pro, configure, CMakeList.txt, GNUmakefile, Makefile, or makefile to work.  An optional *.ninja file may be supplied in your project and would require additional steps to handle.
+* C, C++, Objective-C, Objective-C++ requires either a *.pro, configure, CMakeList.txt, GNUmakefile, Makefile, or makefile to work.  An optional *.ninja file may be supplied in your project and would require additional steps to handle.
 
 #### Why does the autocompleter not work with C, C++, Objective C, Objective C++ with a single hello world file?
 
