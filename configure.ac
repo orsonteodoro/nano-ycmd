@@ -286,7 +286,8 @@ else
 fi
 
 AC_ARG_VAR([YCMD_PATH],[Define the path to ycmd directory])
-AC_ARG_VAR([PYTHON_PATH],[Define the full path to your python executible for ycmd (optional)])
+AC_ARG_VAR([YCMD_PYTHON_PATH],[Define the full path to your ycmd python executible for ycmd (optional)])
+AC_ARG_VAR([YCMG_PYTHON_PATH],[Define the full path to your ycm-generator python executible for ycmd (optional)])
 AC_ARG_VAR([GOCODE_PATH],[Define the full path to your gocode executible for go language support in ycmd (optional)])
 AC_ARG_VAR([GODEF_PATH],[Define the full path to your godef executible for go language support in ycmd (optional)])
 AC_ARG_VAR([RUST_SRC_PATH],[Define the full path to the rust src source code folder for rust language support in ycmd (opitonal)])
@@ -302,7 +303,8 @@ AC_ARG_ENABLE(ycmd,
 AS_HELP_STRING([--enable-ycmd], [Enable code completion support via ycmd]))
 have_ycmd=no
 if test "x$enable_ycmd" = xyes; then
-    AC_MSG_RESULT([PYTHON_PATH is $PYTHON_PATH])
+    AC_MSG_RESULT([YCMD_PYTHON_PATH is $YCMD_PYTHON_PATH])
+    AC_MSG_RESULT([YCMG_PYTHON_PATH is $YCMG_PYTHON_PATH])
     AC_MSG_RESULT([GOCODE_PATH is $GOCODE_PATH])
     AC_MSG_RESULT([GODEF_PATH is $GODEF_PATH])
     AC_MSG_RESULT([RUST_SRC_PATH is $RUST_SRC_PATH])
@@ -363,16 +365,26 @@ if test "x$enable_ycmd" = xyes; then
 	have_ycmd=yes
     fi
 
-    AC_CHECK_FILE([$PYTHON_PATH], [python_found=yes], [python_found=no])
-    AC_MSG_CHECKING([python])
-    if test "x$python_found" = xno ; then
+    AC_CHECK_FILE([$YCMD_PYTHON_PATH], [ycmd_python_found=yes], [ycmd_python_found=no])
+    AC_MSG_CHECKING([ycmd_python])
+    if test "x$ycmd_python_found" = xno ; then
         AC_MSG_RESULT([no])
-	AC_MSG_ERROR([You must set the PYTHON_PATH to your python executible or you may need to install python])
+	AC_MSG_ERROR([You must set the YCMD_PYTHON_PATH to your python executible or you may need to install python])
+    else
+        AC_MSG_RESULT([yes])
+    fi
+
+    AC_CHECK_FILE([$YCMG_PYTHON_PATH], [ycmg_python_found=yes], [ycmg_python_found=no])
+    AC_MSG_CHECKING([ycmg_python])
+    if test "x$ycmg_python_found" = xno ; then
+        AC_MSG_RESULT([no])
+	AC_MSG_ERROR([You must set the YCMG_PYTHON_PATH to your python executible or you may need to install python])
     else
         AC_MSG_RESULT([yes])
     fi
 fi
-AM_CONDITIONAL([HAVE_PYTHON], [test x$PYTHON_PATH != x])
+AM_CONDITIONAL([HAVE_YCMD_PYTHON], [test x$YCMD_PYTHON_PATH != x])
+AM_CONDITIONAL([HAVE_YCMG_PYTHON], [test x$YCMG_PYTHON_PATH != x])
 AM_CONDITIONAL([HAVE_GOCODE], [test x$GOCODE_PATH != x])
 AM_CONDITIONAL([HAVE_GODEF], [test x$GODEF_PATH != x])
 AM_CONDITIONAL([HAVE_RUST_SRC], [test  x$RUST_SRC_PATH != x])

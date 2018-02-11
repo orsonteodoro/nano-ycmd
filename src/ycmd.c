@@ -82,6 +82,10 @@
 
 #include "proto.h"
 #include "ycmd.h"
+#ifdef DEBUG
+#include <time.h>
+#include <string.h>
+#endif
 
 #if USE_OPENMP
 #include <omp.h>
@@ -227,14 +231,70 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 #endif
 		cf = 0;
 
+		//find phase count cf
 		if (keep_finding)
 		{
 			int stop = 0;
 #if USE_OPENMP
-			if (ycmd_globals.cpu_cores > 0)
+			if (ycmd_globals.cpu_cores > 1)
 			{
+//SINGLE CORE NO SIMD
+				int max_register_width = 4;
 				if (0)
 					;
+#if defined(__AVX512__)
+				else if (ycmd_globals.have_avx512)
+					max_register_width = 64;
+#endif
+#if defined(__AVX2__)
+				else if (ycmd_globals.have_avx2)
+					max_register_width = 32;
+#endif
+#if defined(__SSE2__)
+				else if (ycmd_globals.have_sse2)
+					max_register_width = 16;
+#endif
+#if defined(__MMX__)
+				else if (ycmd_globals.have_mmx)
+					max_register_width = 8;
+#endif
+
+				//we need to scan remaining still less than ncores * register width
+				if (lenf < ycmd_globals.cpu_cores * max_register_width)
+				{
+					//use multicore only but single byte comparisons.  for quad core, it counts 4 bytes at a time using naive algorithm.
+					#pragma omp parallel for \
+						default(none) \
+						reduction(+:cf) \
+						shared(p,lenb,lenf,i,find,stderr) \
+						firstprivate(stop) \
+						private(j)
+					for(j=0;j<lenf;j++)
+					{
+						if (i+j >= lenb)
+						{
+							stop = 1;
+						}
+
+						if (stop == 0)
+						{
+							if ( p[i+j] == find[j] )
+							{
+#ifdef DEBUG
+								fprintf(stderr, "j=%d running multicore single byte compare threadid=%d\n",j,omp_get_thread_num());
+#endif
+								cf++;
+							}
+							else
+								stop = 1;
+						}
+					}
+					goto skip_simd;
+				}
+
+				if (0)
+					;
+//scan haystack only either one of AVX512, AVX2, SSE2, MMX.  this will eliminate overhead of rescan of smaller width.  after scanning with one of those, use byte comparison to resume scan haystack with ncores * register_width.
 #if defined(__AVX512__)
 				else if (ycmd_globals.have_avx512)
 				{
@@ -283,7 +343,8 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 						}
 					}
 				}
-#elif defined(__AVX2__)
+#endif
+#if defined(__AVX2__)
 				else if (ycmd_globals.have_avx2)
 				{
 					int resume_j;
@@ -332,7 +393,8 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 						}
 					}
 				}
-#elif defined(__SSE2__)
+#endif
+#if defined(__SSE2__)
 				else if (ycmd_globals.have_sse2)
 				{
 					int resume_j;
@@ -390,7 +452,8 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 						}
 					}
 				}
-#elif defined(__MMX__)
+#endif
+#if defined(__MMX__)
 				else if (ycmd_globals.have_mmx)
 				{
 					int have_sse = ycmd_globals.have_sse;
@@ -486,38 +549,9 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 						}
 					}
 				}
-#else //SINGLE CORE NO SIMD
-				else
-				{
-					//use multicore only but single bit comparisons.  for quad core, it counts 4 bytes at a time using naive algorithm.
-					#pragma omp parallel for \
-						default(none) \
-						reduction(+:cf) \
-						shared(p,lenb,lenf,i,find,stderr) \
-						firstprivate(stop) \
-						private(j)
-					for(j=0;j<lenf;j++)
-					{
-						if (i+j >= lenb)
-						{
-							stop = 1;
-						}
-
-						if (stop == 0)
-						{
-							if ( p[i+j] == find[j] )
-							{
-#ifdef DEBUG
-								fprintf(stderr, "j=%d running multicore single byte compare threadid=%d\n",j,omp_get_thread_num());
-#endif
-								cf++;
-							}
-							else
-								stop = 1;
-						}
-					}
-				}
 #endif //end SIMD BLOCK
+				skip_simd:
+					;
 			}//end multicore
 			else //single core
 #endif //end USE_OPENMP
@@ -533,6 +567,7 @@ char *string_replace_gpl3(char *buffer, char *find, char *replace, int global)
 			}
 		}//end keep_finding
 
+		//replace phase
 		if (keep_finding && cf == lenf)
 		{
 #ifdef DEBUG
@@ -827,6 +862,13 @@ void string_replace_w(char **buffer, char *find, char *replace, int global)
 }
 
 void send_to_server(int signum) {
+#ifdef DEBUG
+    char buffer[5000];
+    time_t mytime;
+    mytime = time(NULL);
+    sprintf(buffer,"caught SIGALARM %s",ctime (&mytime));
+    statusline(HUSH, buffer);
+#endif
     ycmd_event_file_ready_to_parse(openfile->current_x,(long)openfile->current->lineno,openfile->filename,openfile->fileage);
 }
 
@@ -993,7 +1035,7 @@ void ycmd_init()
 
 	ne_sock_init();
 
-	int tries = 10;
+	int tries = 3;
 	int i = 0;
 	for(i = 0; i < tries && ycmd_globals.connected == 0; i++)
 		ycmd_restart_server();
@@ -1021,7 +1063,8 @@ int bear_generate(char *project_path)
 
 	if (access(file_path, F_OK) == 0)
 	{
-		statusline(HUSH, "Using previously generated compile_commands.json file.");
+		;//statusline(HUSH, "Using previously generated compile_commands.json file.");
+		ret = 0;
 	}
 	else
 	{
@@ -1079,6 +1122,9 @@ int ninja_compdb_generate(char *project_path)
 		ninja_build_path[0] = 0;
 	}
 
+#ifdef DEBUG
+	fprintf(stderr,"ninja find\n");
+#endif
 	snprintf(command, PATH_MAX*2, "find \"%s\" -maxdepth 1 -name \"*.ninja\" | egrep \"*\" > /dev/null", ninja_build_path);
         int ret = system(command);
 
@@ -1186,13 +1232,13 @@ void ycm_generate(char *filepath, char *content)
 
 	if (access(path_extra_conf, F_OK) == 0)
 	{
-		statusline(HUSH, "Using previously generated .ycm_extra_conf.py.");
+		;//statusline(HUSH, "Using previously generated .ycm_extra_conf.py.");
 		//usleep(3000000);
 	}
 	else
 	{
 		statusline(HUSH, "Please wait.  Generating a .ycm_extra_conf.py file.");
-		snprintf(command, PATH_MAX*2, "\"%s\" -f %s \"%s\" >/dev/null", YCMG_PATH, flags, path_project);
+		snprintf(command, PATH_MAX*2, "\"%s\" \"%s\" -f %s \"%s\" >/dev/null", YCMG_PYTHON_PATH, YCMG_PATH, flags, path_project);
 #ifdef DEBUG
 		fprintf(stderr, command);
 #endif
@@ -1318,12 +1364,13 @@ char *ycmd_create_default_json()
 		"  \"csharp_server_port\": 0,"
 		"  \"hmac_secret\": \"HMAC_SECRET\","
 		"  \"server_keep_logfiles\": 0,"
+		"  \"python_binary_path\": \"YCMD_PYTHON_PATH\""
 		"  \"gocode_binary_path\": \"GOCODE_PATH\","
 		"  \"godef_binary_path\": \"GODEF_PATH\","
 		"  \"rust_src_path\": \"RUST_SRC_PATH\","
 		"  \"racerd_binary_path\": \"RACERD_PATH\","
-		"  \"python_binary_path\": \"PYTHON_PATH\""
 		"}";
+
 	static char *json;
 	json = strdup(_json);
 	return json;
@@ -1335,6 +1382,9 @@ void ycmd_gen_extra_conf(char *filepath, char *content)
 	char cwd[PATH_MAX];
 
 	getcwd(cwd, PATH_MAX);
+#ifdef DEBUG
+	fprintf(stderr,"ycmd_gen_extra_conf find\n");
+#endif
 	sprintf(command, "find \"%s\" -name \"*.mm\" -o -name \"*.m\" -o -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.c\" -o -name \"*.hpp\" -o -name \"*.h\" -o -name \"*.cc\" -o -name \"*.hh\" | egrep \"*\" > /dev/null", cwd);
 	int ret = system(command);
 
@@ -1413,6 +1463,9 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	char column_num[DIGITS_MAX];
 
 	snprintf(line_num, DIGITS_MAX, "%d", linenum);
+#ifdef DEBUG
+	fprintf(stderr, "ycmd_json_event_notification: line_num is : %s\n", line_num);
+#endif
 	snprintf(column_num, DIGITS_MAX, "%d", columnnum+(ycmd_globals.clang_completer?0:1));
 
 	string_replace_w(&json, "COLUMN_NUM", column_num, 0);
@@ -1638,6 +1691,11 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 		if (ret == NE_OK)
 		{
 			char *response_body = _ne_read_response_body_full(request);
+
+#ifdef DEBUG
+			fprintf(stderr,"response_body for ycmd_req_completions_suggestions is %s\n",response_body);
+#endif
+
 			const char *hmac_remote = ne_get_response_header(request, HTTP_HEADER_YCM_HMAC);
 			ne_end_request(request);
 
@@ -1660,7 +1718,10 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 				int found_cc_entry = 0;
 				if (response_body && strstr(response_body, "completion_start_column"))
 				{
-					const nx_json *pjson = nx_json_parse_utf8(response_body);
+#ifdef DEBUG
+					fprintf(stderr,"server sent completion suggestions\n");
+#endif
+					const nx_json *pjson = nx_json_parse_utf8(response_body); //nx_json_parse_utf8 is destructive on response_body as intended
 
 					const nx_json *completions = nx_json_get(pjson, "completions");
 					int i = 0;
@@ -3408,7 +3469,7 @@ void ycmd_start_server()
 	string_replace_w(&ycmd_globals.json, "GODEF_PATH", GODEF_PATH, 0);
 	string_replace_w(&ycmd_globals.json, "RUST_SRC_PATH", RUST_SRC_PATH, 0);
 	string_replace_w(&ycmd_globals.json, "RACERD_PATH", RACERD_PATH, 0);
-	string_replace_w(&ycmd_globals.json, "PYTHON_PATH", PYTHON_PATH, 0);
+	string_replace_w(&ycmd_globals.json, "YCMD_PYTHON_PATH", YCMD_PYTHON_PATH, 0);
 
 #ifdef DEBUG
 	fprintf(stderr,"JSON file contents: %s\n",ycmd_globals.json);
@@ -3443,21 +3504,21 @@ void ycmd_start_server()
 		snprintf(ycmd_path,PATH_MAX,"%s",YCMD_PATH);
 
 #ifdef DEBUG
-		fprintf(stderr, "PYTHON_PATH is %s\n",PYTHON_PATH);
+		fprintf(stderr, "YCMD_PYTHON_PATH is %s\n",YCMD_PYTHON_PATH);
 		fprintf(stderr, "YCMD_PATH is %s\n",YCMD_PATH);
 		fprintf(stderr, "port_value %s\n", port_value);
 		fprintf(stderr, "options_file_value %s\n", options_file_value);
 		fprintf(stderr, "idle_suicide_seconds_value %s\n", idle_suicide_seconds_value);
-		fprintf(stderr, "generated server command: %s %s %s %s %s %s %s %s\n", PYTHON_PATH, YCMD_PATH, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value);
+		fprintf(stderr, "generated server command: %s %s %s %s %s %s %s %s\n", YCMD_PYTHON_PATH, YCMD_PATH, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value);
 
 		fprintf(stderr, "Child process is going to start the server...\n");
 #endif
 
 		//after execl executes, the server will delete the tmpfile
 #ifdef DEBUG
-		execl(PYTHON_PATH, PYTHON_PATH, ycmd_path, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value, "--keep_logfiles", "--stdout", "/dev/null", "--stderr", "/tmp/ynano.txt", NULL);
+		execl(YCMD_PYTHON_PATH, YCMD_PYTHON_PATH, ycmd_path, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value, "--keep_logfiles", "--stdout", "/tmp/ynano2.txt", "--stderr", "/tmp/ynano.txt", NULL);
 #else
-		execl(PYTHON_PATH, PYTHON_PATH, ycmd_path, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value, "--stdout", "/dev/null", "--stderr",  "/dev/null", NULL);
+		execl(YCMD_PYTHON_PATH, YCMD_PYTHON_PATH, ycmd_path, "--port", port_value, "--options_file", options_file_value, "--idle_suicide_seconds", idle_suicide_seconds_value, "--stdout", "/dev/null", "--stderr",  "/dev/null", NULL);
 #endif
 
 #ifdef DEBUG
@@ -3512,7 +3573,7 @@ void ycmd_start_server()
 	statusline(HUSH, "Letting the server initialize.  Wait...");
 
 	//give time for the server initialize
-	usleep(1250000);
+	usleep(1500000);
 
 	statusline(HUSH, "Checking server health...");
 
@@ -4509,18 +4570,25 @@ char *get_all_content(filestruct *fileage)
 		return NULL;
 	}
 
-	buffer = malloc(strlen(node->data)+1);
-	sprintf(buffer, "%s", node->data);
+	buffer = malloc(strlen(node->data)+2);
+	buffer[0] = 0;
+	strcpy(buffer, node->data);
+#ifdef DEBUG
+	fprintf(stderr, "buffer is |%s| data is |%s|\n", buffer, node->data);
+#endif
 	node = node->next;
 
 	while (node)
 	{
+#ifdef DEBUG
+		fprintf(stderr, "looping in get_all_content\n");
+#endif
 		if (node->data == NULL)
 			node = node->next;
 
-		int len = strlen(node->data);
-		int len2 = strlen(buffer);
-		char *newbuffer = realloc(buffer, len2+len+2);
+		int ld = strlen(node->data);
+		int lb = strlen(buffer);
+		char *newbuffer = realloc(buffer, ld+lb+2);
 		if (newbuffer == NULL) {
 #ifdef DEBUG
 			fprintf(stderr, "*newbuffer is null\n");
@@ -4528,13 +4596,20 @@ char *get_all_content(filestruct *fileage)
 			break;
 		}
 		buffer = newbuffer;
-		sprintf(buffer, "%s\n%s", buffer, node->data);
+#ifdef DEBUG
+		fprintf(stderr, "node->data is |%s|\n", node->data);
+#endif
+		strcat(buffer, "\n");
+		strcat(buffer, node->data);
+#ifdef DEBUG
+		fprintf(stderr, "buffer is |%s|\n", buffer);
+#endif
 
 		node = node->next;
 	}
 
 #ifdef DEBUG
-	//fprintf(stderr, "Content is: %s\n", buffer);
+	fprintf(stderr, "Content is: %s\n", buffer);
 #endif
 	escape_json(&buffer);
 
