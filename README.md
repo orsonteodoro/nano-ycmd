@@ -23,7 +23,7 @@ You can use the following which have been tested:
 * Latest jedihttp, for python completion commands support.
 * Either nettle, openssl, or "libgcrypt with glib" cryptographic library, to mitigate MITM attack between ycmd and nano text editor
 * neon, for http interprocess communication between nano editor and ycmd server
-* YCM-Generator (https://github.com/rdnetto/YCM-Generator), for C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py.  It requires Python 2 and tested working on Python 2.7.  Python 3 requires a patch.
+* YCM-Generator (https://github.com/rdnetto/YCM-Generator), for C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py.  It requires Python 2 and tested working on Python 2.7.  To use YCM-Generator wit Python 3, YCM-Generator requires a patch.
 * Bear (https://github.com/rizsotto/Bear), for C/C++/Objective-C/Objective-C++ support to generate a compile_commands.json.
 * Clang, for C/C++/Objective-C/Objective-C++ code completion.
 * GNU Make, to clean up the project files
