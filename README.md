@@ -16,6 +16,10 @@ You can use the following which have been tested:
 * [14e4255c52c9f64cabaa2af28354e9752d27ae65](https://github.com/orsonteodoro/nano-ycmd/tree/14e4255c52c9f64cabaa2af28354e9752d27ae65) (RECOMMENDED, tested working on Feb 11, 2018) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.zip)
 * [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) (works, recently tested but old; non-simd non-multicore. A Feb 11, 2017 build.) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip)
 
+#### Docker
+
+You can use nano-ycmd fairly quickly with docker.  More information can be found at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd .  It is still a work in progress.  This image may be later be adapted for automated testing.
+
 #### Dependencies
 * ycmd, confirmed working for 20180210 (commit 1a83224202c4381d6d791c245a893ce25db7a974)
 * <code>>=</code>jedi 0.10, for python support and for completer commands to work.
