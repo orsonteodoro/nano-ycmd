@@ -1,8 +1,8 @@
 /**************************************************************************
  *   utils.c  --  This file is part of GNU nano.                          *
  *                                                                        *
- *   Copyright (C) 1999-2011, 2013-2018 Free Software Foundation, Inc.    *
- *   Copyright (C) 2016-2017 Benno Schulenberg                            *
+ *   Copyright (C) 1999-2011, 2013-2020 Free Software Foundation, Inc.    *
+ *   Copyright (C) 2016, 2017, 2019 Benno Schulenberg                     *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
  *   it under the terms of the GNU General Public License as published    *
@@ -48,8 +48,8 @@ void get_homedir(void)
 
 		/* Only set homedir if some home directory could be determined,
 		 * otherwise keep homedir NULL. */
-		if (homenv != NULL && strcmp(homenv, "") != 0)
-			homedir = mallocstrcpy(NULL, homenv);
+		if (homenv != NULL && *homenv != '\0')
+			homedir = copy_of(homenv);
 	}
 }
 
@@ -149,7 +149,7 @@ bool parse_line_column(const char *str, ssize_t *line, ssize_t *column)
 	if (comma == str)
 		return retval;
 
-	firstpart = mallocstrcpy(NULL, str);
+	firstpart = copy_of(str);
 	firstpart[comma - str] = '\0';
 
 	retval = parse_num(firstpart, line) && retval;
@@ -159,37 +159,24 @@ bool parse_line_column(const char *str, ssize_t *line, ssize_t *column)
 	return retval;
 }
 
-/* Reduce the memory allocation of a string to what is needed. */
-void snuggly_fit(char **str)
+/* In the given string, recode each embedded NUL as a newline. */
+void recode_NUL_to_LF(char *string, size_t length)
 {
-	if (*str != NULL)
-		*str = charealloc(*str, strlen(*str) + 1);
-}
-
-/* Null a string at a certain index and align it. */
-void null_at(char **data, size_t index)
-{
-	*data = charealloc(*data, index + 1);
-	(*data)[index] = '\0';
-}
-
-/* For non-null-terminated lines.  A line, by definition, shouldn't
- * normally have newlines in it, so encode its nulls as newlines. */
-void unsunder(char *str, size_t true_len)
-{
-	for (; true_len > 0; true_len--, str++) {
-		if (*str == '\0')
-			*str = '\n';
+	while (length > 0) {
+		if (*string == '\0')
+			*string = '\n';
+		length--;
+		string++;
 	}
 }
 
-/* For non-null-terminated lines.  A line, by definition, shouldn't
- * normally have newlines in it, so decode its newlines as nulls. */
-void sunder(char *str)
+/* In the given string, recode each embedded newline as a NUL. */
+void recode_LF_to_NUL(char *string)
 {
-	for (; *str != '\0'; str++) {
-		if (*str == '\n')
-			*str = '\0';
+	while (*string != '\0') {
+		if (*string == '\n')
+			*string = '\0';
+		string++;
 	}
 }
 
@@ -207,37 +194,6 @@ void free_chararray(char **array, size_t len)
 }
 #endif
 
-/* Fix the regex if we're on platforms which require an adjustment
- * from GNU-style to BSD-style word boundaries. */
-const char *fixbounds(const char *r)
-{
-#ifndef GNU_WORDBOUNDS
-	int i, j = 0;
-	char *r2 = charalloc(strlen(r) * 5);
-	char *r3;
-
-	for (i = 0; i < strlen(r); i++) {
-		if (r[i] != '\0' && r[i] == '\\' && (r[i + 1] == '>' || r[i + 1] == '<')) {
-			strcpy(&r2[j], "[[:");
-			r2[j + 3] = r[i + 1];
-			strcpy(&r2[j + 4], ":]]");
-			i++;
-			j += 6;
-		} else
-			r2[j] = r[i];
-		j++;
-	}
-
-	r2[j] = '\0';
-	r3 = mallocstrcpy(NULL, r2);
-	free(r2);
-
-	return (const char *) r3;
-#endif /* !GNU_WORDBOUNDS */
-
-	return r;
-}
-
 #ifdef ENABLE_SPELLER
 /* Is the word starting at the given position in buf and of the given length
  * a separate word?  That is: is it not part of a longer word?*/
@@ -247,14 +203,14 @@ bool is_separate_word(size_t position, size_t length, const char *buf)
 	size_t word_end = position + length;
 
 	/* Get the characters before and after the word, if any. */
-	parse_mbchar(buf + move_mbleft(buf, position), before, NULL);
-	parse_mbchar(buf + word_end, after, NULL);
+	collect_char(buf + step_left(buf, position), before);
+	collect_char(buf + word_end, after);
 
 	/* If the word starts at the beginning of the line OR the character before
 	 * the word isn't a letter, and if the word ends at the end of the line OR
 	 * the character after the word isn't a letter, we have a whole word. */
-	return ((position == 0 || !is_alpha_mbchar(before)) &&
-				(buf[word_end] == '\0' || !is_alpha_mbchar(after)));
+	return ((position == 0 || !is_alpha_char(before)) &&
+				(buf[word_end] == '\0' || !is_alpha_char(after)));
 }
 #endif /* ENABLE_SPELLER */
 
@@ -266,13 +222,6 @@ bool is_separate_word(size_t position, size_t length, const char *buf)
 const char *strstrwrapper(const char *haystack, const char *needle,
 		const char *start)
 {
-	if (*needle == '\0') {
-#ifndef NANO_TINY
-		statusline(ALERT, "Searching for nothing -- please report a bug");
-#endif
-		return (char *)start;
-	}
-
 	if (ISSET(USE_REGEXP)) {
 		if (ISSET(BACKWARDS_SEARCH)) {
 			size_t last_find, ceiling, far_end;
@@ -298,7 +247,7 @@ const char *strstrwrapper(const char *haystack, const char *needle,
 				/* If this is the last possible match, don't try to advance. */
 				if (last_find == ceiling)
 					break;
-				next_rung = move_mbright(haystack, last_find);
+				next_rung = step_right(haystack, last_find);
 				regmatches[0].rm_so = next_rung;
 				regmatches[0].rm_eo = far_end;
 				if (regexec(&search_regexp, haystack, 1, regmatches,
@@ -325,26 +274,18 @@ const char *strstrwrapper(const char *haystack, const char *needle,
 		else
 			return haystack + regmatches[0].rm_so;
 	}
+
 	if (ISSET(CASE_SENSITIVE)) {
 		if (ISSET(BACKWARDS_SEARCH))
 			return revstrstr(haystack, needle, start);
 		else
 			return strstr(start, needle);
-	} else if (ISSET(BACKWARDS_SEARCH))
+	}
+
+	if (ISSET(BACKWARDS_SEARCH))
 		return mbrevstrcasestr(haystack, needle, start);
-
-	return mbstrcasestr(start, needle);
-}
-
-/* This is a wrapper for the perror() function.  The wrapper temporarily
- * leaves curses mode, calls perror() (which writes to stderr), and then
- * reenters curses mode, updating the screen in the process.  Note that
- * nperror() causes the window to flicker once. */
-void nperror(const char *s)
-{
-	endwin();
-	perror(s);
-	doupdate();
+	else
+		return mbstrcasestr(start, needle);
 }
 
 /* This is a wrapper for the malloc() function that properly handles
@@ -354,7 +295,7 @@ void *nmalloc(size_t howmuch)
 	void *r = malloc(howmuch);
 
 	if (r == NULL && howmuch != 0)
-		die(_("nano is out of memory!"));
+		die(_("Nano is out of memory!\n"));
 
 	return r;
 }
@@ -366,32 +307,39 @@ void *nrealloc(void *ptr, size_t howmuch)
 	void *r = realloc(ptr, howmuch);
 
 	if (r == NULL && howmuch != 0)
-		die(_("nano is out of memory!"));
+		die(_("Nano is out of memory!\n"));
 
 	return r;
 }
 
-/* Allocate and copy the first n characters of the given src string, after
- * freeing the destination.  Usage: "dest = mallocstrncpy(dest, src, n);". */
-char *mallocstrncpy(char *dest, const char *src, size_t n)
+/* Return an appropriately reallocated dest string holding a copy of src.
+ * Usage: "dest = mallocstrcpy(dest, src);". */
+char *mallocstrcpy(char *dest, const char *src)
 {
-	if (src == NULL)
-		src = "";
+	size_t count = strlen(src) + 1;
 
-	if (src == dest)
-		fprintf(stderr, "\r*** Copying a string to itself -- please report a bug ***");
-
-	dest = charealloc(dest, n);
-	strncpy(dest, src, n);
+	dest = charealloc(dest, count);
+	strncpy(dest, src, count);
 
 	return dest;
 }
 
-/* Free the dest string and return a malloc'ed copy of src.  Should be used as:
- * "dest = mallocstrcpy(dest, src);". */
-char *mallocstrcpy(char *dest, const char *src)
+/* Return an allocated copy of the first count characters
+ * of the given string, and NUL-terminate the copy. */
+char *measured_copy(const char *string, size_t count)
 {
-	return mallocstrncpy(dest, src, (src == NULL) ? 1 : strlen(src) + 1);
+	char *thecopy = charalloc(count + 1);
+
+	strncpy(thecopy, string, count);
+	thecopy[count] = '\0';
+
+	return thecopy;
+}
+
+/* Return an allocated copy of the given string. */
+char *copy_of(const char *string)
+{
+	return measured_copy(string, strlen(string));
 }
 
 /* Free the string at dest and return the string at src. */
@@ -408,10 +356,10 @@ char *free_and_assign(char *dest, char *src)
  * get_page_start(column) < COLS). */
 size_t get_page_start(size_t column)
 {
-	if (column < editwincols - 1 || ISSET(SOFTWRAP) || column == 0)
+	if (column + 2 < editwincols || ISSET(SOFTWRAP) || column == 0)
 		return 0;
 	else if (editwincols > 8)
-		return column - 7 - (column - 7) % (editwincols - 8);
+		return column - 6 - (column - 6) % (editwincols - 8);
 	else
 		return column - (editwincols - 2);
 }
@@ -420,7 +368,7 @@ size_t get_page_start(size_t column)
  * column position of the cursor. */
 size_t xplustabs(void)
 {
-	return strnlenpt(openfile->current->data, openfile->current_x);
+	return wideness(openfile->current->data, openfile->current_x);
 }
 
 /* Return the index in text of the character that (when displayed) will
@@ -433,7 +381,7 @@ size_t actual_x(const char *text, size_t column)
 		/* The current accumulated span, in columns. */
 
 	while (*text != '\0') {
-		int charlen = parse_mbchar(text, NULL, &width);
+		int charlen = advance_over(text, &width);
 
 		if (width > column)
 			break;
@@ -446,16 +394,15 @@ size_t actual_x(const char *text, size_t column)
 
 /* A strnlen() with tabs and multicolumn characters factored in:
  * how many columns wide are the first maxlen bytes of text? */
-size_t strnlenpt(const char *text, size_t maxlen)
+size_t wideness(const char *text, size_t maxlen)
 {
 	size_t width = 0;
-		/* The screen display width to text[maxlen]. */
 
 	if (maxlen == 0)
 		return 0;
 
 	while (*text != '\0') {
-		int charlen = parse_mbchar(text, NULL, &width);
+		size_t charlen = advance_over(text, &width);
 
 		if (maxlen <= charlen)
 			break;
@@ -468,34 +415,34 @@ size_t strnlenpt(const char *text, size_t maxlen)
 }
 
 /* Return the number of columns that the given text occupies. */
-size_t strlenpt(const char *text)
+size_t breadth(const char *text)
 {
 	size_t span = 0;
 
 	while (*text != '\0')
-		text += parse_mbchar(text, NULL, &span);
+		text += advance_over(text, &span);
 
 	return span;
 }
 
-/* Append a new magicline to the end of the buffer. */
+/* Append a new magic line to the end of the buffer. */
 void new_magicline(void)
 {
 	openfile->filebot->next = make_new_node(openfile->filebot);
-	openfile->filebot->next->data = mallocstrcpy(NULL, "");
+	openfile->filebot->next->data = copy_of("");
 	openfile->filebot = openfile->filebot->next;
 	openfile->totsize++;
 }
 
 #if !defined(NANO_TINY) || defined(ENABLE_HELP)
-/* Remove the magicline from the end of the buffer, if there is one and
+/* Remove the magic line from the end of the buffer, if there is one and
  * it isn't the only line in the file. */
 void remove_magicline(void)
 {
 	if (openfile->filebot->data[0] == '\0' &&
-				openfile->filebot != openfile->fileage) {
+				openfile->filebot != openfile->filetop) {
 		openfile->filebot = openfile->filebot->prev;
-		free_filestruct(openfile->filebot->next);
+		delete_node(openfile->filebot->next);
 		openfile->filebot->next = NULL;
 		openfile->totsize--;
 	}
@@ -503,35 +450,35 @@ void remove_magicline(void)
 #endif
 
 #ifndef NANO_TINY
-/* Set (top, top_x) and (bot, bot_x) to the start and end "coordinates" of
- * the marked region.  If right_side_up isn't NULL, set it to TRUE when the
- * mark is at the top of the marked region, and to FALSE otherwise. */
-void mark_order(const filestruct **top, size_t *top_x,
-		const filestruct **bot, size_t *bot_x, bool *right_side_up)
+/* Return TRUE when the mark is before or at the cursor, and FALSE otherwise. */
+bool mark_is_before_cursor(void)
 {
-	if ((openfile->current->lineno == openfile->mark->lineno &&
-				openfile->current_x > openfile->mark_x) ||
-				openfile->current->lineno > openfile->mark->lineno) {
+	return (openfile->mark->lineno < openfile->current->lineno ||
+						(openfile->mark == openfile->current &&
+						openfile->mark_x <= openfile->current_x));
+}
+
+/* Return in (top, top_x) and (bot, bot_x) the start and end "coordinates"
+ * of the marked region. */
+void get_region(linestruct **top, size_t *top_x, linestruct **bot, size_t *bot_x)
+{
+	if (mark_is_before_cursor()) {
 		*top = openfile->mark;
 		*top_x = openfile->mark_x;
 		*bot = openfile->current;
 		*bot_x = openfile->current_x;
-		if (right_side_up != NULL)
-			*right_side_up = TRUE;
 	} else {
 		*bot = openfile->mark;
 		*bot_x = openfile->mark_x;
 		*top = openfile->current;
 		*top_x = openfile->current_x;
-		if (right_side_up != NULL)
-			*right_side_up = FALSE;
 	}
 }
 
 /* Get the set of lines to work on -- either just the current line, or the
  * first to last lines of the marked region.  When the cursor (or mark) is
  * at the start of the last line of the region, exclude that line. */
-void get_range(const filestruct **top, const filestruct **bot)
+void get_range(linestruct **top, linestruct **bot)
 {
 	if (!openfile->mark) {
 		*top = openfile->current;
@@ -539,7 +486,7 @@ void get_range(const filestruct **top, const filestruct **bot)
 	} else {
 		size_t top_x, bot_x;
 
-		mark_order(top, &top_x, bot, &bot_x, NULL);
+		get_region(top, &top_x, bot, &bot_x);
 
 		if (bot_x == 0 && *bot != *top && !also_the_last)
 			*bot = (*bot)->prev;
@@ -548,59 +495,32 @@ void get_range(const filestruct **top, const filestruct **bot)
 	}
 }
 
-/* Given a line number, return a pointer to the corresponding struct. */
-filestruct *fsfromline(ssize_t lineno)
+/* Return a pointer to the line that has the given line number. */
+linestruct *line_from_number(ssize_t number)
 {
-	filestruct *f = openfile->current;
+	linestruct *line = openfile->current;
 
-	if (lineno <= openfile->current->lineno)
-		while (f->lineno != lineno && f->prev != NULL)
-			f = f->prev;
+	if (line->lineno > number)
+		while (line->lineno != number)
+			line = line->prev;
 	else
-		while (f->lineno != lineno && f->next != NULL)
-			f = f->next;
+		while (line->lineno != number)
+			line = line->next;
 
-	if (f->lineno != lineno) {
-		statusline(ALERT, "Gone undo line -- please report a bug");
-		return NULL;
-	}
-
-	return f;
+	return line;
 }
 #endif /* !NANO_TINY */
 
 /* Count the number of characters from begin to end, and return it. */
-size_t get_totsize(const filestruct *begin, const filestruct *end)
+size_t number_of_characters_in(const linestruct *begin, const linestruct *end)
 {
-	const filestruct *line;
-	size_t totsize = 0;
+	const linestruct *line;
+	size_t count = 0;
 
 	/* Sum the number of characters (plus a newline) in each line. */
 	for (line = begin; line != end->next; line = line->next)
-		totsize += mbstrlen(line->data) + 1;
+		count += mbstrlen(line->data) + 1;
 
-	/* The last line of a file doesn't have a newline -- otherwise it
-	 * wouldn't be the last line -- so subtract 1 when at EOF. */
-	if (line == NULL)
-		totsize--;
-
-	return totsize;
+	/* Do not count the final newline. */
+	return (count - 1);
 }
-
-#ifdef DEBUG
-/* Dump the given buffer to stderr. */
-void dump_filestruct(const filestruct *inptr)
-{
-	if (inptr == openfile->fileage)
-		fprintf(stderr, "Dumping file buffer to stderr...\n");
-	else if (inptr == cutbuffer)
-		fprintf(stderr, "Dumping cutbuffer to stderr...\n");
-	else
-		fprintf(stderr, "Dumping a buffer to stderr...\n");
-
-	while (inptr != NULL) {
-		fprintf(stderr, "(%zd) %s\n", inptr->lineno, inptr->data);
-		inptr = inptr->next;
-	}
-}
-#endif /* DEBUG */

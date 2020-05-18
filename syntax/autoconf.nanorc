@@ -1,11 +1,11 @@
-## Here is an example for Autoconf.
+## Syntax highlighting for Autoconf.
 
-syntax "autoconf" "\.(ac|m4)$"
+syntax autoconf "\.(ac|m4)$"
 comment "#"
 
 # Keywords:
 color yellow "\<(if|test|then|elif|else|fi|for|in|do|done)\>"
-color yellow "(=|!=|&&|\|\|)"
+color yellow "=|!=|&&|\|\|"
 
 # Macros:
 color cyan "\<[[:upper:]_[:digit:]]+\>"
@@ -20,7 +20,7 @@ color red "\"[^"]*\""  "\'[^']*\'"
 color green "`[^`]*`"
 
 # Error lines:
-color brightred "^\*\*\*.*"
+color brightred "^[[:space:]]*\*\*\*.*"
 
 # Brackets:
 color magenta "\[|\]|\(|\)"

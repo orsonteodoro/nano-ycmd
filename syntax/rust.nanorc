@@ -1,17 +1,16 @@
 ## Syntax highlighting for Rust.
+
 ## Copyright 2015 Luke Francl.
 ## Licensed under GPL version 3.
 
-## NOTE: Rules are applied in order: later rules re-colorize matching text.
-
-syntax "rust" "\.rs"
+syntax rust "\.(rlib|rs)$"
 comment "//"
 
 # Function definitions
 color magenta "fn [a-z_0-9]+"
 
 # Reserved words
-color yellow "\<(abstract|alignof|as|become|box|break|const|continue|crate|do|else|enum|extern|false|final|fn|for|if|impl|in|let|loop|macro|match|mod|move|mut|offsetof|override|priv|pub|pure|ref|return|sizeof|static|self|struct|super|true|trait|type|typeof|unsafe|unsized|use|virtual|where|while|yield)\>"
+color yellow "\<(abstract|as|async|await|become|box|break|const|continue|crate|do|dyn|else|enum|extern|false|final|fn|for|if|impl|in|let|loop|macro|match|mod|move|mut|override|priv|pub|ref|return|self|static|struct|super|trait|true|try|type|typeof|unsafe|unsized|use|virtual|where|while|yield)\>"
 
 # Macros
 color red "[a-z_]+!"
@@ -36,4 +35,4 @@ color blue start="/\*" end="\*/"
 color magenta start="#!\[" end="\]"
 
 # Some common markers
-color brightcyan "(XXX|TODO|FIXME|\?\?\?)"
+color brightcyan "XXX|TODO|FIXME|\?\?\?"

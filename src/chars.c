@@ -1,8 +1,8 @@
 /**************************************************************************
  *   chars.c  --  This file is part of GNU nano.                          *
  *                                                                        *
- *   Copyright (C) 2001-2011, 2013-2018 Free Software Foundation, Inc.    *
- *   Copyright (C) 2016-2017 Benno Schulenberg                            *
+ *   Copyright (C) 2001-2011, 2013-2020 Free Software Foundation, Inc.    *
+ *   Copyright (C) 2016-2019 Benno Schulenberg                            *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
  *   it under the terms of the GNU General Public License as published    *
@@ -44,149 +44,104 @@ bool using_utf8(void)
 }
 #endif /* ENABLE_UTF8 */
 
-/* Concatenate two allocated strings, and free the second. */
-char *addstrings(char* str1, size_t len1, char* str2, size_t len2)
-{
-	str1 = charealloc(str1, len1 + len2 + 1);
-	str1[len1] = '\0';
-
-	strncat(&str1[len1], str2, len2);
-	free(str2);
-
-	return str1;
-}
-
-/* Return TRUE if the value of c is in byte range, and FALSE otherwise. */
-bool is_byte(int c)
-{
-	return ((unsigned int)c == (unsigned char)c);
-}
-
-void mbtowc_reset(void)
-{
-	IGNORE_CALL_RESULT(mbtowc(NULL, NULL, 0));
-}
-
-/* This function is equivalent to isalpha() for multibyte characters. */
-bool is_alpha_mbchar(const char *c)
+#ifdef ENABLE_SPELLER
+/* Return TRUE when the given character is some kind of letter. */
+bool is_alpha_char(const char *c)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
-		wchar_t wc;
+	wchar_t wc;
 
-		if (mbtowc(&wc, c, MAXCHARLEN) < 0) {
-			mbtowc_reset();
-			return 0;
-		}
+	if (mbtowc(&wc, c, MAXCHARLEN) < 0)
+		return FALSE;
 
-		return iswalpha(wc);
-	} else
+	return iswalpha(wc);
+#else
+	return isalpha((unsigned char)*c);
 #endif
-		return isalpha((unsigned char)*c);
 }
+#endif /* ENABLE_SPELLER */
 
-/* This function is equivalent to isalnum() for multibyte characters. */
-bool is_alnum_mbchar(const char *c)
+/* Return TRUE when the given character is some kind of letter or a digit. */
+bool is_alnum_char(const char *c)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
-		wchar_t wc;
+	wchar_t wc;
 
-		if (mbtowc(&wc, c, MAXCHARLEN) < 0) {
-			mbtowc_reset();
-			return 0;
-		}
+	if (mbtowc(&wc, c, MAXCHARLEN) < 0)
+		return FALSE;
 
-		return iswalnum(wc);
-	} else
+	return iswalnum(wc);
+#else
+	return isalnum((unsigned char)*c);
 #endif
-		return isalnum((unsigned char)*c);
 }
 
-/* This function is equivalent to isblank() for multibyte characters. */
-bool is_blank_mbchar(const char *c)
+/* Return TRUE when the given character is space or tab or other whitespace. */
+bool is_blank_char(const char *c)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
-		wchar_t wc;
+	wchar_t wc;
 
-		if (mbtowc(&wc, c, MAXCHARLEN) < 0) {
-			mbtowc_reset();
-			return 0;
-		}
+	if ((signed char)*c >= 0)
+		return (*c == ' ' || *c == '\t');
 
-		return iswblank(wc);
-	} else
+	if (mbtowc(&wc, c, MAXCHARLEN) < 0)
+		return FALSE;
+
+	return iswblank(wc);
+#else
+	return isblank((unsigned char)*c);
 #endif
-		return isblank((unsigned char)*c);
 }
 
-/* This function is equivalent to iscntrl(), except in that it only
- * handles non-high-bit control characters. */
-bool is_ascii_cntrl_char(int c)
-{
-	return (0 <= c && c < 32);
-}
-
-/* This function is equivalent to iscntrl(), except in that it also
- * handles high-bit control characters. */
-bool is_cntrl_char(int c)
-{
-	return ((c & 0x60) == 0 || c == 127);
-}
-
-/* This function is equivalent to iscntrl() for multibyte characters,
- * except in that it also handles multibyte control characters with
- * their high bits set. */
-bool is_cntrl_mbchar(const char *c)
+/* Return TRUE when the given character is a control character. */
+bool is_cntrl_char(const char *c)
 {
 #ifdef ENABLE_UTF8
 	if (use_utf8) {
-		return ((c[0] & 0xE0) == 0 || c[0] == 127 ||
+		return ((c[0] & 0xE0) == 0 || c[0] == DEL_CODE ||
 				((signed char)c[0] == -62 && (signed char)c[1] < -96));
 	} else
 #endif
-		return is_cntrl_char((unsigned char)*c);
+		return ((*c & 0x60) == 0 || *c == DEL_CODE);
 }
 
-/* This function is equivalent to ispunct() for multibyte characters. */
-bool is_punct_mbchar(const char *c)
+/* Return TRUE when the given character is a punctuation character. */
+bool is_punct_char(const char *c)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
-		wchar_t wc;
+	wchar_t wc;
 
-		if (mbtowc(&wc, c, MAXCHARLEN) < 0) {
-			mbtowc_reset();
-			return 0;
-		}
+	if (mbtowc(&wc, c, MAXCHARLEN) < 0)
+		return FALSE;
 
-		return iswpunct(wc);
-	} else
+	return iswpunct(wc);
+#else
+	return ispunct((unsigned char)*c);
 #endif
-		return ispunct((unsigned char)*c);
 }
 
-/* Return TRUE when the given multibyte character c is a word-forming
- * character (that is: alphanumeric, or specified in wordchars, or
- * punctuation when allow_punct is TRUE), and FALSE otherwise. */
-bool is_word_mbchar(const char *c, bool allow_punct)
+/* Return TRUE when the given character is word-forming (it is alphanumeric or
+ * specified in 'wordchars', or it is punctuation when allow_punct is TRUE). */
+bool is_word_char(const char *c, bool allow_punct)
 {
 	if (*c == '\0')
 		return FALSE;
 
-	if (is_alnum_mbchar(c))
+	if (is_alnum_char(c))
+		return TRUE;
+
+	if (allow_punct && is_punct_char(c))
 		return TRUE;
 
 	if (word_chars != NULL && *word_chars != '\0') {
 		char symbol[MAXCHARLEN + 1];
-		int symlen = parse_mbchar(c, symbol, NULL);
+		int symlen = collect_char(c, symbol);
 
 		symbol[symlen] = '\0';
 		return (strstr(word_chars, symbol) != NULL);
-	}
-
-	return (allow_punct && is_punct_mbchar(c));
+	} else
+		return FALSE;
 }
 
 /* Return the visible representation of control character c. */
@@ -220,163 +175,161 @@ char control_mbrep(const char *c, bool isdata)
 		return control_rep(*c);
 }
 
-/* Assess how many bytes the given (multibyte) character occupies.  Return -1
- * if the byte sequence is invalid, and return the number of bytes minus 8
- * when it encodes an invalid codepoint.  Also, in the second parameter,
- * return the number of columns that the character occupies. */
-int length_of_char(const char *c, int *width)
-{
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
-		wchar_t wc;
-		int charlen = mbtowc(&wc, c, MAXCHARLEN);
-
-		/* If the sequence is invalid... */
-		if (charlen < 0) {
-			mbtowc_reset();
-			return -1;
-		}
-
-		/* If the codepoint is invalid... */
-		if (!is_valid_unicode(wc))
-			return charlen - 8;
-		else {
-			*width = wcwidth(wc);
-			/* If the codepoint is unassigned, assume a width of one. */
-			if (*width < 0)
-				*width = 1;
-			return charlen;
-		}
-	} else
-#endif
-		return 1;
-}
-
-/* This function is equivalent to wcwidth() for multibyte characters. */
+/* Return the width in columns of the given (multibyte) character. */
 int mbwidth(const char *c)
 {
-#ifdef ENABLE_UTF8
-	if (use_utf8) {
+	/* Ask for the width only when the character isn't plain ASCII. */
+	if ((signed char)*c <= 0) {
 		wchar_t wc;
 		int width;
 
-		if (mbtowc(&wc, c, MAXCHARLEN) < 0) {
-			mbtowc_reset();
+		if (mbtowc(&wc, c, MAXCHARLEN) < 0)
 			return 1;
-		}
 
 		width = wcwidth(wc);
 
-		if (width == -1)
+		if (width < 0)
 			return 1;
 
 		return width;
 	} else
-#endif
 		return 1;
 }
+#endif
 
-/* Convert the Unicode value in chr to a multibyte character, if possible.
+/* Convert the Unicode value in code to a multibyte character, if possible.
  * If the conversion succeeds, return the (dynamically allocated) multibyte
  * character and its length.  Otherwise, return an undefined (dynamically
  * allocated) multibyte character and a length of zero. */
-char *make_mbchar(long chr, int *chr_mb_len)
+char *make_mbchar(long code, int *length)
 {
-	char *chr_mb;
+	char *mb_char = charalloc(MAXCHARLEN);
 
 #ifdef ENABLE_UTF8
 	if (use_utf8) {
-		chr_mb = charalloc(MAXCHARLEN);
-		*chr_mb_len = wctomb(chr_mb, (wchar_t)chr);
+		*length = wctomb(mb_char, (wchar_t)code);
 
 		/* Reject invalid Unicode characters. */
-		if (*chr_mb_len < 0 || !is_valid_unicode((wchar_t)chr)) {
+		if (*length < 0 || !is_valid_unicode((wchar_t)code)) {
 			IGNORE_CALL_RESULT(wctomb(NULL, 0));
-			*chr_mb_len = 0;
+			*length = 0;
 		}
 	} else
 #endif
 	{
-		*chr_mb_len = 1;
-		chr_mb = mallocstrncpy(NULL, (char *)&chr, 1);
+		*mb_char = (char)code;
+		*length = 1;
 	}
 
-	return chr_mb;
+	return mb_char;
 }
 
-/* Parse a multibyte character from buf.  Return the number of bytes
- * used.  If chr isn't NULL, store the multibyte character in it.  If
- * col isn't NULL, add the character's width (in columns) to it. */
-int parse_mbchar(const char *buf, char *chr, size_t *col)
+/* Return the length (in bytes) of the character located at *pointer. */
+int char_length(const char *pointer)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
-		/* Get the number of bytes in the multibyte character. */
-		int length = mblen(buf, MAXCHARLEN);
+	/* If possibly a multibyte character, get its length; otherwise, it's 1. */
+	if ((signed char)*pointer < 0) {
+		int length = mblen(pointer, MAXCHARLEN);
 
-		/* When the multibyte sequence is invalid, only take the first byte. */
-		if (length <= 0) {
-			IGNORE_CALL_RESULT(mblen(NULL, 0));
-			length = 1;
-		}
-
-		/* When requested, store the multibyte character in chr. */
-		if (chr != NULL) {
-			int i;
-
-			for (i = 0; i < length; i++)
-				chr[i] = buf[i];
-		}
-
-		/* When requested, add the width of the character to col. */
-		if (col != NULL) {
-			/* If we have a tab, compute its width in columns based on the
-			 * current value of col. */
-			if (*buf == '\t')
-				*col += tabsize - *col % tabsize;
-			/* If we have a control character, it's two columns wide: one
-			 * column for the "^", and one for the visible character. */
-			else if (is_cntrl_mbchar(buf)) {
-				*col += 2;
-			/* If we have a normal character, get its width normally. */
-			} else
-				*col += mbwidth(buf);
-		}
-
-		return length;
+		return (length < 0 ? 1 : length);
 	} else
 #endif
-	{
-		/* When requested, store the byte character in chr. */
-		if (chr != NULL)
-			*chr = *buf;
+		return 1;
+}
 
-		/* When requested, add the width of the character to col. */
-		if (col != NULL) {
-			/* If we have a tab, compute its width in columns using the
-			 * current value of col. */
-			if (*buf == '\t')
-				*col += tabsize - *col % tabsize;
-			/* If we have a control character, it's two columns wide: one
-			 * column for the "^", and one for the visible character. */
-			else if (is_cntrl_char((unsigned char)*buf))
-				*col += 2;
-			/* If we have a normal character, it's one column wide. */
+/* Return the number of (multibyte) characters in the given string. */
+size_t mbstrlen(const char *pointer)
+{
+	size_t count = 0;
+
+	while (*pointer != '\0') {
+#ifdef ENABLE_UTF8
+		if ((signed char)*pointer < 0) {
+			int length = mblen(pointer, MAXCHARLEN);
+
+			pointer += (length < 0 ? 1 : length);
+		} else
+#endif
+			pointer++;
+
+		count++;
+	}
+
+	return count;
+}
+
+/* Return the length (in bytes) of the character at the start of the
+ * given string, and return a copy of this character in *thechar. */
+int collect_char(const char *string, char *thechar)
+{
+	int charlen;
+
+#ifdef ENABLE_UTF8
+	/* If this is a UTF-8 starter byte, get the number of bytes of the character. */
+	if ((signed char)*string < 0) {
+		charlen = mblen(string, MAXCHARLEN);
+
+		/* When the multibyte sequence is invalid, only take the first byte. */
+		if (charlen <= 0)
+			charlen = 1;
+	} else
+#endif
+		charlen = 1;
+
+	for (int i = 0; i < charlen; i++)
+		thechar[i] = string[i];
+
+	return charlen;
+}
+
+/* Return the length (in bytes) of the character at the start of
+ * the given string, and add this character's width to *column. */
+int advance_over(const char *string, size_t *column)
+{
+#ifdef ENABLE_UTF8
+	if ((signed char)*string < 0) {
+		int charlen = mblen(string, MAXCHARLEN);
+
+		if (charlen > 0) {
+			if (is_cntrl_char(string))
+				*column += 2;
 			else
-				(*col)++;
+				*column += mbwidth(string);
+		} else {
+			charlen = 1;
+			*column += 1;
 		}
 
-		return 1;
+		return charlen;
 	}
+#endif
+
+	if ((unsigned char)*string < 0x20) {
+		if (*string == '\t')
+			*column += tabsize - *column % tabsize;
+		else
+			*column += 2;
+	} else if (*string == 0x7F)
+		*column += 2;
+#ifndef ENABLE_UTF8
+	else if (0x7F < (unsigned char)*string && (unsigned char)*string < 0xA0)
+		*column += 2;
+#endif
+	else
+		*column += 1;
+
+	return 1;
 }
 
 /* Return the index in buf of the beginning of the multibyte character
  * before the one at pos. */
-size_t move_mbleft(const char *buf, size_t pos)
+size_t step_left(const char *buf, size_t pos)
 {
 #ifdef ENABLE_UTF8
 	if (use_utf8) {
-		size_t before, char_len = 0;
+		size_t before, charlen = 0;
 
 		if (pos < 4)
 			before = 0;
@@ -399,21 +352,21 @@ size_t move_mbleft(const char *buf, size_t pos)
 		/* Move forward again until we reach the original character,
 		 * so we know the length of its preceding character. */
 		while (before < pos) {
-			char_len = parse_mbchar(buf + before, NULL, NULL);
-			before += char_len;
+			charlen = char_length(buf + before);
+			before += charlen;
 		}
 
-		return before - char_len;
+		return before - charlen;
 	} else
 #endif
-	return (pos == 0 ? 0 : pos - 1);
+		return (pos == 0 ? 0 : pos - 1);
 }
 
 /* Return the index in buf of the beginning of the multibyte character
  * after the one at pos. */
-size_t move_mbright(const char *buf, size_t pos)
+size_t step_right(const char *buf, size_t pos)
 {
-	return pos + parse_mbchar(buf + pos, NULL, NULL);
+	return pos + char_length(buf + pos);
 }
 
 /* This function is equivalent to strcasecmp() for multibyte strings. */
@@ -430,17 +383,8 @@ int mbstrncasecmp(const char *s1, const char *s2, size_t n)
 		wchar_t wc1, wc2;
 
 		while (*s1 != '\0' && *s2 != '\0' && n > 0) {
-			bool bad1 = FALSE, bad2 = FALSE;
-
-			if (mbtowc(&wc1, s1, MAXCHARLEN) < 0) {
-				mbtowc_reset();
-				bad1 = TRUE;
-			}
-
-			if (mbtowc(&wc2, s2, MAXCHARLEN) < 0) {
-				mbtowc_reset();
-				bad2 = TRUE;
-			}
+			bool bad1 = (mbtowc(&wc1, s1, MAXCHARLEN) < 0);
+			bool bad2 = (mbtowc(&wc2, s2, MAXCHARLEN) < 0);
 
 			if (bad1 || bad2) {
 				if (*s1 != *s2)
@@ -455,8 +399,8 @@ int mbstrncasecmp(const char *s1, const char *s2, size_t n)
 					return difference;
 			}
 
-			s1 += move_mbright(s1, 0);
-			s2 += move_mbright(s2, 0);
+			s1 += char_length(s1);
+			s2 += char_length(s2);
 			n--;
 		}
 
@@ -477,13 +421,13 @@ char *mbstrcasestr(const char *haystack, const char *needle)
 			if (mbstrncasecmp(haystack, needle, needle_len) == 0)
 				return (char *)haystack;
 
-			haystack += move_mbright(haystack, 0);
+			haystack += char_length(haystack);
 		}
 
 		return NULL;
 	} else
 #endif
-		return (char *) strcasestr(haystack, needle);
+		return (char *)strcasestr(haystack, needle);
 }
 
 /* This function is equivalent to strstr(), except in that it scans the
@@ -549,177 +493,115 @@ char *mbrevstrcasestr(const char *haystack, const char *needle,
 			if (pointer == haystack)
 				return NULL;
 
-			pointer = haystack + move_mbleft(haystack, pointer - haystack);
+			pointer = haystack + step_left(haystack, pointer - haystack);
 		}
 	} else
 #endif
 		return revstrcasestr(haystack, needle, pointer);
 }
 
-/* This function is equivalent to strlen() for multibyte strings. */
-size_t mbstrlen(const char *s)
-{
-	return mbstrnlen(s, (size_t)-1);
-}
-
-/* This function is equivalent to strnlen() for multibyte strings. */
-size_t mbstrnlen(const char *s, size_t maxlen)
-{
-#ifdef ENABLE_UTF8
-	if (use_utf8) {
-		size_t n = 0;
-
-		for (; *s != '\0' && maxlen > 0; s += move_mbright(s, 0),
-				maxlen--, n++)
-			;
-
-		return n;
-	} else
-#endif
-		return strnlen(s, maxlen);
-}
-
 #if !defined(NANO_TINY) || defined(ENABLE_JUSTIFY)
 /* This function is equivalent to strchr() for multibyte strings. */
-char *mbstrchr(const char *s, const char *c)
+char *mbstrchr(const char *string, const char *chr)
 {
 #ifdef ENABLE_UTF8
 	if (use_utf8) {
-		bool bad_s_mb = FALSE, bad_c_mb = FALSE;
-		char symbol[MAXCHARLEN];
-		const char *q = s;
+		bool bad_s = FALSE, bad_c = FALSE;
 		wchar_t ws, wc;
 
-		if (mbtowc(&wc, c, MAXCHARLEN) < 0) {
-			mbtowc_reset();
-			wc = (unsigned char)*c;
-			bad_c_mb = TRUE;
+		if (mbtowc(&wc, chr, MAXCHARLEN) < 0) {
+			wc = (unsigned char)*chr;
+			bad_c = TRUE;
 		}
 
-		while (*s != '\0') {
-			int sym_len = parse_mbchar(s, symbol, NULL);
+		while (*string != '\0') {
+			int symlen = mbtowc(&ws, string, MAXCHARLEN);
 
-			if (mbtowc(&ws, symbol, sym_len) < 0) {
-				mbtowc_reset();
-				ws = (unsigned char)*s;
-				bad_s_mb = TRUE;
+			if (symlen < 0) {
+				ws = (unsigned char)*string;
+				bad_s = TRUE;
 			}
 
-			if (bad_s_mb == bad_c_mb && ws == wc)
+			if (ws == wc && bad_s == bad_c)
 				break;
 
-			s += sym_len;
-			q += sym_len;
+			string += symlen;
 		}
 
-		if (*s == '\0')
-			q = NULL;
+		if (*string == '\0')
+			return NULL;
 
-		return (char *)q;
+		return (char *)string;
 	} else
 #endif
-		return (char *) strchr(s, *c);
+		return strchr(string, *chr);
 }
 #endif /* !NANO_TINY || ENABLE_JUSTIFY */
 
 #ifndef NANO_TINY
-/* This function is equivalent to strpbrk() for multibyte strings. */
-char *mbstrpbrk(const char *s, const char *accept)
+/* Locate, in the given string, the first occurrence of any of
+ * the characters in accept, searching forward. */
+char *mbstrpbrk(const char *string, const char *accept)
 {
-#ifdef ENABLE_UTF8
-	if (use_utf8) {
-		for (; *s != '\0'; s += move_mbright(s, 0)) {
-			if (mbstrchr(accept, s) != NULL)
-				return (char *)s;
-		}
+	while (*string != '\0') {
+		if (mbstrchr(accept, string) != NULL)
+			return (char *)string;
 
-		return NULL;
-	} else
-#endif
-		return (char *) strpbrk(s, accept);
-}
-
-/* Locate, in the string that starts at head, the first occurrence of any of
- * the characters in the string accept, starting from pointer and searching
- * backwards. */
-char *revstrpbrk(const char *head, const char *accept, const char *pointer)
-{
-	if (*pointer == '\0') {
-		if (pointer == head)
-			return NULL;
-		pointer--;
-	}
-
-	while (pointer >= head) {
-		if (strchr(accept, *pointer) != NULL)
-			return (char *)pointer;
-		pointer--;
+		string += char_length(string);
 	}
 
 	return NULL;
 }
 
-/* The same as the preceding function but then for multibyte strings. */
+/* Locate, in the string that starts at head, the first occurrence of any of
+ * the characters in accept, starting from pointer and searching backwards. */
 char *mbrevstrpbrk(const char *head, const char *accept, const char *pointer)
 {
-#ifdef ENABLE_UTF8
-	if (use_utf8) {
-		if (*pointer == '\0') {
-			if (pointer == head)
-				return NULL;
-			pointer = head + move_mbleft(head, pointer - head);
-		}
+	if (*pointer == '\0') {
+		if (pointer == head)
+			return NULL;
+		pointer = head + step_left(head, pointer - head);
+	}
 
-		while (TRUE) {
-			if (mbstrchr(accept, pointer) != NULL)
-				return (char *)pointer;
+	while (TRUE) {
+		if (mbstrchr(accept, pointer) != NULL)
+			return (char *)pointer;
 
-			/* If we've reached the head of the string, we found nothing. */
-			if (pointer == head)
-				return NULL;
+		/* If we've reached the head of the string, we found nothing. */
+		if (pointer == head)
+			return NULL;
 
-			pointer = head + move_mbleft(head, pointer - head);
-		}
-	} else
-#endif
-		return revstrpbrk(head, accept, pointer);
+		pointer = head + step_left(head, pointer - head);
+	}
 }
 #endif /* !NANO_TINY */
 
 #if defined(ENABLE_NANORC) && (!defined(NANO_TINY) || defined(ENABLE_JUSTIFY))
-/* Return TRUE if the string s contains one or more blank characters,
+/* Return TRUE if the given string contains at least one blank character,
  * and FALSE otherwise. */
-bool has_blank_chars(const char *s)
+bool has_blank_char(const char *string)
 {
-	for (; *s != '\0'; s++) {
-		if (isblank((unsigned char)*s))
+	char symbol[MAXCHARLEN];
+
+	while (*string != '\0') {
+		string += collect_char(string, symbol);
+
+		if (is_blank_char(symbol))
 			return TRUE;
 	}
 
 	return FALSE;
 }
-
-/* Return TRUE if the multibyte string s contains one or more blank
- * multibyte characters, and FALSE otherwise. */
-bool has_blank_mbchars(const char *s)
-{
-#ifdef ENABLE_UTF8
-	if (use_utf8) {
-		char symbol[MAXCHARLEN];
-
-		for (; *s != '\0'; s += move_mbright(s, 0)) {
-			parse_mbchar(s, symbol, NULL);
-
-			if (is_blank_mbchar(symbol))
-				return TRUE;
-		}
-
-		return FALSE;
-	} else
-#endif
-		return has_blank_chars(s);
-}
 #endif /* ENABLE_NANORC && (!NANO_TINY || ENABLE_JUSTIFY) */
+
+/* Return TRUE when the given string is empty or consists of only blanks. */
+bool white_string(const char *string)
+{
+	while (*string != '\0' && (is_blank_char(string) || *string == '\r'))
+		string += char_length(string);
+
+	return !*string;
+}
 
 #ifdef ENABLE_UTF8
 /* Return TRUE if wc is valid Unicode, and FALSE otherwise. */
@@ -731,17 +613,3 @@ bool is_valid_unicode(wchar_t wc)
 				(0xFFFF < wc && wc <= 0x10FFFF && (wc & 0xFFFF) <= 0xFFFD));
 }
 #endif
-
-#ifdef ENABLE_NANORC
-/* Check if the string s is a valid multibyte string.  Return TRUE if it
- * is, and FALSE otherwise. */
-bool is_valid_mbstring(const char *s)
-{
-#ifdef ENABLE_UTF8
-	if (use_utf8)
-		return (mbstowcs(NULL, s, 0) != (size_t)-1);
-	else
-#endif
-		return TRUE;
-}
-#endif /* ENABLE_NANORC */

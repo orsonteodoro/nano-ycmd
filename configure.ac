@@ -1,6 +1,6 @@
 # Configuration for GNU nano - a small and user-friendly text editor
 #
-# Copyright (C) 1999-2011, 2013-2017 Free Software Foundation, Inc.
+# Copyright (C) 1999-2011, 2013-2020 Free Software Foundation, Inc.
 # Copyright (C) 2014, 2017 Mike Frysinger
 #
 # GNU nano is free software: you can redistribute it and/or modify
@@ -14,9 +14,9 @@
 # See the GNU General Public License for more details.
 #
 # You should have received a copy of the GNU General Public License
-# along with this program.  If not, see http://www.gnu.org/licenses/.
+# along with this program.  If not, see https://www.gnu.org/licenses/.
 
-AC_INIT([GNU nano], [2.9.3], [nano-devel@gnu.org], [nano])
+AC_INIT([GNU nano], [4.9], [nano-devel@gnu.org], [nano])
 AC_CONFIG_SRCDIR([src/nano.c])
 AC_CANONICAL_HOST
 AM_INIT_AUTOMAKE([1.14])
@@ -56,11 +56,44 @@ dnl Data location.
 pkgdatadir=${datadir}/${PACKAGE}
 AC_DEFINE_DIR([PKGDATADIR], [pkgdatadir], [Where data are placed to.])
 
+dnl Whether this is a git repository.
+
+AC_MSG_CHECKING([whether building from git])
+if test -d .git ; then
+	AC_MSG_RESULT([yes])
+	from_git=yes
+else
+	AC_MSG_RESULT([no])
+	from_git=no
+fi
+AM_CONDITIONAL(BUILDING_FROM_GIT, test x$from_git = xyes)
+
+dnl Checks for pkg-config and gettext when building from git.
+
+if test x$from_git = xyes; then
+	if test ! -f $(aclocal --print-ac-dir)/pkg.m4; then
+		AC_MSG_ERROR([
+  *** The pkg.m4 macros are missing. ***
+  *** The pkg-config package needs to be installed when building from git. ***])
+	fi
+	if test "$ac_cv_path_MSGFMT" = ":"; then
+		AC_MSG_ERROR([
+  *** The msgfmt program is missing. ***
+  *** The gettext package needs to be installed when building from git. ***])
+	fi
+fi
+
 dnl Checks for header files.
 
 AC_CHECK_HEADERS(libintl.h limits.h pwd.h termios.h sys/param.h)
 
 dnl Checks for options.
+
+if test "x$with_slang" = xyes; then
+	if test "x$enable_tiny" != xyes; then
+		AC_MSG_ERROR([--with-slang is supported only together with --enable-tiny])
+	fi
+fi
 
 AC_ARG_ENABLE(browser,
 AS_HELP_STRING([--disable-browser], [Disable the built-in file browser]))
@@ -269,12 +302,6 @@ if test "x$enable_tiny" = xyes; then
 fi
 if test "x$enable_wrapping" != xno; then
 	AC_DEFINE(ENABLE_WRAPPING, 1, [Define this to have hard text wrapping.])
-fi
-
-AC_ARG_ENABLE(wrapping-as-root,
-AS_HELP_STRING([--disable-wrapping-as-root], [Disable wrapping of text as root by default]))
-if test "x$enable_wrapping_as_root" = xno; then
-	AC_DEFINE(DISABLE_ROOTWRAPPING, 1, [Define this to disable text wrapping as root by default.])
 fi
 
 AC_ARG_ENABLE(debug,
@@ -512,10 +539,10 @@ int main(void)
 	AC_MSG_WARN([*** Can not use slang when cross-compiling]))],
 	AC_MSG_WARN([*** Can not use slang when cross-compiling])),
 			AC_MSG_ERROR([
-*** The header file slcurses.h was not found.  If you wish to use
-*** slang support this header file is required.  Please either
-*** install a version of slang that includes the slcurses.h file or
-*** do not call the configure script with --with-slang.]))
+  *** The header file slcurses.h was not found.  This header file
+  *** is required if you wish to use Slang support.  Please either
+  *** install a version of Slang that includes the slcurses.h file
+  *** or do not call the configure script with --with-slang.]))
 		fi
 
 		if eval "test x$CURSES_LIB_NAME = x"; then
@@ -593,10 +620,10 @@ int main(void)
 	AC_MSG_WARN([*** Can not use slang when cross-compiling]))],
 	AC_MSG_WARN([*** Can not use slang when cross-compiling])),
 			AC_MSG_ERROR([
-*** The header file slcurses.h was not found.  If you wish to use
-*** slang support this header file is required.  Please either
-*** install a version of slang that includes the slcurses.h file or
-*** do not call the configure script with --with-slang.]))
+  *** The header file slcurses.h was not found.  This header file
+  *** is required if you wish to use Slang support.  Please either
+  *** install a version of Slang that includes the slcurses.h file
+  *** or do not call the configure script with --with-slang.]))
 		fi
 
 		if test "${_libs+set}" = "set"; then
@@ -608,7 +635,6 @@ int main(void)
 		fi
 		;;
 	esac], [AC_MSG_RESULT(no)])
-
 
 dnl Checks for functions.
 
@@ -680,9 +706,9 @@ fi
 
 if eval "test x$CURSES_LIB_NAME = x"; then
 	AC_MSG_ERROR([
-*** No curses lib was found.  Please install the curses header files
-*** from libncursesw5-dev (Debian), ncurses-devel (Fedora), or similar.
-*** (Or install ncurses from https://ftp.gnu.org/gnu/ncurses/.)])
+  *** No curses lib was found.  Please install the curses header files
+  *** from libncursesw5-dev (Debian), ncurses-devel (Fedora), or similar.
+  *** (Or install ncurses from https://ftp.gnu.org/gnu/ncurses/.)])
 else
 	AC_MSG_RESULT([Using $CURSES_LIB_NAME as the curses library])
 fi
@@ -715,18 +741,18 @@ if test "x$enable_utf8" != xno && \
 else
 	if test "x$enable_utf8" = xyes; then
 		AC_MSG_ERROR([
-*** UTF-8 support was requested, but insufficient UTF-8 support was
-*** detected in your curses and/or C libraries.  Please verify that your
-*** slang was built with UTF-8 support or your curses was built with
-*** wide character support, and that your C library was built with wide
-*** character support.])
+  *** UTF-8 support was requested, but insufficient UTF-8 support was
+  *** detected in your curses and/or C libraries.  Please verify that
+  *** your Slang was built with UTF-8 support or your curses was built
+  *** with wide-character support, and that your C library was built
+  *** with wide-character support.])
 	elif test "x$enable_utf8" != xno; then
 		AC_MSG_WARN([
-*** Insufficient UTF-8 support was detected in your curses and/or C
-*** libraries.  If you want UTF-8 support, please verify that your slang
-*** was built with UTF-8 support or your curses was built with wide
-*** character support, and that your C library was built with wide
-*** character support.])
+  *** Insufficient UTF-8 support was detected in your curses and/or C
+  *** libraries.  If you want UTF-8 support, please verify that your
+  *** Slang was built with UTF-8 support or your curses was built with
+  *** wide-character support, and that your C library was built with
+  *** wide-character support.])
 	fi
 fi
 
@@ -751,55 +777,6 @@ fi
 
 AC_DEFINE_UNQUOTED(NANO_REG_EXTENDED, $nano_reg_extended,
 				   [Flag(s) to use to get the full range of extended regular expressions])
-
-# Check for word-boundary support (/< and />).
-AC_MSG_CHECKING([for GNU-style word boundary regex support])
-AC_ARG_WITH(wordbounds,
-AS_HELP_STRING([--with-wordbounds], [Use GNU-style word boundary delimiters]),
-		[with_wordbounds=$withval], [with_wordbounds=auto])
-if test "$with_wordbounds" != "no"; then
-	dnl If we're using the bundled gnulib regex module, we know it's supported.
-	if test "$ac_use_included_regex" = "yes"; then
-	    with_wordbounds="yes"
-	fi
-
-	dnl We explicitly don't check if the user forced the option, because
-	dnl this is needed for cross compilers and we can't test the target.
-	if test "$with_wordbounds" != "yes"; then
-	    AC_TRY_RUN([
-#ifdef HAVE_SYS_TYPES_H
-#include <sys/types.h>
-#endif
-#include <regex.h>
-int main(void)
-{
-	regex_t r;
-	size_t nmatch;
-	regmatch_t pmatch;
-
-	if (regcomp(&r, "\\\\>", $nano_reg_extended|REG_NOSUB))
-		return 1;
-	if (regexec(&r, "word boundary", nmatch, &pmatch, 0))
-		return 1;
-	return 0;
-}],
-	    with_wordbounds="yes",
-	    with_wordbounds="no",
-	    with_wordbounds="cross")
-	fi
-fi
-case $with_wordbounds in
-yes)
-	AC_MSG_RESULT(yes)
-	AC_DEFINE(GNU_WORDBOUNDS, 1, [Define this if the system supports GNU-style word boundaries in regexes.])
-	;;
-no)
-	AC_MSG_RESULT(no)
-	;;
-cross)
-	AC_MSG_WARN([*** Can't check for GNU-style word boundary support when cross-compiling])
-	;;
-esac
 
 if test x$color_support = xyes; then
 #    if test x$CURSES_LIB_NAME = xcurses; then
@@ -856,25 +833,15 @@ AC_MSG_CHECKING([for HTML support in groff])
 groff -t -mandoc -Thtml </dev/null >/dev/null
 if test $? -ne 0 ; then
 	AC_MSG_RESULT([no])
-	AC_MSG_WARN([*** Will not generate HTML version of man pages  ***
-*** Consider installing a newer version of groff with HTML support ***])
+	AC_MSG_WARN([
+  *** Will not generate HTML version of man pages. ***
+  *** Consider installing a newer version of groff with HTML support. ***])
 	groff_html_support=no
 else
 	AC_MSG_RESULT([yes])
 	groff_html_support=yes
 fi
 AM_CONDITIONAL(GROFF_HTML, test x$groff_html_support = xyes)
-
-# Check whether this is a git repository.
-AC_MSG_CHECKING([whether building from git])
-if test -d .git ; then
-	AC_MSG_RESULT([yes])
-	from_git=yes
-else
-	AC_MSG_RESULT([no])
-	from_git=no
-fi
-AM_CONDITIONAL(BUILDING_FROM_GIT, test x$from_git = xyes)
 
 AC_CONFIG_FILES([
 Makefile
@@ -885,7 +852,6 @@ m4/Makefile
 po/Makefile.in
 src/Makefile
 syntax/Makefile
-nano.spec
 ])
 
 

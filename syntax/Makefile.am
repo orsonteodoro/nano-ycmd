@@ -5,11 +5,9 @@ pkgdata_DATA =	asm.nanorc \
 		cmake.nanorc \
 		c.nanorc \
 		css.nanorc \
-		debian.nanorc \
 		default.nanorc \
 		elisp.nanorc \
-		fortran.nanorc \
-		gentoo.nanorc \
+		email.nanorc \
 		go.nanorc \
 		groff.nanorc \
 		guile.nanorc \
@@ -20,8 +18,7 @@ pkgdata_DATA =	asm.nanorc \
 		lua.nanorc \
 		makefile.nanorc \
 		man.nanorc \
-		mgp.nanorc \
-		mutt.nanorc \
+		markdown.nanorc \
 		nanohelp.nanorc \
 		nanorc.nanorc \
 		nftables.nanorc \
@@ -32,15 +29,21 @@ pkgdata_DATA =	asm.nanorc \
 		php.nanorc \
 		po.nanorc \
 		postgresql.nanorc \
-		pov.nanorc \
 		python.nanorc \
 		ruby.nanorc \
 		rust.nanorc \
 		sh.nanorc \
-		spec.nanorc \
 		tcl.nanorc \
 		tex.nanorc \
 		texinfo.nanorc \
 		xml.nanorc
 
-EXTRA_DIST = $(pkgdata_DATA)
+nobase_pkgdata_DATA = \
+		extra/debian.nanorc \
+		extra/fortran.nanorc \
+		extra/gentoo.nanorc \
+		extra/haskell.nanorc \
+		extra/povray.nanorc \
+		extra/spec.nanorc
+
+EXTRA_DIST = $(pkgdata_DATA) $(nobase_pkgdata_DATA)

@@ -1,9 +1,9 @@
 /**************************************************************************
  *   help.c  --  This file is part of GNU nano.                           *
  *                                                                        *
- *   Copyright (C) 2000-2011, 2013-2018 Free Software Foundation, Inc.    *
+ *   Copyright (C) 2000-2011, 2013-2020 Free Software Foundation, Inc.    *
  *   Copyright (C) 2017 Rishabh Dave                                      *
- *   Copyright (C) 2014-2017 Benno Schulenberg                            *
+ *   Copyright (C) 2014-2019 Benno Schulenberg                            *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
  *   it under the terms of the GNU General Public License as published    *
@@ -22,10 +22,10 @@
 
 #include "proto.h"
 
+#ifdef ENABLE_HELP
+
 #include <errno.h>
 #include <string.h>
-
-#ifdef ENABLE_HELP
 
 static char *help_text = NULL;
 		/* The text displayed in the help window. */
@@ -39,45 +39,57 @@ static char *end_of_intro = NULL;
 static size_t location;
 		/* The offset (in bytes) of the topleft of the shown help text. */
 
-char *tempfilename = NULL;
-		/* Name of the temporary file used for wrapping the help text. */
-
-/* Hard-wrap the help text, write it to the existing temporary file, and
- * read that file into a new buffer. */
-void wrap_the_help_text(bool redisplaying)
+/* Hard-wrap the concatenated help text, and write it into a new buffer. */
+void wrap_help_text_into_buffer(void)
 {
-	int sum = 0;
+	size_t sum = 0;
+	/* Avoid overtight and overwide paragraphs in the introductory text. */
+	size_t wrapping_point = (COLS < 40) ? 40 : (COLS > 74) ? 74 : COLS;
 	const char *ptr = start_of_body;
-	FILE *tempfile = fopen(tempfilename, "w+b");
 
-	/* If re-opening the temporary file failed, give up. */
-	if (tempfile == NULL) {
-		statusline(ALERT, _("Error writing temp file: %s"), strerror(errno));
-		return;
-	}
+	make_new_buffer();
 
-	/* Write the body of the help_text into the temporary file. */
+	/* Copy the help text into the just-created new buffer. */
 	while (*ptr != '\0') {
-		int length = help_line_len(ptr);
+		int length, shim;
+		char *oneline;
 
-		fwrite(ptr, sizeof(char), length, tempfile);
+		if (ptr == end_of_intro)
+			wrapping_point = (COLS < 40) ? 40 : COLS;
+
+		if (ptr < end_of_intro || *(ptr - 1) == '\n') {
+			length = break_line(ptr, wrapping_point, TRUE);
+			oneline = nmalloc(length + 1);
+			shim = (*(ptr + length - 1) == ' ') ? 0 : 1;
+			snprintf(oneline, length + shim, "%s", ptr);
+		} else {
+			length = break_line(ptr, (COLS < 40) ? 22 : COLS - 18, TRUE);
+			oneline = nmalloc(length + 5);
+			snprintf(oneline, length + 5, "\t\t  %s", ptr);
+		}
+
+		free(openfile->current->data);
+		openfile->current->data = oneline;
+
 		ptr += length;
-
-		/* Hard-wrap the lines in the help text. */
 		if (*ptr != '\n')
-			fwrite("\n", sizeof(char), 1, tempfile);
-		else while (*ptr == '\n')
-			fwrite(ptr++, sizeof(char), 1, tempfile);
+			ptr--;
+
+		/* Create a new line, and then one more for each extra \n. */
+		do {
+			openfile->current->next = make_new_node(openfile->current);
+			openfile->current = openfile->current->next;
+			openfile->current->data = copy_of("");
+		} while (*(++ptr) == '\n');
 	}
 
-	fclose(tempfile);
+	openfile->filebot = openfile->current;
+	openfile->current = openfile->filetop;
 
-	if (redisplaying)
-		close_buffer();
-
-	open_buffer(tempfilename, FALSE);
 	remove_magicline();
-
+#ifdef ENABLE_COLOR
+	find_and_prime_applicable_syntax();
+#endif
 	prepare_for_display();
 
 	/* Move to the position in the file where we were before. */
@@ -91,8 +103,8 @@ void wrap_the_help_text(bool redisplaying)
 	openfile->edittop = openfile->current;
 }
 
-/* Our main help-viewer function. */
-void do_help(void)
+/* Assemble a help text, display it, and allow scrolling through it. */
+void show_help(void)
 {
 	int kbinput = ERR;
 	functionptrtype func;
@@ -106,25 +118,12 @@ void do_help(void)
 #ifdef ENABLE_COLOR
 	char *was_syntax = syntaxstr;
 #endif
-	char *saved_answer = (answer != NULL) ? strdup(answer) : NULL;
+	char *saved_answer = (answer != NULL) ? copy_of(answer) : NULL;
 		/* The current answer when the user invokes help at the prompt. */
 	unsigned stash[sizeof(flags) / sizeof(flags[0])];
 		/* A storage place for the current flag settings. */
-	filestruct *line;
+	linestruct *line;
 	int length;
-	FILE *fp;
-
-	blank_statusbar();
-
-	/* Get a temporary file for the help text.  If it fails, give up. */
-	tempfilename = safe_tempfile(&fp);
-	if (tempfilename == NULL) {
-		statusline(ALERT, _("Error writing temp file: %s"), strerror(errno));
-		free(saved_answer);
-		return;
-	}
-
-	fclose(fp);
 
 	/* Save the settings of all flags. */
 	memcpy(stash, flags, sizeof(flags));
@@ -133,7 +132,8 @@ void do_help(void)
 	if (ISSET(NO_HELP) && LINES > 4) {
 		UNSET(NO_HELP);
 		window_init();
-	}
+	} else
+		blank_statusbar();
 
 	/* When searching, do it forward, case insensitive, and without regexes. */
 	UNSET(BACKWARDS_SEARCH);
@@ -142,10 +142,10 @@ void do_help(void)
 
 	UNSET(WHITESPACE_DISPLAY);
 	UNSET(NOREAD_MODE);
-	SET(MULTIBUFFER);
 
 #ifdef ENABLE_LINENUMBERS
 	UNSET(LINE_NUMBERS);
+	editwincols = COLS;
 	margin = 0;
 #endif
 	tabsize = 8;
@@ -154,20 +154,18 @@ void do_help(void)
 #endif
 	curs_set(0);
 
-	/* Compose the help text from all the pieces. */
+	/* Compose the help text from all the relevant pieces. */
 	help_init();
+
 	inhelp = TRUE;
 	location = 0;
 	didfind = 0;
 
 	bottombars(MHELP);
-	wnoutrefresh(bottomwin);
 
 	/* Extract the title from the head of the help text. */
-	length = break_line(help_text, MAX_BUF_SIZE, TRUE);
-	title = charalloc(length * sizeof(char) + 1);
-	strncpy(title, help_text, length);
-	title[length] = '\0';
+	length = break_line(help_text, HIGHEST_POSITIVE, TRUE);
+	title = measured_copy(help_text, length);
 
 	titlebar(title);
 
@@ -176,7 +174,7 @@ void do_help(void)
 	while (*start_of_body == '\n')
 		start_of_body++;
 
-	wrap_the_help_text(FALSE);
+	wrap_help_text_into_buffer();
 	edit_refresh();
 
 	while (TRUE) {
@@ -184,49 +182,49 @@ void do_help(void)
 		focusing = TRUE;
 
 		/* Show the cursor when we searched and found something. */
-		kbinput = get_kbinput(edit, didfind == 1);
+		kbinput = get_kbinput(edit, didfind == 1 || ISSET(SHOW_CURSOR));
 		didfind = 0;
 
-		func = parse_help_input(&kbinput);
+#ifndef NANO_TINY
+		if (bracketed_paste || kbinput == BRACKETED_PASTE_MARKER) {
+			beep();
+			continue;
+		}
+#endif
+		func = interpret(&kbinput);
 
 		if (func == total_refresh) {
 			total_redraw();
-		} else if (func == do_up_void) {
-			do_up(TRUE);
-		} else if (func == do_down_void) {
+		} else if (ISSET(SHOW_CURSOR) && (func == do_left || func == do_right ||
+											func == do_up || func == do_down)) {
+			func();
+		} else if (func == do_up || func == do_scroll_up) {
+			do_scroll_up();
+		} else if (func == do_down || func == do_scroll_down) {
 			if (openfile->edittop->lineno + editwinrows - 1 <
 								openfile->filebot->lineno)
-				do_down(TRUE);
-		} else if (func == do_page_up) {
-			do_page_up();
-		} else if (func == do_page_down) {
-			do_page_down();
-		} else if (func == to_first_line) {
-			to_first_line();
-		} else if (func == to_last_line) {
-			to_last_line();
-		} else if (func == do_search_forward) {
-			do_search();
+				do_scroll_down();
+		} else if (func == do_page_up || func == do_page_down ||
+					func == to_first_line || func == to_last_line ||
+					func == do_findprevious || func == do_findnext) {
+			func();
+		} else if (func == do_search_forward || func == do_search_backward) {
+			func();
 			bottombars(MHELP);
-		} else if (func == do_research) {
-			do_research();
-#ifndef NANO_TINY
-		} else if (func == do_findprevious) {
-			do_findprevious();
-		} else if (func == do_findnext) {
-			do_findnext();
-		} else if (kbinput == KEY_WINCH) {
-			; /* Nothing to do. */
+#ifdef ENABLE_NANORC
+		} else if (func == (functionptrtype)implant) {
+			implant(first_sc_for(MHELP, func)->expansion);
 #endif
 #ifdef ENABLE_MOUSE
 		} else if (kbinput == KEY_MOUSE) {
 			int dummy_row, dummy_col;
 			get_mouseinput(&dummy_row, &dummy_col, TRUE);
 #endif
+#ifndef NANO_TINY
+		} else if (kbinput == KEY_WINCH) {
+			;  /* Nothing to do. */
+#endif
 		} else if (func == do_exit) {
-			/* Exit from the help viewer. */
-			close_buffer();
-			curs_set(0);
 			break;
 		} else
 			unbound_key(kbinput);
@@ -235,7 +233,7 @@ void do_help(void)
 		edit_refresh();
 
 		location = 0;
-		line = openfile->fileage;
+		line = openfile->filetop;
 
 		/* Count how far (in bytes) edittop is into the file. */
 		while (line != openfile->edittop) {
@@ -244,44 +242,48 @@ void do_help(void)
 		}
 	}
 
+	/* Discard the help-text buffer. */
+	close_buffer();
+
 	/* Restore the settings of all flags. */
 	memcpy(flags, stash, sizeof(flags));
 
 #ifdef ENABLE_LINENUMBERS
 	margin = was_margin;
+	editwincols = COLS - margin;
 #endif
 	tabsize = was_tabsize;
 #ifdef ENABLE_COLOR
 	syntaxstr = was_syntax;
+	have_palette = FALSE;
 #endif
 
-	/* Switch back to the buffer we were invoked from. */
-	switch_to_prev_buffer();
+	free(title);
+	title = NULL;
+	free(answer);
+	answer = saved_answer;
+	free(help_text);
+	inhelp = FALSE;
+
+	curs_set(0);
 
 	if (ISSET(NO_HELP)) {
 		currmenu = oldmenu;
 		window_init();
-	} else
+	} else {
+		blank_statusbar();
 		bottombars(oldmenu);
-
-	free(title);
-	title = NULL;
-	inhelp = FALSE;
+	}
 
 #ifdef ENABLE_BROWSER
 	if (oldmenu == MBROWSER || oldmenu == MWHEREISFILE || oldmenu == MGOTODIR)
 		browser_refresh();
 	else
 #endif
-		total_refresh();
-
-	free(answer);
-	answer = saved_answer;
-
-	remove(tempfilename);
-	free(tempfilename);
-
-	free(help_text);
+	{
+		titlebar(NULL);
+		edit_refresh();
+	}
 }
 
 /* Allocate space for the help text for the current menu, and concatenate
@@ -294,8 +296,8 @@ void help_init(void)
 		/* Untranslated help introduction.  We break it up into three chunks
 		 * in case the full string is too long for the compiler to handle. */
 	char *ptr;
-	const subnfunc *f;
-	const sc *s;
+	const funcstruct *f;
+	const keystruct *s;
 
 	/* First, set up the initial help text for the current function. */
 	if (currmenu == MWHEREIS || currmenu == MREPLACE || currmenu == MREPLACEWITH) {
@@ -409,11 +411,21 @@ void help_init(void)
 		htx[0] = N_("Execute Command Help Text\n\n "
 				"This mode allows you to insert the output of a "
 				"command run by the shell into the current buffer (or "
-				"a new buffer in multiple file buffer mode).  If you "
-				"need another blank buffer, do not enter any "
-				"command.\n\n The following function keys are "
+				"into a new buffer).  If the command is preceded by '|' "
+				"(the pipe symbol), the current contents of the buffer "
+				"(or marked region) will be piped to the command.  ");
+		htx[1] = N_("If you just need another blank buffer, do not enter any "
+				"command.\n\n");
+		htx[2] = N_(" The following function keys are "
 				"available in Execute Command mode:\n\n");
-		htx[1] = NULL;
+	} else if (currmenu == MLINTER) {
+		htx[0] = N_("=== Linter ===\n\n "
+				"In this mode, the status bar shows an error message or "
+				"warning, and the cursor is put at the corresponding "
+				"position in the file.  With PageUp and PageDown you "
+				"can switch to earlier and later messages.\n\n");
+		htx[1] = N_(" The following function keys are "
+				"available in Linter mode:\n\n");
 		htx[2] = NULL;
 	}
 #endif /* !NANO_TINY */
@@ -457,22 +469,22 @@ void help_init(void)
 		allocsize += strlen(htx[2]);
 
 	/* Calculate the length of the shortcut help text.  Each entry has
-	 * one or two keys, which fill 16 columns, plus translated text,
+	 * one or two keys, which fill 17 cells, plus translated text,
 	 * plus one or two \n's. */
 	for (f = allfuncs; f != NULL; f = f->next)
 		if (f->menus & currmenu)
-			allocsize += (16 * MAXCHARLEN) + strlen(_(f->help)) + 2;
+			allocsize += strlen(_(f->help)) + 21;
 
 #ifndef NANO_TINY
 	/* If we're on the main list, we also count the toggle help text.
-	 * Each entry has "M-%c\t\t", five chars which fill 16 columns,
-	 * plus a space, plus translated text, plus one or two '\n's. */
+	 * Each entry has "M-%c\t\t ", six chars which fill 17 cells, plus
+	 * two translated texts, plus a space, plus one or two '\n's. */
 	if (currmenu == MMAIN) {
-		size_t endis_len = strlen(_("enable/disable"));
+		size_t onoff_len = strlen(_("enable/disable"));
 
 		for (s = sclist; s != NULL; s = s->next)
-			if (s->scfunc == do_toggle_void)
-				allocsize += strlen(_(flagtostr(s->toggle))) + endis_len + 8;
+			if (s->func == do_toggle_void)
+				allocsize += strlen(_(flagtostr(s->toggle))) + onoff_len + 9;
 	}
 #endif
 
@@ -486,48 +498,39 @@ void help_init(void)
 	if (htx[2] != NULL)
 		strcat(help_text, htx[2]);
 
-	ptr = help_text + strlen(help_text);
-
 	/* Remember this end-of-introduction, start-of-shortcuts. */
-	end_of_intro = ptr;
+	end_of_intro = help_text + strlen(help_text);
+	ptr = end_of_intro;
 
-	/* Now add our shortcut info. */
+	/* Now add the shortcuts and their descriptions. */
 	for (f = allfuncs; f != NULL; f = f->next) {
-		int scsfound = 0;
+		int tally = 0;
 
 		if ((f->menus & currmenu) == 0)
 			continue;
 
-		/* Let's simply show the first two shortcuts from the list. */
+		/* Show the first two shortcuts (if any) for each function. */
 		for (s = sclist; s != NULL; s = s->next) {
-
-			if ((s->menus & currmenu) == 0)
-				continue;
-
-			if (s->scfunc == f->scfunc) {
-				scsfound++;
-				/* Make the first column narrower (6) than the second (10),
-				 * but allow it to spill into the second, for "M-Space". */
-				if (scsfound == 1) {
-					sprintf(ptr, "%s               ", s->keystr);
+			if ((s->menus & currmenu) && s->func == f->func) {
+				/* Make the first column 7 cells wide and the second 10. */
+				if (++tally == 1) {
+					sprintf(ptr, "%s                ", s->keystr);
 					/* Unicode arrows take three bytes instead of one. */
-					if (strstr(s->keystr, "\xE2") != NULL)
-						ptr += 8;
-					else
-						ptr += 6;
+					ptr += (strstr(s->keystr, "\xE2") != NULL ? 9 : 7);
 				} else {
-					ptr += sprintf(ptr, "(%s)\t", s->keystr);
+					sprintf(ptr, "(%s)       ", s->keystr);
+					ptr += (strstr(s->keystr, "\xE2") != NULL ? 12 : 10);
 					break;
 				}
 			}
 		}
 
-		if (scsfound == 0)
-			ptr += sprintf(ptr, "\t\t");
-		else if (scsfound == 1)
+		if (tally == 0)
+			ptr += sprintf(ptr, "\t\t ");
+		else if (tally == 1)
 			ptr += 10;
 
-		/* The shortcut's help text. */
+		/* The shortcut's description. */
 		ptr += sprintf(ptr, "%s\n", _(f->help));
 
 		if (f->blank_after)
@@ -548,88 +551,23 @@ void help_init(void)
 			counter++;
 			for (s = sclist; s != NULL; s = s->next)
 				if (s->toggle && s->ordinal == counter) {
-					ptr += sprintf(ptr, "%s\t\t%s %s\n", (s->menus == MMAIN ? s->keystr : ""),
+					ptr += sprintf(ptr, "%s\t\t %s %s\n", (s->menus == MMAIN ? s->keystr : ""),
 								_(flagtostr(s->toggle)), _("enable/disable"));
-					if (s->toggle == NO_COLOR_SYNTAX || s->toggle == TABS_TO_SPACES)
+					if (s->toggle == NO_SYNTAX || s->toggle == TABS_TO_SPACES)
 						ptr += sprintf(ptr, "\n");
 					break;
 				}
 		}
 	}
 #endif /* !NANO_TINY */
-
-	if (strlen(help_text) > allocsize)
-		statusline(ALERT, "Help text spilled over -- please report a bug");
 }
-
-/* Return the function that is bound to the given key, accepting certain
- * plain characters too, for consistency with the file browser. */
-functionptrtype parse_help_input(int *kbinput)
-{
-	if (!meta_key) {
-		switch (*kbinput) {
-			case ' ':
-				return do_page_down;
-			case '-':
-				return do_page_up;
-			case 'W':
-			case 'w':
-			case '/':
-				return do_search_forward;
-			case 'N':
-#ifndef NANO_TINY
-				return do_findprevious;
-#endif
-			case 'n':
-				return do_research;
-			case 'E':
-			case 'e':
-			case 'Q':
-			case 'q':
-			case 'X':
-			case 'x':
-				return do_exit;
-		}
-	}
-	return func_from_key(kbinput);
-}
-
-/* Calculate the displayable length of the help-text line starting at ptr. */
-size_t help_line_len(const char *ptr)
-{
-	size_t wrapping_point = (COLS > 24) ? COLS - 1 : 24;
-		/* The target width for wrapping long lines. */
-	ssize_t wrap_location;
-		/* Actual position where the line can be wrapped. */
-	size_t length = 0;
-		/* Full length of the line, until the first newline. */
-
-	/* Avoid overwide paragraphs in the introductory text. */
-	if (ptr < end_of_intro && COLS > 74)
-		wrapping_point = 74;
-
-	wrap_location = break_line(ptr, wrapping_point, TRUE);
-
-	/* Get the length of the entire line up to a null or a newline. */
-	while (*(ptr + length) != '\0' && *(ptr + length) != '\n')
-		length = move_mbright(ptr, length);
-
-	/* If the entire line will just fit the screen, don't wrap it. */
-	if (strnlenpt(ptr, length) <= wrapping_point + 1)
-		return length;
-	else if (wrap_location > 0)
-		return wrap_location;
-	else
-		return 1;
-}
-
 #endif /* ENABLE_HELP */
 
-/* Start the help viewer. */
-void do_help_void(void)
+/* Start the help viewer, or indicate that there is no help. */
+void do_help(void)
 {
 #ifdef ENABLE_HELP
-	do_help();
+	show_help();
 #else
 	if (currmenu == MMAIN)
 		say_there_is_no_help();

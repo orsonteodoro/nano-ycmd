@@ -1,6 +1,7 @@
-## Here is an example for C/C++.
+## Syntax highlighting for C and C++ files.
 
-syntax "c" "\.(c(c|pp|xx|\+\+)?|C)$" "\.(h(h|pp|xx)?|H)$" "\.ii?$"
+syntax c "\.([ch](pp|xx)?|C|cc|c\+\+|cu|H|hh|ii?)$"
+header "-\*-.*\<C(\+\+)?((;|\s).*)?-\*-"
 magic "^(C|C\+\+) (source|program)"
 comment "//"
 
@@ -10,12 +11,11 @@ color brightred "\<[A-Z_][0-9A-Z_]+\>"
 color brightmagenta "^[[:space:]]*[A-Z_a-z]+:[[:space:]]*$"
 
 color green "\<(float|double|bool|char|int|short|long|sizeof|enum|void|auto|static|const|struct|union|typedef|extern|(un)?signed|inline)\>"
-color green "\<((s?size)|((u_?)?int(8|16|32|64|ptr)))_t\>"
+color green "\<([[:lower:]][[:lower:]_]*|(u_?)?int(8|16|32|64))_t\>"
 color green "\<(class|namespace|template|public|protected|private|typename|this|friend|virtual|override|using|mutable|volatile|register|explicit)\>"
 color brightyellow "\<(for|if|while|do|else|case|default|switch)\>"
 color brightyellow "\<(try|throw|catch|operator|new|delete)\>"
 color magenta "\<(goto|continue|break|return)\>"
-color brightcyan "^[[:space:]]*#[[:space:]]*(define|include(_next)?|(un|ifn?)def|endif|el(if|se)|if|warning|error|pragma)"
 color brightmagenta "'([^'\]|(\\["'abfnrtv\\]))'" "'\\(([0-3]?[0-7]{1,2}))'" "'\\x[0-9A-Fa-f]{1,2}'"
 
 # GCC builtins.
@@ -23,10 +23,11 @@ color cyan "__attribute__[[:space:]]*\(\([^)]*\)\)" "__(aligned|asm|builtin|hidd
 
 # Strings.  In general you will want your strings and comments to come last,
 # because highlighting rules are applied in the order they are read in.
-color brightyellow ""([^"]|\\")*"" "<[^[:blank:]=]*>"
-# Multiline strings.  This regex is VERY resource intensive,
-# and sometimes colours things that shouldn't be coloured.
-###color brightyellow start=""(\\.|[^"])*\\[[:space:]]*$" end="^(\\.|[^"])*""
+color brightyellow ""([^"]|\\")*"" "#[[:space:]]*include[[:space:]]+<[^[:blank:]=]*>"
+
+# Preprocessor directives.
+color brightcyan start="^[[:space:]]*#[[:space:]]*(if(n?def)?|elif|warning|error|pragma)\>" end="(\`|[^\\])$"
+color brightcyan "^[[:space:]]*#[[:space:]]*(define|else|endif|include(_next)?|undef)\>"
 
 # Comments.
 color brightblue "//.*"

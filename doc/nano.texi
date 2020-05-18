@@ -8,8 +8,8 @@
 
 @smallbook
 @set EDITION 0.5
-@set VERSION 2.9.3
-@set UPDATED January 2018
+@set VERSION 4.9
+@set UPDATED March 2020
 
 @dircategory Editors
 @direntry
@@ -23,7 +23,7 @@
 @titlepage
 @title GNU @command{nano}
 @subtitle a small and friendly text editor
-@subtitle version 2.9.3
+@subtitle version 4.9
 
 @author Chris Allegretta
 @page
@@ -33,7 +33,7 @@ This manual documents the GNU @command{nano} editor.
 This manual is part of the GNU @command{nano} distribution.@*
 
 @sp 4
-Copyright @copyright{} 1999-2009, 2014-2017 Free Software Foundation, Inc.
+Copyright @copyright{} 1999-2009, 2014-2020 Free Software Foundation, Inc.
 
 @sp 1
 This document is dual-licensed.  You may distribute and/or modify it
@@ -43,27 +43,27 @@ under the terms of either of the following licenses:
 * The GNU General Public License, as published by the Free Software
   Foundation, version 3 or (at your option) any later version.  You
   should have received a copy of the GNU General Public License along
-  with this program.  If not, see @url{http://www.gnu.org/licenses/}.
+  with this program.  If not, see @url{https://www.gnu.org/licenses/}.
 
 @sp 1
 * The GNU Free Documentation License, as published by the Free Software
   Foundation, version 1.2 or (at your option) any later version, with no
   Invariant Sections, no Front-Cover Texts, and no Back-Cover Texts.
   You should have received a copy of the GNU Free Documentation License
-  along with this program.  If not, see @url{http://www.gnu.org/licenses/}.
+  along with this program.  If not, see @url{https://www.gnu.org/licenses/}.
 
 @sp 1
 You may contact the author by
 e-mail: @email{chrisa@@asty.org}@*
 @end titlepage
 
-
 @ifnottex
+
 
 @node Top
 @top
 
-This manual documents the GNU @command{nano} editor, version 2.9.3.
+This manual documents the GNU @command{nano} editor, version 4.9.
 
 @menu
 * Introduction::
@@ -84,17 +84,26 @@ This manual documents the GNU @command{nano} editor, version 2.9.3.
 @node Introduction
 @chapter Introduction
 
-GNU @command{nano} is a small and friendly text editor.  Besides basic text
-editing, @command{nano} offers many extra features, such as an interactive
-search-and-replace, undo/redo, syntax coloring, smooth scrolling,
-auto-indentation, go-to-line-and-column-number, feature toggles,
-file locking, backup files, and internationalization support.
+GNU @command{nano} is a small and friendly text editor.  Besides
+basic text editing, @command{nano} offers features like undo/redo,
+syntax coloring, interactive search-and-replace, auto-indentation,
+line numbers, word completion, file locking, backup files, and
+internationalization support.
 
 The original goal for @command{nano} was to be a complete bug-for-bug
 emulation of Pico.  But currently the goal is to be as compatible
-as possible while offering a superset of Pico's functionality.
+as is reasonable while offering a superset of Pico's functionality.
 @xref{Pico Compatibility} for more details on how @command{nano} and
 Pico differ.
+
+Starting with version 4.0, @command{nano} no longer hard-wraps an overlong
+line by default.  It further uses linewise scrolling by default, and by
+default includes the line below the title bar into the editing area.
+
+If you want the old, Pico behavior back, you can use the
+following options: @option{--breaklonglines},
+@option{--jumpyscrolling}, and @option{--emptyline}
+(or @option{-bje} for short).
 
 Please report bugs via @url{https://savannah.gnu.org/bugs/?group=nano}.
 
@@ -118,13 +127,22 @@ But it is also possible to specify one or more options (see the next
 section), and to edit several files in a row.  Additionally, the cursor
 can be put on a specific line of a file by adding the line number
 with a plus sign before the filename, and even in a specific column by
-adding it with a comma.  So a more complete command synopsis is:
+adding it with a comma.
+(Negative numbers count from the end of the file or line.)
+The cursor can also be put on the first or last occurrence of a specific string
+by specifying that string after @code{+/} or @code{+?} before the filename.
+The string can be made case sensitive and/or caused to be interpreted as a
+regular expression by inserting a @code{c} and/or @code{r} after the plus sign.
+These search modes can be explicitly disabled by using the uppercase variant
+of those letters: @code{C} and/or @code{R}.  When the string contains spaces,
+it needs to be enclosed in quotes.
+A more complete command synopsis thus is:
 
 @iftex
 @sp 1
 @end iftex
 @example
-@code{nano [OPTION]@dots{} [[+LINE[,COLUMN]|+,COLUMN] FILE]@dots{}}
+@code{nano [OPTION]@dots{} [[+LINE[,COLUMN]|+[crCR](/|?)STRING] FILE]@dots{}}
 @end example
 @iftex
 @sp 1
@@ -138,6 +156,7 @@ you will rarely need to specify a line number.
 As a special case: when instead of a filename a dash is given, @command{nano}
 will read data from standard input.  This means you can pipe the output of
 a command straight into a buffer, and then edit it.
+
 
 @node Command-line Options
 @chapter Command-line Options
@@ -167,7 +186,10 @@ The uniquely numbered files are stored in the specified directory.
 
 @item -D
 @itemx --boldtext
-Use bold text instead of reverse video text.
+For the interface, use bold instead of reverse video.  This will be overridden
+by setting the options @code{titlecolor}, @code{statuscolor}, @code{keycolor},
+@code{functioncolor}, @code{numbercolor}, and/or @code{selectedcolor} in your
+nanorc file.  @xref{@code{set functioncolor}} for details.
 
 @item -E
 @itemx --tabstospaces
@@ -190,15 +212,23 @@ executed commands, so they can be easily reused in later sessions.
 @itemx --ignorercfiles
 Don't look at the system's nanorc file nor at the user's nanorc.
 
+@item -J
+@itemx --guidestripe
+Draw a vertical stripe at the given column, to help judge the width of the
+text.  (The color of the stripe can be changed with @code{set stripecolor}
+in your nanorc file.)
+
 @item -K
-@itemx --rebindkeypad
-Interpret the numeric keypad keys so that they all work properly.  You
-should only need to use this option if they don't, as mouse support
-won't work properly with this option enabled.
+@itemx --rawsequences
+Interpret escape sequences directly (instead of asking @code{ncurses} to
+translate them).  If you need this option to get your keyboard to work
+properly, please report a bug.  Using this option disables @command{nano}'s
+mouse support.
 
 @item -L
 @itemx --nonewlines
-Don't add newlines to the ends of files.
+Don't automatically add a newline when a text does not end with one.
+(This can cause you to save non-POSIX text files.)
 
 @item -M
 @itemx --trimblanks
@@ -209,36 +239,35 @@ hard-wrapping occurs or when text is justified.
 @itemx --noconvert
 Disable automatic conversion of files from DOS/Mac format.
 
-@item -O
-@itemx --morespace
-Use the blank line below the title bar as extra editing space.
-
 @item -P
 @itemx --positionlog
 For the 200 most recent files, log the last position of the cursor,
 and place it at that position again upon reopening such a file.
 
-@item -Q "@var{characters}"
-@itemx --quotestr="@var{characters}"
-Set the quoting string for justifying.  The default value is
-@t{"^([ \t]*[|>:@}#])+"} if extended regular expression support
-is available, and @t{"> "} otherwise.
-Note that @code{\t} stands for a literal Tab character.
+@item -Q "@var{regex}"
+@itemx --quotestr="@var{regex}"
+Set the regular expression for matching the quoting part of a line.
+The default value is @t{"^([@w{ }\t]*([!#%:;>|@}]|//))+"}.
+(Note that @code{\t} stands for a literal Tab character.)
+This makes it possible to rejustify blocks of quoted text when composing
+email, and to rewrap blocks of line comments when writing source code.
 
 @item -R
 @itemx --restricted
 Restricted mode: don't read or write to any file not specified on the
-command line; don't read any nanorc files nor history files; don't allow
-suspending nor spell checking; don't
+command line.  This means: don't read or write history files; don't allow
+suspending; don't allow spell checking; don't
 allow a file to be appended to, prepended to, or saved under a different
-name if it already has one; and don't use backup files.
-This restricted mode is also accessible by invoking @command{nano} with
+name if it already has one; and don't make backup files.
+Restricted mode can also be activated by invoking @command{nano} with
 any name beginning with @code{r} (e.g.@: @command{rnano}).
 
 @item -S
-@itemx --smooth
-Enable smooth scrolling.  Text will scroll line-by-line, instead of the
-usual chunk-by-chunk behavior.
+@itemx --softwrap
+Display over multiple screen rows lines that exceed the screen's width.
+(You can make this soft-wrapping occur at whitespace instead of rudely at
+the screen's edge, by using also @code{--atblanks}.)
+(The old short option, @code{-$}, is deprecated.)
 
 @item -T @var{number}
 @itemx --tabsize=@var{number}
@@ -263,18 +292,29 @@ characters as parts of words.
 @item -X "@var{characters}"
 @itemx --wordchars="@var{characters}"
 Specify which other characters (besides the normal alphanumeric ones)
-should be considered as parts of words.  This overrides option
-@option{-W} (@option{--wordbounds}).
+should be considered as parts of words.  When using this option, you
+probably want to omit @option{-W} (@option{--wordbounds}).
 
 @item -Y @var{name}
 @itemx --syntax=@var{name}
 Specify the syntax to be used for highlighting.
 @xref{Syntax Highlighting} for more info.
 
+@item -Z
+@itemx --zap
+Let an unmodified @key{Backspace} or @key{Delete} erase the marked region
+(instead of a single character, and without affecting the cutbuffer).
+
 @item -a
 @itemx --atblanks
 When doing soft line wrapping, wrap lines at whitespace
 instead of always at the edge of the screen.
+
+@item -b
+@itemx --breaklonglines
+Automatically hard-wrap the current line when it becomes overlong.
+(This option is the opposite of @option{-w} (@option{--nowrap}) ---
+the last one given takes effect.)
 
 @item -c
 @itemx --constantshow
@@ -284,14 +324,24 @@ Note that this overrides option @option{-U} (@option{--quickblank}).
 
 @item -d
 @itemx --rebinddelete
-Interpret the Delete key differently so that both Backspace and Delete
-work properly.  You should only need to use this option if Backspace
-acts like Delete on your system.
+Interpret the Delete and Backspace keys differently so that both Backspace
+and Delete work properly.  You should only use this option when on your
+system either Backspace acts like Delete or Delete acts like Backspace.
+
+@item -e
+@itemx --emptyline
+Do not use the line below the title bar, leaving it entirely blank.
+
+@item -f @var{file}
+@itemx --rcfile=@var{file}
+Read only this @var{file} for setting nano's options, instead of reading
+both the system-wide and the user's nanorc files.
 
 @item -g
 @itemx --showcursor
-Make the cursor visible in the file browser, putting it on the
-highlighted item.  Useful for braille users.
+Make the cursor visible in the file browser (putting it on the
+highlighted item) and in the help viewer.  Useful for braille users
+and people with poor vision.
 
 @item -h
 @itemx --help
@@ -299,8 +349,13 @@ Show a summary of command-line options and exit.
 
 @item -i
 @itemx --autoindent
-Automatically indent new lines to the same number of spaces and tabs as
-the previous line.
+Automatically indent a newly created line to the same number of tabs
+and/or spaces as the previous line (or as the next line if the previous
+line is the beginning of a paragraph).
+
+@item -j
+@itemx --jumpyscrolling
+Scroll the buffer contents per half-screen instead of per line.
 
 @item -k
 @itemx --cutfromcursor
@@ -337,33 +392,29 @@ similar to a chroot.
 Preserve the @kbd{^Q} (XON) and @kbd{^S} (XOFF) sequences so data being
 sent to the editor can be stopped and started.
 
-@item -q
-@itemx --quiet
-Obsolete option.  Recognized but ignored.
-
 @item -r @var{number}
 @itemx --fill=@var{number}
-Hard-wrap lines at column @var{number} (by inserting a newline character).
-If the given value is 0 or less, wrapping will occur at the width of
-the screen minus the given amount, allowing the wrapping width to
-vary along with the width of the screen if and when it is resized.
-The default value is @t{-8}.  This option conflicts with @option{-w}
-(@option{--nowrap}); the last one given takes effect.
+Set the target width for justifying and automatic hard-wrapping at this
+@var{number} of columns.  If the value is 0 or less, wrapping will occur
+at the width of the screen minus @var{number} columns, allowing the wrap
+point to vary along with the width of the screen if the screen is resized.
+The default value is @t{-8}.
 
 @anchor{@option{--speller}}
-@item -s @var{program}
-@itemx --speller=@var{program}
+@item -s "@var{program} [@var{argument} @dots{}]"
+@itemx --speller="@var{program} [@var{argument} @dots{}]"
 Use the given program to do spell checking and correcting.  By default,
 @command{nano} uses the command specified in the @env{SPELL} environment
-variable for this.  If @env{SPELL} is not set, and @option{--speller} is
+variable.  If @env{SPELL} is not set, and @option{--speller} is
 not specified either, then @command{nano} uses its own interactive spell
-corrector, which requires the GNU @command{spell} program to be installed.
+corrector, which requires either @command{hunspell} or GNU @command{spell}
+to be installed.
 
 @item -t
-@itemx --tempfile
-Don't ask whether to save a modified buffer when exiting with @kbd{^X}, but
-assume yes.  This option is useful when @command{nano} is used as the
-composer of a mailer program.
+@itemx --saveonexit
+Save a changed buffer without prompting (when exiting with @kbd{^X}).
+This can be handy when @command{nano} is used as the composer of an
+email program.
 
 @item -u
 @item --unix
@@ -373,16 +424,19 @@ default behavior of saving a file in the format that it had.
 
 @item -v
 @itemx --view
-Don't allow the contents of the file to be altered.  Note that this
-option should NOT be used in place of correct file permissions to
-implement a read-only file.
+Don't allow the contents of the file to be altered: read-only mode.
+This mode allows the user to open also other files for viewing,
+unless @option{--restricted} is given too.
+(Note that this option should NOT be used in place of correct
+file permissions to implement a read-only file.)
 
 @item -w
 @itemx --nowrap
-Don't hard-wrap long lines at any length.  This option conflicts with
-@option{-r} (@option{--fill}); the last one given takes effect.
+Do not automatically hard-wrap the current line when it becomes overlong.
+This is the default.  (This option is the opposite of @option{-b}
+(@option{--breaklonglines}) --- the last one given takes effect.)
 
-@anchor{Expert Mode}
+
 @item -x
 @itemx --nohelp
 Expert Mode: don't show the Shortcut List at the bottom of the screen.
@@ -392,25 +446,14 @@ is located at the very bottom of the editor.
 Note: When accessing the help system, Expert Mode is temporarily
 disabled to display the help-system navigation keys.
 
+@item -y
+@itemx --afterends
+Make Ctrl+Right and Ctrl+Delete stop at word ends instead of beginnings.
+
 @item -z
-@itemx --suspend
+@itemx --suspendable
 Enable the ability to suspend @command{nano} using the system's suspend
 keystroke (usually @kbd{^Z}).
-
-@item -$
-@itemx --softwrap
-Enable 'soft wrapping'.  This will make @command{nano} attempt to display the
-entire contents of any line, even if it is longer than the screen width, by
-continuing it over multiple screen lines.  Since
-@code{$} normally refers to a variable in the Unix shell, you should specify
-this option last when using other options (e.g.@: @code{nano -wS$}) or pass it
-separately (e.g.@: @code{nano -wS -$}).
-
-@item -b
-@itemx -e
-@itemx -f
-@itemx -j
-Ignored, for compatibility with Pico.
 
 @end table
 
@@ -426,6 +469,7 @@ Ignored, for compatibility with Pico.
 * Screen Layout::
 * Search and Replace::
 * Using the Mouse::
+* Anchors::
 * Limitations::
 @end menu
 
@@ -497,11 +541,15 @@ the 'Copy Text' command (default key binding: @kbd{M-6}).
 
 Text can be selected by first 'setting the Mark' (default key bindings:
 @kbd{^6} and @kbd{M-A}) and then moving the cursor to the other end of the portion
-to be selected.  The selected portion of text will be highlighted in
-reverse video (or in bold if you set the boldtext option).
+to be selected.  The selected portion of text will be highlighted.
 This selection can now be cut or copied in its entirety with a single
 @kbd{^K} or @kbd{M-6}.  Or the selection can be used to limit the scope of
 a search-and-replace (@kbd{^\}) or spell-checking session (@kbd{^T}).
+
+On some terminals, text can be selected also by holding down @kbd{Shift}
+while using the cursor keys.  Holding down the @kbd{Ctrl} or @kbd{Alt}
+key too will increase the stride.  Such a selection is cancelled
+upon any cursor movement where @kbd{Shift} isn't held.
 
 Cutting or copying selected text will toggle the mark off automatically.
 If necessary, it can be toggled off manually with another @kbd{^6} or @kbd{M-A}.
@@ -556,18 +604,27 @@ Shift key during those actions.
 The mouse will work in the X Window System, and on the console when gpm
 is running.
 
+@node Anchors
+@section Anchors
+
+With @kbd{M-Ins} you can place an anchor (a kind of temporary bookmark)
+at the current line.  With @kbd{M-PgUp} and @kbd{M-PgDn} you can jump
+to an anchor in the backward/forward direction.  This jumping wraps
+around at the top and bottom.
+
+When a line with an anchor is removed, the line where the cursor ends up
+inherits the anchor.  After performing an operation on the entire buffer
+(like formatting it, piping it through a command, or doing an external
+spell check on it), any anchors that were present are gone.  And when
+you close the buffer, all its anchors simply disappear; they are not saved.
+
 @node Limitations
 @section Limitations
 
-Justifications (@kbd{^J})
-are not yet covered by the general undo system.  So after a justification
-that is not immediately undone, earlier edits
-cannot be undone any more.  The workaround is, of course, to exit without
-saving.
-
 The recording and playback of keyboard macros works correctly only on a
-terminal emulator, not on a Linux console (VT), because the latter is a
-deficient terminal.
+terminal emulator, not on a Linux console (VT), because the latter does
+not by default distinguish modified from unmodified arrow keys.
+
 
 @node Built-in Help
 @chapter Built-in Help
@@ -588,60 +645,45 @@ The following global toggles are available:
 
 @table @code
 
-@item Backup Files toggle
-@kbd{Meta-B} toggles the @option{-B} (@option{--backup}) command-line option.
-
-@item Constant Cursor Position Display toggle
+@item Constant Cursor Position Display
 @kbd{Meta-C} toggles the @option{-c} (@option{--constantshow}) command-line option.
 
-@item Multiple File Buffers toggle
-@kbd{Meta-F} toggles the @option{-F} (@option{--multibuffer}) command-line option.
-
-@item Smart Home Key toggle
+@item Smart Home Key
 @kbd{Meta-H} toggles the @option{-A} (@option{--smarthome}) command-line option.
 
-@item Auto Indent toggle
+@item Auto Indent
 @kbd{Meta-I} toggles the @option{-i} (@option{--autoindent}) command-line option.
 
-@item Cut From Cursor To End-of-Line toggle
+@item Cut From Cursor To End-of-Line
 @kbd{Meta-K} toggles the @option{-k} (@option{--cutfromcursor}) command-line option.
 
-@item Long-Line Wrapping toggle
-@kbd{Meta-L} toggles the @option{-w} (@option{--nowrap}) command-line option.
+@item Long-Line Wrapping
+@kbd{Meta-L} toggles the @option{-b} (@option{--breaklonglines}) command-line option.
 
-@item Mouse Support toggle
+@item Mouse Support
 @kbd{Meta-M} toggles the @option{-m} (@option{--mouse}) command-line option.
 
-@item No Conversion From DOS/Mac Format toggle
-@kbd{Meta-N} toggles the @option{-N} (@option{--noconvert}) command-line option.
+@item Line Numbers
+@kbd{Meta-N} toggles the @option{-l} (@option{--linenumbers}) command-line option.
 
-@item More Space For Editing toggle
-@kbd{Meta-O} toggles the @option{-O} (@option{--morespace}) command-line option.
+@item Tabs To Spaces
+@kbd{Meta-O} toggles the @option{-E} (@option{--tabstospaces}) command-line option.
 
-@item Whitespace Display toggle
-@kbd{Meta-P} toggles the whitespace-display mode (@pxref{Whitespace}).
+@item Whitespace Display
+@kbd{Meta-P} toggles the displaying of whitespace (@pxref{Whitespace}).
 
-@item Tabs To Spaces toggle
-@kbd{Meta-Q} toggles the @option{-E} (@option{--tabstospaces}) command-line option.
+@item Soft Wrapping
+@kbd{Meta-S} toggles the @option{-S} (@option{--softwrap}) command-line option.
 
-@item Smooth Scrolling toggle
-@kbd{Meta-S} toggles the @option{-S} (@option{--smooth}) command-line option.
-
-@item Expert/No Help toggle
+@item Expert/No Help
 @kbd{Meta-X} toggles the @option{-x} (@option{--nohelp}) command-line option.
 
-@item Color Syntax Highlighting toggle
+@item Color Syntax Highlighting
 @kbd{Meta-Y} toggles color syntax highlighting (if your nanorc defines syntaxes
 --- @pxref{Syntax Highlighting}).
 
-@item Suspension toggle
-@kbd{Meta-Z} toggles the @option{-z} (@option{--suspend}) command-line option.
-
-@item Line Numbers toggle
-@kbd{Meta-#} toggles the @option{-l} (@option{--linenumbers}) command-line option.
-
-@item Soft Wrapping toggle
-@kbd{Meta-$} toggles the @option{-$} (@option{--softwrap}) command-line option.
+@item Suspension
+@kbd{Meta-Z} toggles the @option{-z} (@option{--suspendable}) command-line option.
 
 @end table
 
@@ -649,18 +691,21 @@ The following global toggles are available:
 @node Nanorc Files
 @chapter Nanorc Files
 
-The nanorc files contain the default settings for @command{nano}.  They
-should be in Unix format, not in DOS or Mac format.  During startup,
-@command{nano} will first read the system-wide settings, from /etc/nanorc
-(the exact path might be different), and then the user-specific settings,
+The nanorc files contain the default settings for @command{nano}.  During
+startup, if @option{--rcfile} is not given, @command{nano} will read two files:
+first the system-wide settings, from @file{/etc/nanorc} (the exact path
+might be different on your system), and then the user-specific settings,
 either from @file{~/.nanorc} or from @file{$XDG_CONFIG_HOME/nano/nanorc}
 or from @file{.config/nano/nanorc}, whichever exists first.
+If @option{--rcfile} is given, @command{nano} will read just the
+specified settings file.
 
 A nanorc file accepts a series of "set" and "unset" commands, which can
 be used to configure @command{nano} on startup without using command-line
 options.  Additionally, there are some commands to define syntax highlighting
 and to rebind keys --- @pxref{Syntax Highlighting} and @ref{Rebinding Keys}.
 @command{nano} will read one command per line.
+All commands and keywords should be written in lowercase.
 
 Options in nanorc files take precedence over @command{nano}'s defaults, and
 command-line options override nanorc settings.  Also, options that do not
@@ -668,10 +713,8 @@ take an argument are unset by default.  So using the @code{unset} command
 is only needed when wanting to override a setting of the system's nanorc
 file in your own nanorc.  Options that take an argument cannot be unset.
 
-Quotes inside string parameters don't have to be escaped with
-backslashes.  The last double quote in the string will be treated as its
-end.  For example, for the @code{brackets} option, @t{""')>]@}"} will match
-@code{"}, @code{'}, @code{)}, @code{>}, @code{]}, and @code{@}}.
+Quotes inside the @var{characters} parameters below should not be escaped.
+The last double quote on the line will be seen as the closing quote.
 
 @menu
 * Settings::
@@ -686,6 +729,9 @@ The supported settings in a nanorc file are:
 
 @table @code
 
+@item set afterends
+Make Ctrl+Right and Ctrl+Delete stop at word ends instead of beginnings.
+
 @item set allow_insecure_backup
 When backing up files, allow the backup to succeed even if its
 permissions can't be (re)set due to special OS considerations.
@@ -696,7 +742,9 @@ When soft line wrapping is enabled, make it wrap lines at blank characters
 (tabs and spaces) instead of always at the edge of the screen.
 
 @item set autoindent
-Use auto-indentation.
+Automatically indent a newly created line to the same number of tabs
+and/or spaces as the previous line (or as the next line if the previous
+line is the beginning of a paragraph).
 
 @item set backup
 When saving a file, back up the previous version of it, using the current
@@ -708,22 +756,21 @@ numbered one every time a file is saved --- when backups are enabled
 with @code{set backup} or @option{--backup} or @option{-B}.
 The uniquely numbered files are stored in the specified directory.
 
-@item set backwards
-Obsolete option.  Recognized but ignored.  @code{^Q} is available to
-start a backward search.
-
 @item set boldtext
 Use bold instead of reverse video for the title bar, status bar, key combos,
-function tags, line numbers, and selected text.  This can be overridden by
+function tags, line numbers, and selected text.  This is overridden by
 setting the options @code{titlecolor}, @code{statuscolor}, @code{keycolor},
-@code{functioncolor}, @code{numbercolor}, and @code{selectedcolor}.
+@code{functioncolor}, @code{numbercolor}, and/or @code{selectedcolor}.
 
-@item set brackets "@var{string}"
+@item set brackets "@var{characters}"
 Set the characters treated as closing brackets when justifying
 paragraphs.  This may not include blank characters.  Only closing
 punctuation (see @code{set punct}), optionally followed by the specified
 closing brackets, can end sentences.  The default value is
-@t{"')>]@}"}.
+@t{""')>]@}"}.
+
+@item set breaklonglines
+Automatically hard-wrap the current line when it becomes overlong.
 
 @item set casesensitive
 Do case-sensitive searches by default.
@@ -734,13 +781,21 @@ Note that this overrides @option{quickblank}.
 
 @item set cutfromcursor
 Use cut-from-cursor-to-end-of-line by default, instead of cutting the whole line.
-(The old form of this option, @code{set cut}, is deprecated.)
+
+@item set emptyline
+Do not use the line below the title bar, leaving it entirely blank.
+
+@item set errorcolor @var{fgcolor},@var{bgcolor}
+Use this color combination for the status bar when an error message is displayed.
+The default value is @t{brightwhite,red}.
+@xref{@code{set functioncolor}} for valid color names.
 
 @item set fill @var{number}
-Hard-wrap lines at column number @var{number}.  If @var{number} is 0 or less,
-the maximum line length will be the screen width less @var{number} columns.
-The default value is @t{-8}.  This option conflicts with
-@option{nowrap}; the last one given takes effect.
+Set the target width for justifying and automatic hard-wrapping at this
+@var{number} of columns.  If the value is 0 or less, wrapping will occur
+at the width of the screen minus @var{number} columns, allowing the wrap
+point to vary along with the width of the screen if the screen is resized.
+The default value is @t{-8}.
 
 @anchor{@code{set functioncolor}}
 @item set functioncolor @var{fgcolor},@var{bgcolor}
@@ -748,13 +803,21 @@ Use this color combination for the concise function descriptions
 in the two help lines at the bottom of the screen.
 Valid names for foreground and background color are:
 @code{white}, @code{black}, @code{blue}, @code{green},
-@code{red}, @code{cyan}, @code{yellow}, and @code{magenta}.
+@code{red}, @code{cyan}, @code{yellow}, @code{magenta}, and @code{normal}
+--- where @code{normal} means the default foreground or background color.
 The name of the foreground color may be prefixed with @code{bright}.
 And either @var{fgcolor} or ,@var{bgcolor} may be left out.
+
+@item set guidestripe @var{number}
+Draw a vertical stripe at the given column, to help judge the width of the
+text.  (The color of the stripe can be changed with @code{set stripecolor}.)
 
 @item set historylog
 Save the last hundred search strings and replacement strings and
 executed commands, so they can be easily reused in later sessions.
+
+@item set jumpyscrolling
+Scroll the buffer contents per half-screen instead of per line.
 
 @item set keycolor @var{fgcolor},@var{bgcolor}
 Use this color combination for the shortcut key combos
@@ -767,14 +830,15 @@ Display line numbers to the left of the text area.
 @item set locking
 Enable vim-style lock-files for when editing files.
 
-@item set matchbrackets "@var{string}"
+@item set matchbrackets "@var{characters}"
 Set the opening and closing brackets that can be found by bracket
 searches.  This may not include blank characters.  The opening set must
 come before the closing set, and the two sets must be in the same order.
 The default value is @t{"(<[@{)>]@}"}.
 
 @item set morespace
-Use the blank line below the title bar as extra editing space.
+Deprecated option since it has become the default setting.
+When needed, use @code{unset emptyline} instead.
 
 @item set mouse
 Enable mouse support, so that mouse clicks can be used to place the
@@ -789,16 +853,16 @@ Don't convert files from DOS/Mac format.
 @item set nohelp
 Don't display the help lists at the bottom of the screen.
 
-@item set nopauses
-Don't pause between warnings at startup.  This means that only
-the last one will be visible (when there are multiple ones).
-
 @item set nonewlines
-Don't add newlines to the ends of files.
+Don't automatically add a newline when a text does not end with one.
+(This can cause you to save non-POSIX text files.)
+
+@item set nopauses
+Obsolete option.  Ignored.
 
 @item set nowrap
-Don't hard-wrap text at all.  This option conflicts with
-@option{fill}; the last one given takes effect.
+Deprecated option since it has become the default setting.
+When needed, use @code{unset breaklonglines} instead.
 
 @item set numbercolor @var{fgcolor},@var{bgcolor}
 Use this color combination for line numbers.
@@ -817,7 +881,7 @@ The cursor position is remembered for the 200 most-recently edited files.
 @item set preserve
 Preserve the XON and XOFF keys (@kbd{^Q} and @kbd{^S}).
 
-@item set punct "@var{string}"
+@item set punct "@var{characters}"
 Set the characters treated as closing punctuation when justifying
 paragraphs.  This may not include blank characters.  Only the
 specified closing punctuation, optionally followed by closing brackets
@@ -828,37 +892,36 @@ The default value is @t{"!.?"}.
 Do quick status-bar blanking: status-bar messages will disappear after 1
 keystroke instead of 25.  Note that @option{constantshow} overrides this.
 
-@item set quiet
-Obsolete option.  Recognized but ignored.
+@item set quotestr "@var{regex}"
+Set the regular expression for matching the quoting part of a line.
+The default value is @t{"^([@w{ }\t]*([!#%:;>|@}]|//))+"}.
+(Note that @code{\t} stands for a literal Tab character.)
+This makes it possible to rejustify blocks of quoted text when composing
+email, and to rewrap blocks of line comments when writing source code.
 
-@item set quotestr "@var{string}"
-The email-quote string, used to justify email-quoted paragraphs.  This
-is an extended regular expression if your system supports them,
-otherwise a literal string.  The default value is
-@t{"^([ \\t]*[#:>\\|@}])+"} if you have extended regular expression
-support, and @t{"> "} otherwise.
-Note that @code{\t} stands for a literal Tab character.
+@item set rawsequences
+Interpret escape sequences directly (instead of asking @code{ncurses} to
+translate them).  If you need this option to get your keyboard to work
+properly, please report a bug.  Using this option disables @command{nano}'s
+mouse support.
 
 @item set rebinddelete
-Interpret the Delete key differently so that both Backspace and Delete
-work properly.  You should only need to use this option if Backspace
-acts like Delete on your system.
-
-@item set rebindkeypad
-Interpret the numeric keypad keys so that they all work properly.  You
-should only need to use this option if they don't, as mouse support
-won't work properly with this option enabled.
+Interpret the Delete and Backspace keys differently so that both Backspace
+and Delete work properly.  You should only use this option when on your
+system either Backspace acts like Delete or Delete acts like Backspace.
 
 @item set regexp
-Do extended regular expression searches by default.
+Do regular-expression searches by default.
+Regular expressions in @command{nano} are of the extended type (ERE).
 
 @item set selectedcolor @var{fgcolor},@var{bgcolor}
 Use this color combination for selected text.
 @xref{@code{set functioncolor}} for valid color names.
 
 @item set showcursor
-Put the cursor on the highlighted item in the file browser, to aid
-braille users.
+Put the cursor on the highlighted item in the file browser, and show
+the cursor in the help viewer, to aid braille users and people with
+poor vision.
 
 @item set smarthome
 Make the Home key smarter.  When Home is pressed anywhere but at the
@@ -868,12 +931,15 @@ already at that position, it will jump to the true beginning of the
 line.
 
 @item set smooth
-Use smooth scrolling by default.
+Deprecated option since it has become the default setting.
+When needed, use @code{unset jumpyscrolling} instead.
 
 @item set softwrap
-Enable soft line wrapping for easier viewing of very long lines.
+Display lines that exceed the screen's width over multiple screen lines.
+(You can make this soft-wrapping occur at whitespace instead of rudely at
+the screen's edge, by using also @code{set atblanks}.)
 
-@item set speller "@var{program}"
+@item set speller "@var{program} [@var{argument} @dots{}]"
 Use the given program to do spell checking and correcting.
 @xref{@option{--speller}} for details.
 
@@ -881,8 +947,12 @@ Use the given program to do spell checking and correcting.
 Use this color combination for the status bar.
 @xref{@code{set functioncolor}} for valid color names.
 
-@item set suspend
-Allow @command{nano} to be suspended.
+@item set stripecolor @var{fgcolor},@var{bgcolor}
+Use this color combination for the vertical guiding stripe.
+@xref{@code{set functioncolor}} for valid color names.
+
+@item set suspendable
+Allow @command{nano} to be suspended (with @kbd{^Z} by default).
 
 @item set tabsize @var{number}
 Use a tab size of @var{number} columns.  The value of @var{number} must be
@@ -908,10 +978,12 @@ default behavior of saving a file in the format that it had.
 (This option has no effect when you also use @code{set noconvert}.)
 
 @item set view
-Disallow file modification.
+Disallow file modification: read-only mode.
+This mode allows the user to open also other files for viewing,
+unless @option{--restricted} is given on the command line.
 
 @anchor{Whitespace}
-@item set whitespace "@var{string}"
+@item set whitespace "@var{characters}"
 Set the two characters used to indicate the presence of tabs and
 spaces.  They must be single-column characters.  The default pair
 for a UTF-8 locale is @t{"»·"}, and for other locales @t{">."}.
@@ -920,10 +992,14 @@ for a UTF-8 locale is @t{"»·"}, and for other locales @t{">."}.
 Detect word boundaries differently by treating punctuation
 characters as part of a word.
 
-@item set wordchars "@var{string}"
+@item set wordchars "@var{characters}"
 Specify which other characters (besides the normal alphanumeric ones)
-should be considered as parts of words.  This overrides the option
-@code{wordbounds}.
+should be considered as parts of words.  When using this option, you
+probably want to unset @code{wordbounds}.
+
+@item set zap
+Let an unmodified @key{Backspace} or @key{Delete} erase the marked region
+(instead of a single character, and without affecting the cutbuffer).
 
 @end table
 
@@ -937,12 +1013,26 @@ powerful enough to fully parse a file.  Nevertheless, regular
 expressions can do a lot and are easy to make, so they are a
 good fit for a small editor like @command{nano}.
 
+All regular expressions in @command{nano} are POSIX extended regular expressions
+(ERE).  This means that @code{.}, @code{?}, @code{*}, @code{+}, @code{^},
+@code{$}, and several other characters are special.
+The period @code{.} matches any single character,
+@code{?} means the preceding item is optional,
+@code{*} means the preceding item may be matched zero or more times,
+@code{+} means the preceding item must be matched one or more times,
+@code{^} matches the beginning of a line, and @code{$} the end,
+@code{\<} matches the start of a word, and @code{\>} the end,
+and @code{\s} matches a blank.
+It also means that lookahead and lookbehind are not possible.
+A complete explanation can be found in the manual of GNU grep:
+@code{info grep regular}.
+
 A separate syntax can be defined for each kind of file
 via the following commands in a nanorc file:
 
 @table @code
 
-@item syntax "@var{name}" ["@var{fileregex}" @dots{}]
+@item syntax @var{name} ["@var{fileregex}" @dots{}]
 Start the definition of a syntax with this @var{name}.
 All subsequent @code{color} and other such commands
 will be added to this syntax, until a new @code{syntax}
@@ -955,7 +1045,7 @@ activated by using the @option{-Y} or @option{--syntax}
 command-line option followed by the @var{name}.
 
 The @code{default} syntax is special: it takes no @var{fileregex},
-and applies to files that don't match any syntax's @var{fileregex}.
+and applies to files that don't match any syntax's regexes.
 The @code{none} syntax is reserved; specifying it on the
 command line is the same as not having a syntax at all.
 
@@ -972,14 +1062,14 @@ file, to determine whether this syntax should be used for it.
 (This functionality only works when @code{libmagic} is installed
 on the system and will be silently ignored otherwise.)
 
-@item linter @var{program} [@var{arg} @dots{}]
-Use the given @var{program} to do a syntax check on the current file.
-(This overrides the speller function.)
+@item formatter @var{program} [@var{argument} @dots{}]
+Run the given @var{program} on the full contents of the current buffer.
+(The current buffer is written out to a temporary file, the program is
+run on it, and then the temporary file is read back in, replacing the
+contents of the buffer.)
 
-@item formatter @var{program} [@var{arg} @dots{}]
-Use the given @var{program} to automatically reformat text ---
-useful for a programming language like Go.
-(This overrides the speller and linter functions.)
+@item linter @var{program} [@var{argument} @dots{}]
+Use the given @var{program} to do a syntax check on the current buffer.
 
 @item comment "@var{string}"
 Use the given string for commenting and uncommenting lines.
@@ -992,23 +1082,33 @@ Python files.  If empty double quotes are specified, the comment/uncomment
 functions are disabled; for example, @t{""} for JSON.
 The default value is @t{"#"}.
 
+@item tabgives "@var{string}"
+Make the <Tab> key produce the given @var{string}.  Useful for languages like
+Python that want to see only spaces for indentation.
+This overrides the setting of the @code{tabstospaces} option.
+
 @item color @var{fgcolor},@var{bgcolor} "@var{regex}" @dots{}
-Display all pieces of text that match the
-extended regular expression "regex" with foreground color "fgcolor" and
-background color "bgcolor", at least one of which must be specified.
-Valid colors for foreground and background are: white, black, red,
-blue, green, yellow, magenta, and cyan.  You may use the prefix "bright"
-to get a stronger color highlight for the foreground.  If your
-terminal supports transparency, not specifying a "bgcolor" tells @command{nano}
-to attempt to use a transparent background.
+Paint all pieces of text that match the extended regular expression "regex"
+with the given foreground and background colors, at least one of which must
+be specified.  Valid color names are:
+@code{white}, @code{black}, @code{blue}, @code{green},
+@code{red}, @code{cyan}, @code{yellow}, @code{magenta}, and @code{normal}
+--- where @code{normal} means the default foreground or background color.
+You may use the prefix @code{bright} for the foreground color to get a
+stronger highlight.
+If your terminal supports transparency, not specifying a "bgcolor"
+tells @command{nano} to attempt to use a transparent background.
+
+All coloring commands are applied in the order in which they are specified,
+which means that later commands can recolor stuff that was colored earlier.
 
 @item icolor @var{fgcolor},@var{bgcolor} "@var{regex}" @dots{}
 Same as above, except that the matching is case insensitive.
 
 @item color @var{fgcolor},@var{bgcolor} start="@var{fromrx}" end="@var{torx}"
-Display all pieces of text whose start matches extended regular expression
+Paint all pieces of text whose start matches extended regular expression
 "fromrx" and whose end matches extended regular expression "torx" with
-foreground color "fgcolor" and background color "bgcolor", at least one of
+the given foreground and background colors, at least one of
 which must be specified.  This means that, after an initial instance of
 "fromrx", all text until the first instance of "torx" will be colored.
 This allows syntax highlighting to span multiple lines.
@@ -1021,11 +1121,11 @@ Read in self-contained color syntaxes from "syntaxfile".  Note that
 "syntaxfile" may contain only the above commands, from @code{syntax}
 to @code{icolor}.
 
-@item extendsyntax @var{name} @var{command} [@var{arg} @dots{}]
+@item extendsyntax @var{name} @var{command} @var{argument} @dots{}
 Extend the syntax previously defined as "@var{name}" with another @var{command}.
 This allows you to add a new @code{color}, @code{icolor}, @code{header},
-@code{magic}, @code{comment}, @code{linter}, or @code{formatter} command
-to an already
+@code{magic}, @code{formatter}, @code{linter}, @code{comment},
+or @code{tabgives} command to an already
 defined syntax --- useful when you want to slightly improve a syntax defined
 in one of the system-installed files (which normally are not writable).
 
@@ -1034,18 +1134,25 @@ in one of the system-installed files (which normally are not writable).
 @node Rebinding Keys
 @section Rebinding Keys
 
-Key bindings can be changed via the following two commands in a
+Key bindings can be changed via the following three commands in a
 nanorc file:
 
 @table @code
 
 @item bind key function menu
 Rebinds @code{key} to @code{function} in the context of @code{menu}
-(or in all menus where the function exists by using @code{all}).
+(or in all menus where the function exists when @code{all} is used).
+
+@item bind key "string" menu
+Makes @code{key} produce @code{string} in the context of @code{menu}
+(or in all menus where the key exists when @code{all} is used).
+The @code{string} can consist of text or commands or a mix of them.
+(To enter a command into the @code{string}, precede its keystroke
+with @kbd{M-V}.)
 
 @item unbind key menu
 Unbinds @code{key} from @code{menu}
-(or from all menus where it exists by using @code{all}).
+(or from all menus where the key exists when @code{all} is used).
 
 @end table
 
@@ -1054,17 +1161,39 @@ The format of @code{key} should be one of:
 
 @itemize @w{}
 @item
-@code{^}@  followed by an ASCII character or the word "Space".
+@code{^@var{X}} ------ where @var{X} is a Latin letter, or one of several
+ASCII characters (@@, ], \, ^, _), or the word "Space".
 Example: @code{^C}.
 
 @item
-@code{M-}@  followed by a ASCII character or the word "Space".
-Example: @code{M-C}.
+@code{M-@var{X}} ------ where @var{X} is any ASCII character except [,
+or the word "Space".
+Example: @code{M-8}.
 
 @item
-@code{F}@  followed by a numeric value from 1 to 16.
+@code{Sh-M-@var{X}} ------ where @var{X} is a Latin letter.
+Example: @code{Sh-M-U}.
+By default, each Meta+letter keystroke does the same as the corresponding
+Shift+Meta+letter.  But when any Shift+Meta bind is made, that will
+no longer be the case, for all letters.
+
+@item
+@code{F@var{n}} ------ where @var{n} is a numeric value from 1 to 24.
 Example: @code{F10}.
+(Often, @code{F13} to @code{F24} can be typed as @code{F1} to @code{F12}
+with Shift.)
+
+@item
+@code{Ins} or @code{Del}.
 @end itemize
+
+Rebinding @code{^M} (Enter) or @code{^I} (Tab) is probably not a good idea.
+Rebinding @code{^[} (Esc) is not possible, because its keycode
+is the starter byte of Meta keystrokes and escape sequences.
+Rebinding any of the dedicated cursor-moving keys (the arrows, Home, End,
+PageUp and PageDown) is not possible.
+On some terminals it's not possible to rebind @code{^H} (unless @code{--raw}
+is used) because its keycode is identical to that of the Backspace key.
 
 @sp 1
 Valid names for the @code{function} to be bound are:
@@ -1095,16 +1224,14 @@ Starts a forward search for text in the current buffer --- or for filenames
 matching a string in the current list in the file browser.
 
 @item wherewas
-Starts a backward search for text in the current buffer.
-
-@item searchagain
-Repeats the last search command without prompting.
+Starts a backward search for text in the current buffer --- or for filenames
+matching a string in the current list in the file browser.
 
 @item findprevious
-As @code{searchagain}, but always in the backward direction.
+Searches the next occurrence in the backward direction.
 
 @item findnext
-As @code{searchagain}, but always in the forward direction.
+Searches the next occurrence in the forward direction.
 
 @item replace
 Interactively replaces text within the current buffer.
@@ -1112,24 +1239,33 @@ Interactively replaces text within the current buffer.
 @item cut
 Cuts and stores the current line (or the marked region).
 
-@item copytext
+@item copy
 Copies the current line (or the marked region) without deleting it.
 
-@item uncut
-Copies the currently stored text into the current buffer at the
+@item paste
+Pastes the currently stored text into the current buffer at the
 current cursor position.
 
-@item mark
-Sets the mark at the current position, to start selecting text.
+@item zap
+Throws away the current line (or the marked region).
+(This function is bound by default to <Meta+Delete>.)
 
-@item cutwordleft
-Cuts from the cursor position to the beginning of the preceding word.
+@item chopwordleft
+Deletes from the cursor position to the beginning of the preceding word.
+(This function is bound by default to <Shift+Ctrl+Delete>.  If your terminal
+produces @code{^H} for <Ctrl+Backspace>, you can make <Ctrl+Backspace> delete
+the word to the left of the cursor by rebinding @kbd{^H} to this function.)
 
-@item cutwordright
-Cuts from the cursor position to the beginning of the next word.
+@item chopwordright
+Deletes from the cursor position to the beginning of the next word.
+(This function is bound by default to <Ctrl+Delete>.)
 
 @item cutrestoffile
 Cuts all text from the cursor position till the end of the buffer.
+
+@item mark
+Sets the mark at the current position, to start selecting text.
+Or, when it is set, unsets the mark.
 
 @item curpos
 Shows the current cursor position: the line, column, and character positions.
@@ -1138,11 +1274,21 @@ Shows the current cursor position: the line, column, and character positions.
 Counts the number of words, lines and characters in the current buffer.
 
 @item speller
-Invokes a spell-checking program (or a linting program, if the current
-syntax highlighting defines one).
+Invokes a spell-checking program, either the default @command{hunspell}
+or GNU @command{spell}, or the one defined by @option{--speller} or
+@code{set speller}.
+
+@item formatter
+Invokes a full-buffer-processing program (if the active syntax defines one).
+
+@item linter
+Invokes a syntax-checking program (if the active syntax defines one).
 
 @item justify
-Justifies the current paragraph.
+Justifies the current paragraph.  A paragraph is a group of contiguous lines
+that, apart from possibly the first line, all have the same indentation.  The
+beginning of a paragraph is detected by either this lone line with a differing
+indentation or by a preceding blank line.
 
 @item fulljustify
 Justifies the entire current buffer.
@@ -1174,10 +1320,12 @@ Goes one line up (in the editor or browser).
 Goes one line down (in the editor or browser).
 
 @item scrollup
-Scrolls up one line of text from the current position.
+Scrolls the viewport up one row (meaning that the text slides down)
+while keeping the cursor in the same text position, if possible.
 
 @item scrolldown
-Scrolls down one line of text from the current position.
+Scrolls the viewport down one row (meaning that the text slides up)
+while keeping the cursor in the same text position, if possible.
 
 @item prevword
 Moves the cursor to the beginning of the previous word.
@@ -1224,6 +1372,15 @@ from the end of the file (and end of the line).
 Moves the cursor to the bracket (brace, parenthesis, etc.) that matches
 (pairs) with the one under the cursor.
 
+@item anchor
+Places an anchor at the current line, or removes it when already present.
+
+@item prevanchor
+Goes to the first anchor before the current line.
+
+@item nextanchor
+Goes to the first anchor after the current line.
+
 @item prevbuf
 Switches to editing/viewing the previous buffer when multiple buffers are open.
 
@@ -1263,36 +1420,44 @@ Refreshes the screen.
 
 @item suspend
 Suspends the editor (if the suspending function is enabled, see the
-"suspendenable" entry below).
+@code{suspendable} toggle item below).
 
 @item casesens
-Toggles case sensitivity in searching (search/replace menus only).
+Toggles whether searching/replacing ignores or respects the case of
+the given characters.
 
 @item regexp
-Toggles whether searching/replacing is based on literal strings or regular expressions.
+Toggles whether searching/replacing uses literal strings or regular expressions.
 
 @item backwards
 Toggles whether searching/replacing goes forward or backward.
 
-@item prevhistory
-Shows the previous history entry in the prompt menus (e.g.@: search).
+@item older
+Retrieves the previous (earlier) entry at a prompt.
 
-@item nexthistory
-Shows the next history entry in the prompt menus (e.g.@: search).
+@item newer
+Retrieves the next (later) entry at a prompt.
 
 @item flipreplace
 Toggles between searching for something and replacing something.
 
 @item flipgoto
 Toggles between searching for text and targeting a line number.
-(The form @code{gototext} is deprecated.)
 
 @item flipexecute
 Toggles between inserting a file and executing a command.
 
+@item flippipe
+When executing a command, toggles whether the current buffer (or marked
+region) is piped to the command.
+
 @item flipnewbuffer
 Toggles between inserting into the current buffer and into a new
 empty buffer.
+
+@item flipconvert
+When reading in a file, toggles between converting and not converting
+it from DOS/Mac format.  Converting is the default.
 
 @item dosformat
 When writing a file, switches to writing a DOS format (CR/LF).
@@ -1311,7 +1476,7 @@ When writing a file, creates a backup of the current file.
 
 @item discardbuffer
 When about to write a file, discard the current buffer without saving.
-(This function is bound by default only when option @option{--tempfile}
+(This function is bound by default only when option @option{--saveonexit}
 is in effect.)
 
 @item browser
@@ -1330,17 +1495,14 @@ Goes to the last file when using the file browser (reading or writing files).
 @item nohelp
 Toggles the presence of the two-line list of key bindings at the bottom of the screen.
 
-@item constupdate
+@item constantshow
 Toggles the constant display of the current line, column, and character positions.
-
-@item morespace
-Toggles the presence of the blank line that 'separates' the title bar from the file text.
-
-@item smoothscroll
-Toggles smooth scrolling (when moving around with the arrow keys).
 
 @item softwrap
 Toggles the displaying of overlong lines on multiple screen lines.
+
+@item linenumbers
+Toggles the display of line numbers in front of the text.
 
 @item whitespacedisplay
 Toggles the showing of whitespace.
@@ -1352,9 +1514,11 @@ Toggles syntax highlighting.
 Toggles the smartness of the Home key.
 
 @item autoindent
-Toggles whether new lines will contain the same amount of whitespace as the preceding line.
+Toggles whether a newly created line will contain the same amount of leading
+whitespace as the preceding line --- or as the next line if the preceding line
+is the beginning of a paragraph.
 
-@item cuttoend
+@item cutfromcursor
 Toggles whether cutting text will cut the whole line or just from the current cursor
 position to the end of the line.
 
@@ -1364,21 +1528,13 @@ Toggles whether long lines will be hard-wrapped to the next line.
 @item tabstospaces
 Toggles whether typed tabs will be converted to spaces.
 
-@item backupfile
-Toggles whether a backup will be made of the file to be edited.
-
-@item multibuffer
-Toggles whether a file is inserted into the current buffer
-or read into a new buffer.
-
 @item mouse
 Toggles mouse support.
 
-@item noconvert
-Toggles automatic conversion of files from DOS/Mac format.
-
-@item suspendenable
-Toggles whether the suspend shortcut (normally @kbd{^Z}) will suspend the editor.
+@item suspendable
+Toggles whether the suspend keystroke (@kbd{^Z} by default)
+will actually suspend the editor.
+(The old name of this function, 'suspendenable', is deprecated.)
 
 @end table
 
@@ -1399,6 +1555,9 @@ The 'search to replace' menu.
 @item replacewith
 The 'replace with' menu, which comes up after 'search to replace'.
 
+@item yesno
+The 'yesno' menu, where the Yes/No/All/Cancel question is asked.
+
 @item gotoline
 The 'goto line (and column)' menu.
 
@@ -1415,13 +1574,13 @@ The menu for inserting output from an external command, reached from the insert 
 The help-viewer menu.
 
 @item spell
-The interactive spell checker Yes/no menu.
+The menu of the integrated spell checker where the user can edit a misspelled word.
 
 @item linter
 The linter menu.
 
 @item browser
-The file browser for inserting or writing a file.
+The file browser, for choosing a file to read from or write to.
 
 @item whereisfile
 The 'search for a file' menu in the file browser.
@@ -1440,14 +1599,15 @@ it means all menus where the specified @code{key} exists.
 @node The File Browser
 @chapter The File Browser
 
-When reading or writing files, pressing @kbd{^T} will invoke the file browser.
+When in the Read-File (@kbd{^R}) or Write-Out menu (@kbd{^O}),
+pressing @kbd{^T} will invoke the file browser.
 Here, one can navigate directories in a graphical manner in order to
 find the desired file.
 
-Basic movement in the file browser is accomplished with the arrow keys,
-page up, and page down.  More advanced movement is accomplished by
-searching via @kbd{^W} (or @kbd{w'} and changing directories via
-@kbd{^_} (or @kbd{g}).  The behavior of the @kbd{Enter} key (or @kbd{s})
+Basic movement in the file browser is accomplished with the arrow and
+other cursor-movement keys.  More targeted movement is accomplished by
+searching, via @kbd{^W} or @kbd{w}, or by changing directory, via
+@kbd{^_} or @kbd{g}.  The behavior of the @kbd{Enter} key (or @kbd{s})
 varies by what is currently selected.
 If the currently selected object is a directory, the file browser will
 enter and display the contents of the directory.  If the object is a
@@ -1458,10 +1618,33 @@ browser exits.
 @node Pico Compatibility
 @chapter Pico Compatibility
 
-@command{nano} attempts to emulate Pico as closely as possible, but there
-are some differences between the editors:
+@command{nano} emulates Pico quite closely, but there
+are some differences between the two editors:
 
 @table @code
+
+@item Hard-Wrapping
+Unlike Pico, @command{nano} does not automatically hard-wrap the current
+line when it becomes overlong during typing.  This hard-wrapping can be
+switched on with the @option{--breaklonglines} option.  With that option,
+@command{nano} by default breaks lines at screen width minus eight columns,
+whereas Pico does it at screen width minus six columns. You can make
+@command{nano} do as Pico by using @option{--fill=-6}.
+
+@item Scrolling
+By default, @command{nano} will scroll just one line (instead of half
+a screen) when the cursor is moved to a line that is just out of view.
+And when paging up or down, @command{nano} keeps the cursor in the same
+screen position as much as possible, instead of always placing it on the
+first line of the viewport.  The Pico-like behavior can be obtained
+with the @option{--jumpyscrolling} option.
+
+@item Edit Area
+Pico never uses the line directly below the title bar, leaving it always
+blank.  @command{nano} includes this line in the editing area, in order
+to not waste space, and because in this way it is slightly clearer where
+the text starts.  If you are accustomed to this line being empty, you can
+get it back with the @option{--emptyline} option.
 
 @item Interactive Replace
 Instead of allowing you to replace either just one occurrence of a search
@@ -1549,54 +1732,54 @@ The possible options to @code{./configure} are:
 @table @code
 
 @item --disable-browser
-Disable the mini file browser that can be called with @kbd{^T} when reading
-or writing files.
+Exclude the mini file browser that can be called with @kbd{^T} when
+wanting to read or write a file.
 
 @item --disable-color
-Disable support for the syntax coloring of files.  This also eliminates
-the @option{-Y} command-line option, which chooses a specific syntax.
+Exclude support for syntax coloring.  This also eliminates the @option{-Y}
+command-line option, which allows choosing a specific syntax.
 
 @item --disable-comment
-Disable the single-keystroke comment/uncomment function (@kbd{M-3}).
+Exclude the single-keystroke comment/uncomment function (@kbd{M-3}).
 
 @item --disable-extra
-Disable the Easter egg: a crawl of major contributors.
+Exclude the Easter egg: a crawl of major contributors.
 
 @item --disable-help
-Disable the help function.  Doing this makes the binary much smaller,
-but makes it difficult for new users to learn more than very basic
+Exclude the help texts (@kbd{^G}).  This makes the binary much smaller,
+but also makes it difficult for new users to learn more than very basic
 things about using the editor.
 
 @item --disable-histories
-Disable the code for the handling of the history files: the search and
+Exclude the code for handling the history files: the search and
 replace strings that were used, and the cursor position at which each
 file was closed.  This also eliminates the @option{-H} and @option{-P}
 command-line options, which switch on the logging of search/replace
 strings and cursor positions.
 
 @item --disable-justify
-Disable the justify and unjustify functions.
+Exclude the justify functions (@kbd{^J} and @kbd{M-J}).
 
 @item --disable-libmagic
-Disable the use of the library of magic-number tests (for determining
-the file type and thus which syntax to use for colouring --- often the
-tests on filename extension and header line will be enough).
+Exclude the code for using the library of magic-number tests (for determining
+the file type and thus which syntax to use for coloring --- often the regexes
+for filename and header line will be enough).
 
 @item --disable-linenumbers
-Disable the line-numbering function (@kbd{M-#}).  This also eliminates the
+Exclude the line-numbering function (@kbd{M-N}).  This also eliminates the
 @option{-l} command-line option, which turns line numbering on.
 
 @item --disable-mouse
-Disable all mouse functionality.  This also eliminates the @option{-m}
+Exclude all mouse functionality.  This also eliminates the @option{-m}
 command-line option, which enables the mouse functionality.
 
 @item --disable-multibuffer
-Disable support for opening multiple files at a time and switching
+Exclude support for opening multiple files at a time and switching
 between them on the fly.  This also eliminates the @option{-F} command-line
 option, which causes a file to be read into a separate buffer by default.
 
 @item --disable-nanorc
-Disable support for reading the nanorc files at startup.  With such
+Exclude support for reading the nanorc files at startup.  With such
 support, you can store custom settings in a system-wide and a per-user
 nanorc file rather than having to pass command-line options to get
 the desired behavior.  @xref{Nanorc Files} for more info.
@@ -1604,22 +1787,23 @@ Disabling this also eliminates the @option{-I} command-line option,
 which inhibits the reading of nanorc files.
 
 @item --disable-operatingdir
-Disable setting the operating directory.  This also eliminates the @option{-o}
-command-line option, which sets the operating directory.
+Exclude the code for setting the operating directory.  This also eliminates
+the @option{-o} command-line option, which sets the operating directory.
 
 @item --disable-speller
-Disable use of the spell checker.  This also eliminates the @option{-s}
+Exclude the code for spell checking.  This also eliminates the @option{-s}
 command-line option, which allows specifying an alternate spell checker.
 
 @item --disable-tabcomp
-Disable tab completion (when nano asks for a filename or a search string).
+Exclude tab completion (when nano asks for a filename or a search string).
 
 @item --disable-wordcomp
-Disable word completion (@kbd{^]}).
+Exclude word completion (@kbd{^]}).
 
 @item --disable-wrapping
-Disable all hard-wrapping of overlong lines.  This also eliminates the
-@option{-w} command-line option, which switches long-line wrapping off.
+Exclude all hard-wrapping of overlong lines.  This also eliminates the
+@option{-b} and @option{-w} command-line options, which switch automatic
+long-line wrapping on and off, respectively.
 
 @item --enable-tiny
 This option implies all of the above.  It also disables some other
@@ -1629,23 +1813,19 @@ counterpart of the above options together with @option{--enable-tiny},
 specific features can be switched back on --- but a few cannot.
 
 @item --enable-debug
-Enable support for runtime debug output.  This can get pretty messy, so
+Include some code for runtime debugging output.  This can get pretty messy, so
 chances are you only want this feature when you're working on the nano source.
 
 @item --disable-nls
-Disables Native Language support.  This will disable the use of any
+Exclude Native Language support.  This will disable the use of any
 available GNU @command{nano} translations.
 
-@item --disable-wrapping-as-root
-Disable hard-wrapping of overlong lines by default when @command{nano}
-is run as root.
-
 @item --enable-utf8
-Enable support for reading and writing Unicode files.  This will require
+Include support for reading and writing Unicode files.  This will require
 either a wide version of curses, or a UTF-8-enabled version of Slang.
 
 @item --disable-utf8
-Disable support for reading and writing Unicode files.  Normally the
+Exclude support for reading and writing Unicode files.  Normally the
 configure script auto-detects whether to enable UTF-8 support or not.
 You can use this or the previous option to override that detection.
 

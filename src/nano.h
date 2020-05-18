@@ -1,7 +1,7 @@
 /**************************************************************************
  *   nano.h  --  This file is part of GNU nano.                           *
  *                                                                        *
- *   Copyright (C) 1999-2011, 2013-2018 Free Software Foundation, Inc.    *
+ *   Copyright (C) 1999-2011, 2013-2020 Free Software Foundation, Inc.    *
  *   Copyright (C) 2014-2017 Benno Schulenberg                            *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
@@ -18,9 +18,6 @@
  *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
  *                                                                        *
  **************************************************************************/
-
-#ifndef NANO_H
-#define NANO_H 1
 
 #ifdef HAVE_CONFIG_H
 #include <config.h>
@@ -59,11 +56,9 @@
 #define ISSET(flag) ((FLAGS(flag) & FLAGMASK(flag)) != 0)
 #define TOGGLE(flag) FLAGS(flag) ^= FLAGMASK(flag)
 
-/* Macros for character allocation and more. */
-#define charalloc(howmuch) (char *)nmalloc((howmuch) * sizeof(char))
-#define charealloc(ptr, howmuch) (char *)nrealloc(ptr, (howmuch) * sizeof(char))
-#define charmove(dest, src, n) memmove(dest, src, (n) * sizeof(char))
-#define charset(dest, src, n) memset(dest, src, (n) * sizeof(char))
+/* Macros for allocation of character strings. */
+#define charalloc(howmuch) (char *)nmalloc(howmuch)
+#define charealloc(ptr, howmuch) (char *)nrealloc(ptr, howmuch)
 
 /* In UTF-8 a character is at most six bytes long. */
 #ifdef ENABLE_UTF8
@@ -113,14 +108,11 @@
 #define N_(string) gettext_noop(string)
 		/* Mark a string that will be sent to gettext() later. */
 
-#include <stddef.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <sys/stat.h>
 #include <dirent.h>
 #include <regex.h>
 #include <signal.h>
-#include <assert.h>
+#include <stdlib.h>
+#include <sys/stat.h>
 
 /* If we aren't using an ncurses with mouse support, exclude any
  * mouse routines, as they are useless then. */
@@ -142,13 +134,20 @@
 #define REPLACING 1
 #define INREGION  2
 
+#ifdef ENABLE_COLOR
+#define USE_THE_DEFAULT -1
+#define BAD_COLOR -2
+#endif
+
+#define STANDARD_INPUT  0
+
 /* Enumeration types. */
 typedef enum {
 	NIX_FILE, DOS_FILE, MAC_FILE
-} file_format;
+} format_type;
 
 typedef enum {
-	HUSH, MILD, ALERT
+	HUSH, NOTICE, MILD, ALERT
 } message_type;
 
 typedef enum {
@@ -163,8 +162,9 @@ typedef enum {
 	CENTERING, FLOWING, STATIONARY
 } update_type;
 
+/* The kinds of undo actions.  ADD...REPLACE must come first. */
 typedef enum {
-	ADD, DEL, BACK, CUT, CUT_TO_EOF, REPLACE,
+	ADD, ENTER, BACK, DEL, JOIN, REPLACE,
 #ifdef ENABLE_WRAPPING
 	SPLIT_BEGIN, SPLIT_END,
 #endif
@@ -172,37 +172,29 @@ typedef enum {
 #ifdef ENABLE_COMMENT
 	COMMENT, UNCOMMENT, PREFLIGHT,
 #endif
-	JOIN, PASTE, INSERT, ENTER, OTHER
+	ZAP, CUT, CUT_TO_EOF, COPY, PASTE, INSERT,
+	COUPLE_BEGIN, COUPLE_END, OTHER
 } undo_type;
 
 /* Structure types. */
 #ifdef ENABLE_COLOR
 typedef struct colortype {
+	short id;
+		/* An ordinal number (if this color combo is for a multiline regex). */
 	short fg;
-		/* This syntax's foreground color. */
+		/* This combo's foreground color. */
 	short bg;
-		/* This syntax's background color. */
-	bool bright;
-		/* Is this color A_BOLD? */
-	int pairnum;
-		/* The color pair number used for this foreground color and
-		 * background color. */
+		/* This combo's background color. */
+	short pairnum;
+		/* The pair number for this foreground/background color combination. */
 	int attributes;
 		/* Pair number and brightness composed into ready-to-use attributes. */
-	int rex_flags;
-		/* The regex compilation flags (with or without REG_ICASE). */
-	char *start_regex;
-		/* The start (or all) of the regex string. */
 	regex_t *start;
-		/* The compiled start (or all) of the regex string. */
-	char *end_regex;
-		/* The end (if any) of the regex string. */
+		/* The compiled regular expression for 'start=', or the only one. */
 	regex_t *end;
-		/* The compiled end (if any) of the regex string. */
+		/* The compiled regular expression for 'end=', if any. */
 	struct colortype *next;
-		/* Next set of colors. */
-	int id;
-		/* Basic id for assigning to lines later. */
+		/* Next color combination. */
 } colortype;
 
 typedef struct regexlisttype {
@@ -212,9 +204,26 @@ typedef struct regexlisttype {
 		/* The next regex. */
 } regexlisttype;
 
+typedef struct augmentstruct {
+	char *filename;
+		/* The file where the syntax is extended. */
+	ssize_t lineno;
+		/* The number of the line of the extendsyntax command. */
+	char *data;
+		/* The text of the line. */
+	struct augmentstruct *next;
+		/* Next node. */
+} augmentstruct;
+
 typedef struct syntaxtype {
 	char *name;
 		/* The name of this syntax. */
+	char *filename;
+		/* File where the syntax is defined, or NULL if not an included file. */
+	size_t lineno;
+		/* The line number where the 'syntax' command was found. */
+	struct augmentstruct *augmentations;
+		/* List of extendsyntax commands to apply when loaded. */
 	regexlisttype *extensions;
 		/* The list of extensions that this syntax applies to. */
 	regexlisttype *headers;
@@ -224,14 +233,16 @@ typedef struct syntaxtype {
 	char *linter;
 		/* The command with which to lint this type of file. */
 	char *formatter;
-		/* The formatting command (for programming languages mainly). */
+		/* The command with which to format/modify/arrange this type of file. */
+	char *tab;
+		/* What the Tab key should produce; NULL for default behavior. */
 #ifdef ENABLE_COMMENT
 	char *comment;
 		/* The line comment prefix (and postfix) for this type of file. */
 #endif
 	colortype *color;
 		/* The colors and their regexes used in this syntax. */
-	int nmultis;
+	short nmultis;
 		/* How many multiline regex strings this syntax has. */
 	struct syntaxtype *next;
 		/* Next syntax. */
@@ -268,79 +279,63 @@ typedef struct lintstruct {
 #endif /* ENABLE_COLOR */
 
 /* More structure types. */
-typedef struct filestruct {
+typedef struct linestruct {
 	char *data;
 		/* The text of this line. */
 	ssize_t lineno;
 		/* The number of this line. */
-	struct filestruct *next;
+	struct linestruct *next;
 		/* Next node. */
-	struct filestruct *prev;
+	struct linestruct *prev;
 		/* Previous node. */
 #ifdef ENABLE_COLOR
 	short *multidata;
 		/* Array of which multi-line regexes apply to this line. */
 #endif
-} filestruct;
-
-typedef struct partition {
-	filestruct *fileage;
-		/* The top line of this portion of the file. */
-	filestruct *top_prev;
-		/* The line before the top line of this portion of the file. */
-	char *top_data;
-		/* The text before the beginning of the top line of this portion
-		 * of the file. */
-	filestruct *filebot;
-		/* The bottom line of this portion of the file. */
-	filestruct *bot_next;
-		/* The line after the bottom line of this portion of the
-		 * file. */
-	char *bot_data;
-		/* The text after the end of the bottom line of this portion of
-		 * the file. */
-} partition;
+#ifndef NANO_TINY
+	bool has_anchor;
+		/* Whether the user has placed an anchor at this line. */
+#endif
+} linestruct;
 
 #ifndef NANO_TINY
-typedef struct undo_group {
+typedef struct groupstruct {
 	ssize_t top_line;
 		/* First line of group. */
 	ssize_t bottom_line;
 		/* Last line of group. */
 	char **indentations;
 		/* String data used to restore the affected lines; one per line. */
-	struct undo_group *next;
-} undo_group;
+	struct groupstruct *next;
+		/* The next group, if any. */
+} groupstruct;
 
-typedef struct undo {
-	ssize_t lineno;
+typedef struct undostruct {
 	undo_type type;
-		/* What type of undo this was. */
-	size_t begin;
-		/* Where did this action begin or end. */
+		/* The operation type that this undo item is for. */
+	int xflags;
+		/* Some flag data to mark certain corner cases. */
+	ssize_t head_lineno;
+		/* The line number where the operation began or ended. */
+	size_t head_x;
+		/* The x position where the operation began or ended. */
 	char *strdata;
-		/* String type data we will use for copying the affected line back. */
+		/* String data to help restore the affected line. */
 	size_t wassize;
 		/* The file size before the action. */
 	size_t newsize;
 		/* The file size after the action. */
-	int xflags;
-		/* Some flag data we need. */
-	undo_group *grouping;
+	groupstruct *grouping;
 		/* Undo info specific to groups of lines. */
-
-	/* Cut-specific stuff we need. */
-	filestruct *cutbuffer;
-		/* Copy of the cutbuffer. */
-	filestruct *cutbottom;
-		/* Copy of cutbottom. */
-	ssize_t mark_begin_lineno;
+	linestruct *cutbuffer;
+		/* A copy of the cutbuffer. */
+	ssize_t tail_lineno;
 		/* Mostly the line number of the current line; sometimes something else. */
-	size_t mark_begin_x;
+	size_t tail_x;
 		/* The x position corresponding to the above line number. */
-	struct undo *next;
+	struct undostruct *next;
 		/* A pointer to the undo item of the preceding action. */
-} undo;
+} undostruct;
 #endif /* !NANO_TINY */
 
 #ifdef ENABLE_HISTORIES
@@ -350,21 +345,22 @@ typedef struct poshiststruct {
 	ssize_t lineno;
 		/* Line number we left off on. */
 	ssize_t xno;
-		/* x position in the file we left off on. */
+		/* The x position in the file we left off on. */
 	struct poshiststruct *next;
+		/* The next item of position history. */
 } poshiststruct;
 #endif
 
 typedef struct openfilestruct {
 	char *filename;
 		/* The file's name. */
-	filestruct *fileage;
+	linestruct *filetop;
 		/* The file's first line. */
-	filestruct *filebot;
+	linestruct *filebot;
 		/* The file's last line. */
-	filestruct *edittop;
+	linestruct *edittop;
 		/* The current top of the edit window for this file. */
-	filestruct *current;
+	linestruct *current;
 		/* The current line for this file. */
 	size_t totsize;
 		/* The file's total number of characters. */
@@ -377,40 +373,44 @@ typedef struct openfilestruct {
 		/* The file's x position we would like. */
 	ssize_t current_y;
 		/* The file's y-coordinate position. */
-	bool modified;
-		/* Whether the file has been modified. */
 	struct stat *current_stat;
 		/* The file's current stat information. */
+#ifdef ENABLE_WRAPPING
+	linestruct *spillage_line;
+		/* The line for prepending stuff to during automatic hard-wrapping. */
+#endif
 #ifndef NANO_TINY
-	filestruct *mark;
+	linestruct *mark;
 		/* The line in the file where the mark is set; NULL if not set. */
 	size_t mark_x;
 		/* The mark's x position in the above line. */
 	mark_type kind_of_mark;
 		/* Whether it is a soft (with Shift) or a hard mark. */
-	file_format fmt;
-		/* The file's format -- Unix or DOS or Mac or mixed. */
-	undo *undotop;
+	format_type fmt;
+		/* The file's format -- Unix or DOS or Mac. */
+	char *lock_filename;
+		/* The path of the lockfile, if we created one. */
+	undostruct *undotop;
 		/* The top of the undo list. */
-	undo *current_undo;
+	undostruct *current_undo;
 		/* The current (i.e. next) level of undo. */
-	undo *last_saved;
+	undostruct *last_saved;
 		/* The undo item at which the file was last saved. */
 	undo_type last_action;
 		/* The type of the last action the user performed. */
-	char *lock_filename;
-		/* The path of the lockfile, if we created one. */
 #endif
+	bool modified;
+		/* Whether the file has been modified. */
 #ifdef ENABLE_COLOR
 	syntaxtype *syntax;
-		/* The  syntax struct for this file, if any. */
-	colortype *colorstrings;
-		/* The file's associated colors. */
+		/* The syntax that applies to this file, if any. */
 #endif
+#ifdef ENABLE_MULTIBUFFER
 	struct openfilestruct *next;
 		/* The next open file, if any. */
 	struct openfilestruct *prev;
 		/* The preceding open file, if any. */
+#endif
 } openfilestruct;
 
 #ifdef ENABLE_NANORC
@@ -422,17 +422,15 @@ typedef struct rcoption {
 } rcoption;
 #endif
 
-typedef struct sc {
+typedef struct keystruct {
 	const char *keystr;
-		/* The string that describes a keystroke, like "^C" or "M-R". */
-	bool meta;
-		/* Whether this is a Meta keystroke. */
+		/* The string that describes the keystroke, like "^C" or "M-R". */
 	int keycode;
 		/* The integer that, together with meta, identifies the keystroke. */
 	int menus;
-		/* Which menus this applies to. */
-	void (*scfunc)(void);
-		/* The function we're going to run. */
+		/* The menus in which this keystroke is bound. */
+	void (*func)(void);
+		/* The function to which this keystroke is bound. */
 #ifndef NANO_TINY
 	int toggle;
 		/* If a toggle, what we're toggling. */
@@ -445,12 +443,16 @@ typedef struct sc {
 #ifdef ENABLE_YCMD
 	int visibility; //for completer commands menu
 #endif
-	struct sc *next;
+#ifdef ENABLE_NANORC
+	char *expansion;
+		/* The string of keycodes to which this shortcut is expanded. */
+#endif
+	struct keystruct *next;
 		/* Next in the list. */
-} sc;
+} keystruct;
 
-typedef struct subnfunc {
-	void (*scfunc)(void);
+typedef struct funcstruct {
+	void (*func)(void);
 		/* The actual function to call. */
 	int menus;
 		/* In what menus this function applies. */
@@ -471,9 +473,9 @@ typedef struct subnfunc {
 		/* Is this function allowed when in view mode? */
 	long toggle;
 		/* If this is a toggle, which toggle to affect. */
-	struct subnfunc *next;
+	struct funcstruct *next;
 		/* Next item in the list. */
-} subnfunc;
+} funcstruct;
 
 #ifdef ENABLE_WORDCOMPLETION
 typedef struct completion_word {
@@ -487,8 +489,10 @@ enum
 {
 	TITLE_BAR = 0,
 	LINE_NUMBER,
+	GUIDE_STRIPE,
 	SELECTED_TEXT,
 	STATUS_BAR,
+	ERROR_MESSAGE,
 	KEY_COMBO,
 	FUNCTION_TAG,
 	NUMBER_OF_ELEMENTS
@@ -501,23 +505,23 @@ enum
 	CASE_SENSITIVE,
 	CONSTANT_SHOW,
 	NO_HELP,
-	SUSPEND,
+	SUSPENDABLE,
 	NO_WRAP,
 	AUTOINDENT,
 	VIEW_MODE,
 	USE_MOUSE,
 	USE_REGEXP,
-	TEMP_FILE,
+	SAVE_ON_EXIT,
 	CUT_FROM_CURSOR,
 	BACKWARDS_SEARCH,
 	MULTIBUFFER,
 	SMOOTH_SCROLL,
 	REBIND_DELETE,
-	REBIND_KEYPAD,
+	RAW_SEQUENCES,
 	NO_CONVERT,
 	BACKUP_FILE,
 	INSECURE_BACKUP,
-	NO_COLOR_SYNTAX,
+	NO_SYNTAX,
 	PRESERVE,
 	HISTORYLOG,
 	RESTRICTED,
@@ -529,9 +533,8 @@ enum
 	WORD_BOUNDS,
 	NO_NEWLINES,
 	BOLD_TEXT,
-	QUIET,
 	SOFTWRAP,
-	POS_HISTORY,
+	POSITIONLOG,
 	LOCKING,
 	NOREAD_MODE,
 	MAKE_IT_UNIX,
@@ -539,7 +542,12 @@ enum
 	SHOW_CURSOR,
 	LINE_NUMBERS,
 	NO_PAUSES,
-	AT_BLANKS
+	AT_BLANKS,
+	AFTER_ENDS,
+	LET_THEM_ZAP,
+	BREAK_LONG_LINES,
+	JUMPY_SCROLLING,
+	EMPTY_LINE
 };
 
 /* Flags for the menus in which a given function should be present. */
@@ -559,20 +567,16 @@ enum
 #define MYESNO          (1<<13)
 #define MLINTER         (1<<14)
 #define MFINDINHELP     (1<<15)
-#define MCODECOMPLETION		(1<<16)
-#define MCOMPLETERCOMMANDS	(1<<17)
-#define MREFACTORRENAME		(1<<18)
-/* This is an abbreviation for all menus except Help and YesNo. */
+/* This is an abbreviation for all menus except Help and Browser and YesNo. */
 #define MMOST  (MMAIN|MWHEREIS|MREPLACE|MREPLACEWITH|MGOTOLINE|MWRITEFILE|MINSERTFILE|\
-                MEXTCMD|MBROWSER|MWHEREISFILE|MGOTODIR|MFINDINHELP|MSPELL|MLINTER)
+                MEXTCMD|MWHEREISFILE|MGOTODIR|MFINDINHELP|MSPELL|MLINTER)
 #ifndef NANO_TINY
-#define MSOME  MMOST
+#define MSOME  MMOST|MBROWSER
 #else
 #define MSOME  MMAIN|MBROWSER
 #endif
 
 /* Basic control codes. */
-#define TAB_CODE  0x09
 #define ESC_CODE  0x1B
 #define DEL_CODE  0x7F
 
@@ -583,25 +587,42 @@ enum
 #define CONTROL_DOWN 0x404
 #define CONTROL_HOME 0x405
 #define CONTROL_END 0x406
+#define CONTROL_DELETE 0x40D
 #define SHIFT_CONTROL_LEFT 0x411
 #define SHIFT_CONTROL_RIGHT 0x412
 #define SHIFT_CONTROL_UP 0x413
 #define SHIFT_CONTROL_DOWN 0x414
 #define SHIFT_CONTROL_HOME 0x415
 #define SHIFT_CONTROL_END 0x416
+#define CONTROL_SHIFT_DELETE 0x41D
 #define ALT_LEFT 0x421
 #define ALT_RIGHT 0x422
 #define ALT_UP 0x423
 #define ALT_DOWN 0x424
+#define ALT_PAGEUP 0x427
+#define ALT_PAGEDOWN 0x428
+#define ALT_INSERT 0x42C
+#define ALT_DELETE 0x42D
 #define SHIFT_ALT_LEFT 0x431
 #define SHIFT_ALT_RIGHT 0x432
 #define SHIFT_ALT_UP 0x433
 #define SHIFT_ALT_DOWN 0x434
+//#define SHIFT_LEFT 0x451
+//#define SHIFT_RIGHT 0x452
+#define SHIFT_UP 0x453
+#define SHIFT_DOWN 0x454
 #define SHIFT_HOME 0x455
 #define SHIFT_END 0x456
 #define SHIFT_PAGEUP 0x457
 #define SHIFT_PAGEDOWN 0x458
+#define SHIFT_DELETE 0x45D
 #define SHIFT_TAB 0x45F
+
+/* A special keycode for when <Tab> is pressed while the mark is on. */
+#define INDENT_KEY 0x4F1
+
+/* A special keycode to signal the beginning and end of a bracketed paste. */
+#define BRACKETED_PASTE_MARKER 0x4FB
 
 #ifdef USE_SLANG
 #ifdef ENABLE_UTF8
@@ -617,20 +638,15 @@ enum
 #define KEY_WINCH -2
 
 /* Some extra flags for the undo function. */
-#define WAS_FINAL_BACKSPACE   (1<<1)
+#define WAS_BACKSPACE_AT_EOF  (1<<1)
 #define WAS_WHOLE_LINE        (1<<2)
-#define WAS_FINAL_LINE        (1<<3)
-/* The flags for the mark need to be the highest. */
+#define INCLUDED_LAST_LINE    (1<<3)
 #define MARK_WAS_SET          (1<<4)
-#define WAS_MARKED_FORWARD    (1<<5)
+#define CURSOR_WAS_AT_HEAD    (1<<5)
 #endif /* !NANO_TINY */
 
-/* The maximum number of entries displayed in the main shortcut list. */
-#define MAIN_VISIBLE (((COLS + 40) / 20) * 2)
-
-/* The default number of characters from the end of the line where
- * wrapping occurs. */
-#define CHARS_FROM_EOL 8
+/* The default number of columns from end of line where wrapping occurs. */
+#define COLUMNS_FROM_EOL 8
 
 /* The default width of a tab in spaces. */
 #define WIDTH_OF_TAB 8
@@ -642,10 +658,5 @@ enum
  * counting the blank lines at their ends. */
 #define MAX_SEARCH_HISTORY 100
 
-/* The maximum number of bytes buffered at one time. */
-#define MAX_BUF_SIZE 128
-
 /* The largest size_t number that doesn't have the high bit set. */
 #define HIGHEST_POSITIVE ((~(size_t)0) >> 1)
-
-#endif /* !NANO_H */
