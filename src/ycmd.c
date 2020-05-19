@@ -1669,7 +1669,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 
 	while(func)
 	{
-		if (func && func->menus & MCODECOMPLETION)
+		if (func && (func->menus == MCODECOMPLETION))
 			break;
 		func = func->next;
 	}
@@ -1725,21 +1725,24 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 					const nx_json *completions = nx_json_get(pjson, "completions");
 					int i = 0;
 					int j = 0;
+					size_t maximum = (((COLS + 40) / 20) * 2);
 
-					for (i = 0; i < completions->length && j < 26 && func; i++, j++) //26 for 26 letters A-Z
+					for (i = 0; i < completions->length && j < maximum && j < 26 && func; i++, j++) //26 for 26 letters A-Z
 					{
 						const nx_json *candidate = nx_json_item(completions, i);
 						const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
-						if (func->desc != NULL)
-							free((void *)func->desc);
-						func->desc = strdup(insertion_text->text_value);
+						if (insertion_text != NX_JSON_NULL) {
+							if (func->desc != NULL)
+								free((void *)func->desc);
+							func->desc = strdup(insertion_text->text_value);
 #ifdef DEBUG
-						fprintf(stderr,">Added completion entry to nano toolbar: %s\n", insertion_text->text_value);
+							fprintf(stderr,">Added completion entry to nano toolbar: %s\n", insertion_text->text_value);
 #endif
-						found_cc_entry = 1;
+							found_cc_entry = 1;
+						}
 						func = func->next;
 					}
-					for (i = j; i < 26 && func; i++, func = func->next)
+					for (i = j; i < completions->length && i < maximum && i < 26 && func; i++, func = func->next)
 					{
 						if (func->desc != NULL)
 							free((void *)func->desc);
@@ -5656,7 +5659,9 @@ void do_code_completion(char letter)
 
 	int i;
 	int j;
-	for (i = 'A', j = 0; i <= 'Z' && func; i++, j++, func = func->next)
+	size_t maximum = (((COLS + 40) / 20) * 2);
+
+	for (i = 'A', j = 0; j < maximum && i <= 'Z' && func; i++, j++, func = func->next)
 	{
 #ifdef DEBUG
 		fprintf(stderr,">Scanning %c.\n", i);
