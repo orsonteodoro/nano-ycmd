@@ -13,7 +13,7 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
-* [14e4255c52c9f64cabaa2af28354e9752d27ae65](https://github.com/orsonteodoro/nano-ycmd/tree/14e4255c52c9f64cabaa2af28354e9752d27ae65) (RECOMMENDED, tested working on Feb 11, 2018) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.zip)
+* [14e4255c52c9f64cabaa2af28354e9752d27ae65](https://github.com/orsonteodoro/nano-ycmd/tree/14e4255c52c9f64cabaa2af28354e9752d27ae65) (RECOMMENDED, tested working on Feb 11, 2018, for ycmd core version 39 (commit date circa Aug 21, 2018)) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.zip)
 * [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) (works, recently tested but old; non-simd non-multicore. A Feb 11, 2017 build.) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip)
 
 #### Docker
