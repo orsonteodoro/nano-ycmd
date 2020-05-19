@@ -542,7 +542,7 @@ void redecorate_after_switch(void)
 #endif
 
 #ifdef ENABLE_YCMD
-	ycmd_event_buffer_visit(openfile->current_x,(long)openfile->current->lineno,openfile->filename, openfile->fileage);
+	ycmd_event_buffer_visit(openfile->current_x,(long)openfile->current->lineno,openfile->filename, openfile->filetop);
 #endif
 
 	/* Update title bar and multiline info to match the current buffer. */
@@ -576,7 +576,7 @@ void switch_to_next_buffer(void)
 void close_buffer(void)
 {
 #ifdef ENABLE_YCMD
-	ycmd_event_buffer_unload(openfile->current_x,(long)openfile->current->lineno,openfile->filename, openfile->fileage);
+	ycmd_event_buffer_unload(openfile->current_x,(long)openfile->current->lineno,openfile->filename, openfile->filetop);
 #endif
 
 	openfilestruct *orphan = openfile;

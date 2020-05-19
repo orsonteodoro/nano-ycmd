@@ -76,10 +76,10 @@ typedef struct _ycmd_globals {
 extern void ycmd_init();
 extern void ycmd_destroy();
 
-extern void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, filestruct *fileage);
-extern void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, filestruct *fileage);
-extern void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, filestruct *fileage);
-extern void ycmd_event_current_identifier_finished(int columnnum, int linenum, char *filepath, filestruct *fileage);
+extern void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, linestruct *filetop);
+extern void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, linestruct *filetop);
+extern void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, linestruct *filetop);
+extern void ycmd_event_current_identifier_finished(int columnnum, int linenum, char *filepath, linestruct *filetop);
 
 extern YCMD_GLOBALS ycmd_globals;
 

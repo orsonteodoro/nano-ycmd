@@ -2588,6 +2588,7 @@ int main(int argc, char **argv)
 		if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS)
 #else
 		if (currmenu != MMAIN)
+#endif
 			bottombars(MMAIN);
 
 		lastmessage = HUSH;

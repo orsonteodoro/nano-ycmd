@@ -23,6 +23,10 @@
 #include "proto.h"
 
 #include <string.h>
+#ifdef ENABLE_YCMD
+#include <unistd.h>
+#include "ycmd.h"
+#endif
 
 /* Delete the character under the cursor. */
 void do_deletion(undo_type action)

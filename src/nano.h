@@ -437,8 +437,6 @@ typedef struct keystruct {
 	int ordinal;
 		/* The how-manieth toggle this is, in order to be able to
 		 * keep them in sequence. */
-	char *expansion;
-		/* The string of keycodes to which this shortcut is expanded. */
 #endif
 #ifdef ENABLE_YCMD
 	int visibility; //for completer commands menu
@@ -567,9 +565,20 @@ enum
 #define MYESNO          (1<<13)
 #define MLINTER         (1<<14)
 #define MFINDINHELP     (1<<15)
+#ifdef ENABLE_YCMD
+#define MCODECOMPLETION (1<<16)
+#define MCOMPLETERCOMMANDS (1<<17)
+#define MREFACTORRENAME (1<<18)
+#endif
 /* This is an abbreviation for all menus except Help and Browser and YesNo. */
+#ifdef ENABLE_YCMD
+#define MMOST  (MMAIN|MWHEREIS|MREPLACE|MREPLACEWITH|MGOTOLINE|MWRITEFILE|MINSERTFILE|\
+                MEXTCMD|MWHEREISFILE|MGOTODIR|MFINDINHELP|MSPELL|MLINTER|\
+		MCODECOMPLETION|MCOMPLETERCOMMANDS|MREFACTORRENAME)
+#else
 #define MMOST  (MMAIN|MWHEREIS|MREPLACE|MREPLACEWITH|MGOTOLINE|MWRITEFILE|MINSERTFILE|\
                 MEXTCMD|MWHEREISFILE|MGOTODIR|MFINDINHELP|MSPELL|MLINTER)
+#endif
 #ifndef NANO_TINY
 #define MSOME  MMOST|MBROWSER
 #else

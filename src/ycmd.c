@@ -86,6 +86,7 @@
 #include <time.h>
 #include <string.h>
 #endif
+#include <assert.h>
 
 #if USE_OPENMP
 #include <omp.h>
@@ -117,7 +118,7 @@ typedef struct defined_subcommands_results
 } DEFINED_SUBCOMMANDS_RESULTS;
 
 void escape_json(char **buffer);
-char *get_all_content(filestruct *fileage);
+char *get_all_content(linestruct *filetop);
 void get_extra_conf_path(char *path_project, char *path_extra_conf);
 void get_project_path(char *path_project);
 void init_file_ready_to_parse_results(FILE_READY_TO_PARSE_RESULTS *frtpr);
@@ -867,7 +868,7 @@ void send_to_server(int signum) {
     sprintf(buffer,"caught SIGALARM %s",ctime (&mytime));
     statusline(HUSH, buffer);
 #endif
-    ycmd_event_file_ready_to_parse(openfile->current_x,(long)openfile->current->lineno,openfile->filename,openfile->fileage);
+    ycmd_event_file_ready_to_parse(openfile->current_x,(long)openfile->current->lineno,openfile->filename,openfile->filetop);
 }
 
 void ycmd_init()
@@ -1664,7 +1665,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	fprintf(stderr, "json body in ycmd_req_completions_suggestions: %s\n", json);
 #endif
 
-	struct subnfunc *func = allfuncs;
+	struct funcstruct *func = allfuncs;
 
 	while(func)
 	{
@@ -1724,12 +1725,8 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 					const nx_json *completions = nx_json_get(pjson, "completions");
 					int i = 0;
 					int j = 0;
-					int maxlist = MAIN_VISIBLE;
-#ifdef DEBUG
-					fprintf(stderr,"maxlist = %d, cols = %d\n", maxlist, COLS);
-#endif
 
-					for (i = 0; i < completions->length && j < maxlist && j < 26 && func; i++, j++) //26 for 26 letters A-Z
+					for (i = 0; i < completions->length && j < 26 && func; i++, j++) //26 for 26 letters A-Z
 					{
 						const nx_json *candidate = nx_json_item(completions, i);
 						const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
@@ -1742,7 +1739,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 						found_cc_entry = 1;
 						func = func->next;
 					}
-					for (i = j; i < maxlist && i < 26 && func; i++, func = func->next)
+					for (i = j; i < 26 && func; i++, func = func->next)
 					{
 						if (func->desc != NULL)
 							free((void *)func->desc);
@@ -1798,7 +1795,7 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 #ifdef DEBUG
 	fprintf(stderr,"Entered _do_completer_command for %s.\n", completercommand);
 #endif
-	char *content = get_all_content(openfile->fileage);
+	char *content = get_all_content(openfile->filetop);
 
 	char *ft2 = _ycmd_get_filetype(openfile->filename, content); //doesn't work for some reason if used with ycmd_req_run_completer_command
 	char *ft = "filetype_default"; //works when passed to ycmd_req_run_completer_command
@@ -2389,8 +2386,8 @@ void do_completer_command_fixit(void)
 #ifdef DEBUG
 						fprintf(stderr, "end cursor: y=%d x=%d\n", fcrs_line_num, fcrs_column_num);
 #endif
-						do_cut_text_void();
-						do_output((char*)replacement_text, strlen(replacement_text), FALSE);
+						cut_text(); //same function as (cut character) ^K in global.c
+						inject((char*)replacement_text, strlen(replacement_text));
 						statusline(HUSH, "Applied FixIt.");
 					}
 				}
@@ -2608,7 +2605,7 @@ void do_completer_command_restartserver(void)
 
 	//code is expanded for performance and memory reasons
 
-	char *content = get_all_content(openfile->fileage);
+	char *content = get_all_content(openfile->filetop);
 	//char *ft = _ycmd_get_filetype(openfile->filename, content);
 	char *ft = "filetype_default";
 	string_replace_w(&completercommand, "LANG", ft, 0);
@@ -4541,7 +4538,7 @@ void escape_json(char **buffer)
 
 //assemble the entire file of unsaved buffers
 //consumer must free it
-char *get_all_content(filestruct *fileage)
+char *get_all_content(linestruct *filetop)
 {
 #ifdef DEBUG
 	fprintf(stderr, "Assembling content...\n");
@@ -4549,8 +4546,8 @@ char *get_all_content(filestruct *fileage)
 	char *buffer;
 	buffer = NULL;
 
-	filestruct *node;
-	node = fileage;
+	linestruct *node;
+	node = filetop;
 
 	if (node == NULL)
 	{
@@ -5540,7 +5537,7 @@ Fix it alone only reports 1 result but FileReadyToParse reports many after parsi
 ]
 */
 
-void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, filestruct *fileage)
+void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, linestruct *filetop)
 {
 	if (!ycmd_globals.connected)
 		return;
@@ -5549,7 +5546,7 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 	fprintf(stderr,"ycmd_event_file_ready_to_parse called\n");
 #endif
 
-	char *content = get_all_content(fileage);
+	char *content = get_all_content(filetop);
 	char *ft = _ycmd_get_filetype(filepath, content);
 
 	//check server if it is compromised before sending sensitive source code
@@ -5575,7 +5572,7 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 	free(content);
 }
 
-void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, filestruct *fileage)
+void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, linestruct *filetop)
 {
 	if (!ycmd_globals.connected)
 		return;
@@ -5584,7 +5581,7 @@ void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, filest
 	fprintf(stderr,"Entering ycmd_event_buffer_unload.\n");
 #endif
 
-	char *content = get_all_content(fileage);
+	char *content = get_all_content(filetop);
 	char *ft = _ycmd_get_filetype(filepath, content);
 
 	//check server if it is compromised before sending sensitive source code
@@ -5596,7 +5593,7 @@ void ycmd_event_buffer_unload(int columnnum, int linenum, char *filepath, filest
 	free(content);
 }
 
-void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, filestruct *fileage)
+void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, linestruct *filetop)
 {
 	if (!ycmd_globals.connected)
 		return;
@@ -5605,7 +5602,7 @@ void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, filestr
 	fprintf(stderr,"Entering ycmd_event_buffer_visit.\n");
 #endif
 
-	char *content = get_all_content(fileage);
+	char *content = get_all_content(filetop);
 	char *ft = _ycmd_get_filetype(filepath, content);
 
 	//check server if it is compromised before sending sensitive source code
@@ -5617,7 +5614,7 @@ void ycmd_event_buffer_visit(int columnnum, int linenum, char *filepath, filestr
 	free(content);
 }
 
-void ycmd_event_current_identifier_finished(int columnnum, int linenum, char *filepath, filestruct *fileage)
+void ycmd_event_current_identifier_finished(int columnnum, int linenum, char *filepath, linestruct *filetop)
 {
 	if (!ycmd_globals.connected)
 		return;
@@ -5626,7 +5623,7 @@ void ycmd_event_current_identifier_finished(int columnnum, int linenum, char *fi
 	fprintf(stderr,"Entering ycmd_event_current_identifier_finished.\n");
 #endif
 
-	char *content = get_all_content(fileage);
+	char *content = get_all_content(filetop);
 	char *ft = _ycmd_get_filetype(filepath, content);
 
 	//check server if it is compromised before sending sensitive source code
@@ -5646,8 +5643,7 @@ void do_code_completion(char letter)
 #ifdef DEBUG
 	fprintf(stderr,"Entered do_code_completion.\n");
 #endif
-	struct subnfunc *func = allfuncs;
-	int maxlist = MAIN_VISIBLE;
+	struct funcstruct *func = allfuncs;
 
 	while(func)
 	{
@@ -5660,7 +5656,7 @@ void do_code_completion(char letter)
 
 	int i;
 	int j;
-	for (i = 'A', j = 0; j < maxlist && i <= 'Z' && func; i++, j++, func = func->next)
+	for (i = 'A', j = 0; i <= 'Z' && func; i++, j++, func = func->next)
 	{
 #ifdef DEBUG
 		fprintf(stderr,">Scanning %c.\n", i);
@@ -5687,7 +5683,7 @@ void do_code_completion(char letter)
 
 				openfile->current_x = ycmd_globals.apply_column-1;
 
-				do_output(func->desc,strlen(func->desc), FALSE);
+				inject(func->desc,strlen(func->desc));
 
 				free((void *)func->desc);
 				func->desc = strdup("");
@@ -5926,11 +5922,11 @@ void do_completer_command_show(void)
 #ifdef DEBUG
 	fprintf(stderr,"Entered do_completer_command_show\n");
 #endif
-	sc *s;
+	keystruct *s;
 	for (s = sclist; s != NULL; s = s->next)
 		s->visibility = 0; //0 hidden, 1 visible
 
-        char *content = get_all_content(openfile->fileage);
+        char *content = get_all_content(openfile->filetop);
         char *ft = _ycmd_get_filetype(openfile->filename, content);
 
 	//should cache
@@ -5943,29 +5939,29 @@ void do_completer_command_show(void)
 	{
 		for (s = sclist; s != NULL; s = s->next)
 		{
-			if (s->scfunc == do_completer_command_gotoinclude && strstr(dsr.json_blob,"\"GoToInclude\""))							s->visibility = 1;
-			else if (s->scfunc == do_completer_command_gotodeclaration && strstr(dsr.json_blob,"\"GoToDeclaration\"")) 					s->visibility = 1;
-			else if (s->scfunc == do_completer_command_gotodefinition && strstr(dsr.json_blob,"\"GoToDefinition\"")) 					s->visibility = 1;
-			else if (s->scfunc == do_completer_command_gotodefinitionelsedeclaration && strstr(dsr.json_blob,"\"GoToDefinitionElseDeclaration\"")) 		s->visibility = 1;
-			else if (s->scfunc == do_completer_command_goto && strstr(dsr.json_blob,"\"GoTo\"")) 								s->visibility = 1;
-			else if (s->scfunc == do_completer_command_gotoimprecise && strstr(dsr.json_blob,"\"GoToImprecise\"")) 						s->visibility = 1;
-			else if (s->scfunc == do_completer_command_gotoreferences && strstr(dsr.json_blob,"\"GoToReferences\"")) 					s->visibility = 1;
-			else if (s->scfunc == do_completer_command_gotoimplementation && strstr(dsr.json_blob,"\"GoToImplementation\"")) 				s->visibility = 1;
-			else if (s->scfunc == do_completer_command_gotoimplementationelsedeclaration && strstr(dsr.json_blob,"\"GoToImplementationElseDeclaration\"")) 	s->visibility = 1;
-			else if (s->scfunc == do_completer_command_fixit && strstr(dsr.json_blob,"\"FixIt\"")) 								s->visibility = 1;
-			else if (s->scfunc == do_completer_command_getdoc && strstr(dsr.json_blob,"\"GetDoc\"")) 							s->visibility = 1;
-			else if (s->scfunc == do_completer_command_getdocimprecise && strstr(dsr.json_blob,"\"GetDocImprecise\""))					s->visibility = 1;
-			else if (s->scfunc == do_completer_command_refactorrename && strstr(dsr.json_blob,"\"RefactorRename\"")) 					s->visibility = 1;
-			else if (s->scfunc == do_completer_command_gettype && strstr(dsr.json_blob,"\"GetType\"")) 							s->visibility = 1;
-			else if (s->scfunc == do_completer_command_gettypeimprecise && strstr(dsr.json_blob,"\"GetTypeImprecise\"")) 					s->visibility = 1;
-			else if (s->scfunc == do_completer_command_reloadsolution && strstr(dsr.json_blob,"\"ReloadSolution\"")) 					s->visibility = 1;
-			else if (s->scfunc == do_completer_command_restartserver && strstr(dsr.json_blob,"\"RestartServer\"")) 						s->visibility = 1;
-			else if (s->scfunc == do_completer_command_gototype && strstr(dsr.json_blob,"\"GoToType\"")) 							s->visibility = 1;
-	 		else if (s->scfunc == do_completer_command_clearcompliationflagcache && strstr(dsr.json_blob,"\"ClearCompilationFlagCache\"")) 			s->visibility = 1;
-			else if (s->scfunc == do_completer_command_getparent && strstr(dsr.json_blob,"\"GetParent\"")) 							s->visibility = 1;
-			else if (s->scfunc == do_completer_command_solutionfile && strstr(dsr.json_blob,"\"SolutionFile\""))						s->visibility = 1;
+			if (s->func == do_completer_command_gotoinclude && strstr(dsr.json_blob,"\"GoToInclude\""))							s->visibility = 1;
+			else if (s->func == do_completer_command_gotodeclaration && strstr(dsr.json_blob,"\"GoToDeclaration\"")) 					s->visibility = 1;
+			else if (s->func == do_completer_command_gotodefinition && strstr(dsr.json_blob,"\"GoToDefinition\"")) 						s->visibility = 1;
+			else if (s->func == do_completer_command_gotodefinitionelsedeclaration && strstr(dsr.json_blob,"\"GoToDefinitionElseDeclaration\"")) 		s->visibility = 1;
+			else if (s->func == do_completer_command_goto && strstr(dsr.json_blob,"\"GoTo\"")) 								s->visibility = 1;
+			else if (s->func == do_completer_command_gotoimprecise && strstr(dsr.json_blob,"\"GoToImprecise\"")) 						s->visibility = 1;
+			else if (s->func == do_completer_command_gotoreferences && strstr(dsr.json_blob,"\"GoToReferences\"")) 						s->visibility = 1;
+			else if (s->func == do_completer_command_gotoimplementation && strstr(dsr.json_blob,"\"GoToImplementation\"")) 					s->visibility = 1;
+			else if (s->func == do_completer_command_gotoimplementationelsedeclaration && strstr(dsr.json_blob,"\"GoToImplementationElseDeclaration\"")) 	s->visibility = 1;
+			else if (s->func == do_completer_command_fixit && strstr(dsr.json_blob,"\"FixIt\"")) 								s->visibility = 1;
+			else if (s->func == do_completer_command_getdoc && strstr(dsr.json_blob,"\"GetDoc\"")) 								s->visibility = 1;
+			else if (s->func == do_completer_command_getdocimprecise && strstr(dsr.json_blob,"\"GetDocImprecise\""))					s->visibility = 1;
+			else if (s->func == do_completer_command_refactorrename && strstr(dsr.json_blob,"\"RefactorRename\"")) 						s->visibility = 1;
+			else if (s->func == do_completer_command_gettype && strstr(dsr.json_blob,"\"GetType\"")) 							s->visibility = 1;
+			else if (s->func == do_completer_command_gettypeimprecise && strstr(dsr.json_blob,"\"GetTypeImprecise\"")) 					s->visibility = 1;
+			else if (s->func == do_completer_command_reloadsolution && strstr(dsr.json_blob,"\"ReloadSolution\"")) 						s->visibility = 1;
+			else if (s->func == do_completer_command_restartserver && strstr(dsr.json_blob,"\"RestartServer\"")) 						s->visibility = 1;
+			else if (s->func == do_completer_command_gototype && strstr(dsr.json_blob,"\"GoToType\"")) 							s->visibility = 1;
+			else if (s->func == do_completer_command_clearcompliationflagcache && strstr(dsr.json_blob,"\"ClearCompilationFlagCache\"")) 			s->visibility = 1;
+			else if (s->func == do_completer_command_getparent && strstr(dsr.json_blob,"\"GetParent\"")) 							s->visibility = 1;
+			else if (s->func == do_completer_command_solutionfile && strstr(dsr.json_blob,"\"SolutionFile\""))						s->visibility = 1;
 
-			if (s->scfunc == ycmd_display_parse_results) s->visibility = 1;
+			if (s->func == ycmd_display_parse_results) s->visibility = 1;
 		}
 	}
 	else
