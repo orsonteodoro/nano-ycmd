@@ -149,7 +149,11 @@ static colortype *lastcolor = NULL;
 		/* The end of the color list for the current syntax. */
 #endif
 
+#ifdef ENABLE_YCMD
+#define NUMBER_OF_MENUS  19
+#else
 #define NUMBER_OF_MENUS  16
+#endif
 char *menunames[NUMBER_OF_MENUS] = { "main", "search", "replace", "replacewith",
 									"yesno", "gotoline", "writeout", "insert",
 									"extcmd", "help", "spell", "linter",
