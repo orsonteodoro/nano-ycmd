@@ -13,8 +13,9 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
-* [14e4255c52c9f64cabaa2af28354e9752d27ae65](https://github.com/orsonteodoro/nano-ycmd/tree/14e4255c52c9f64cabaa2af28354e9752d27ae65) (RECOMMENDED, tested working on Feb 11, 2018, for ycmd core version 39 (commit date circa Aug 21, 2018)) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.zip)
-* [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) (works, recently tested but old; non-simd non-multicore. A Feb 11, 2017 build.) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip)
+* [93bb6743c11f8e09f085f9214c6c6eee8e7f5718](https://github.com/orsonteodoro/nano-ycmd/tree/93bb6743c11f8e09f085f9214c6c6eee8e7f5718) (RECOMMENDED, quick test working on May 20, 2020, for ycmd core version 43) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/93bb6743c11f8e09f085f9214c6c6eee8e7f5718.zip) [tar.gz source](https://github.com/orsonteodoro/nano-ycmd/archive/93bb6743c11f8e09f085f9214c6c6eee8e7f5718.tar.gz)
+* [14e4255c52c9f64cabaa2af28354e9752d27ae65](https://github.com/orsonteodoro/nano-ycmd/tree/14e4255c52c9f64cabaa2af28354e9752d27ae65) (RECOMMENDED, tested working on Feb 11, 2018, for ycmd core version 39 (commit date circa Aug 21, 2018)) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.zip) [tar.gz source](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.tar.gz)
+* [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) (works, recently tested but old; non-simd non-multicore. A Feb 11, 2017 build.) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip) [tar.gz source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.tar.gz)
 
 #### Docker
 
@@ -38,7 +39,7 @@ You can use nano-ycmd fairly quickly with docker.  More information can be found
 * jq (https://stedolan.github.io/jq/) (OPTIONAL) is json beautifier and filter.  This is used to clean the DiagnosticResponse after parsing and inject an index on the node to allow for nano-ymcd to conveniently to find a FixIt based on an index selected by the user when the user hovers over this line/index with a shortcut key.  Currently, the `Display All FixIts` is broken because of the non-deterministic bug.
 * GNU findutils, requires for the find utility to search for Makefile, configure, *.ninja, *.pro, files.
 * GNU coreutils, nano-ycmd needs tac command to reverse the clang system includes order for SIMD headers.
-* AVX512, AVX2, SSE2, MMX (OPTIONAL and undergoing testing) for string_replace and escape_json.
+* AVX512, AVX2, SSE2, MMX (OPTIONAL and undergoing testing, AVX2/AVX512 support untested) for string_replace and escape_json.
 * OpenMP (OPTIONAL and undergoing testing) via --with-openmp for multicore string_replace and escape_json.
 
 #### My distribution doesn't have the required dependencies
