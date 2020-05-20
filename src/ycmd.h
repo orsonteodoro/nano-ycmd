@@ -33,6 +33,11 @@
 #define DIGITS_MAX 11 //including null character
 #define IDLE_SUICIDE_SECONDS 10800 //3 HOURS
 #define SEND_TO_SERVER_DELAY 500000
+#ifdef YCMD_CORE_VERSION
+#define DEFAULT_YCMD_CORE_VERSION YCMD_CORE_VERSION
+#else
+#define DEFAULT_YCMD_CORE_VERSION 43
+#endif
 
 typedef struct file_ready_to_parse_results
 {
@@ -71,6 +76,8 @@ typedef struct _ycmd_globals {
 	int have_mmx;
 	int have_popcnt;
 	int have_cmov;
+
+	int core_version ; // can only be 39 or 43
 } YCMD_GLOBALS;
 
 extern void ycmd_init();

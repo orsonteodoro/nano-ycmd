@@ -312,119 +312,154 @@ else
 	AC_DEFINE(NDEBUG, 1, [Shut up assert warnings :-)])
 fi
 
-AC_ARG_VAR([YCMD_PATH],[Define the path to ycmd directory])
-AC_ARG_VAR([YCMD_PYTHON_PATH],[Define the full path to your ycmd python executible for ycmd (optional)])
-AC_ARG_VAR([YCMG_PYTHON_PATH],[Define the full path to your ycm-generator python executible for ycmd (optional)])
-AC_ARG_VAR([GOCODE_PATH],[Define the full path to your gocode executible for go language support in ycmd (optional)])
-AC_ARG_VAR([GODEF_PATH],[Define the full path to your godef executible for go language support in ycmd (optional)])
-AC_ARG_VAR([RUST_SRC_PATH],[Define the full path to the rust src source code folder for rust language support in ycmd (opitonal)])
-AC_ARG_VAR([RACERD_PATH],[Define the full path to the racerd for racerd for rust language support in ycmd (optional)])
-AC_ARG_VAR([YCMG_PATH],[Define the full path to YCM-Generator for C / C++ / Objective-C / Objective C++ language support in ycmd (optional)])
-AC_ARG_VAR([COMPDB_PATH],[Define the full path to compdb for the Ninja build system support in ycmd (optional)])
+AC_ARG_VAR([CLANGD_PATH],[Define the full path to clangd for C / C++ / Objective-C / Objective C++ language support in ycmd (optional)])
+AC_ARG_VAR([GOCODE_PATH],[Define the full path to your gocode executable for Go language support in ycmd (optional)])
+AC_ARG_VAR([GODEF_PATH],[Define the full path to your godef executable for Go language support in ycmd (optional)])
+AC_ARG_VAR([GOPLS_PATH],[Define the full path to your gopls executable for Go language support in ycmd (optional)])
 AC_ARG_VAR([NINJA_PATH],[Define the full path to ninja for the Ninja build system support in ycmd (optional)])
-AC_ARG_WITH(openssl,AS_HELP_STRING([--with-openssl], [Enable openssl support for ycmd]))
-AC_ARG_WITH(nettle,AS_HELP_STRING([--with-nettle], [Enable nettle support for ycmd]))
-AC_ARG_WITH(libgcrypt,AS_HELP_STRING([--with-libgcrypt], [Enable libgcrypt support for ycmd]))
-AC_ARG_WITH(openmp,AS_HELP_STRING([--with-openmp], [Enable openmp support for ycmd (optional)]))
+AC_ARG_VAR([OMNISHARP_PATH],[Define the full path to your OmniSharp executable for C# language support in ycmd (optional)])
+AC_ARG_VAR([RACERD_PATH],[Define the full path to the racerd for racerd for Rust language support in ycmd (optional)])
+AC_ARG_VAR([RLS_PATH],[Define the full path to the rls (Rust Language Server) executable for Rust language support in ycmd (opitonal)])
+AC_ARG_VAR([RUST_SRC_PATH],[Define the full path to the Rust source code folder for Rust language support in ycmd (opitonal)])
+AC_ARG_VAR([RUSTC_PATH],[Define the full path to the rustc executable for Rust language support in ycmd (opitonal)])
+AC_ARG_VAR([TSSERVER_PATH],[Define the full path to the tsserver executable for TypeScript language support in ycmd (opitonal)])
+AC_ARG_VAR([YCMD_PATH],[Define the path to ycmd directory])
+AC_ARG_VAR([YCMD_PYTHON_PATH],[Define the full path to your ycmd python executable for ycmd])
+AC_ARG_VAR([YCMG_PATH],[Define the full path to YCM-Generator for C / C++ / Objective-C / Objective C++ language support in ycmd (optional)])
+AC_ARG_VAR([YCMG_PYTHON_PATH],[Define the full path to your ycm-generator python executable for ycmd (optional)])
+AC_ARG_WITH(libgcrypt,AS_HELP_STRING([--with-libgcrypt], [Enable Libgcrypt support for ycmd]))
+AC_ARG_WITH(nettle,AS_HELP_STRING([--with-nettle], [Enable Nettle support for ycmd]))
+AC_ARG_WITH(openmp,AS_HELP_STRING([--with-openmp], [Enable OpenMP support for ycmd (optional)]))
+AC_ARG_WITH(openssl,AS_HELP_STRING([--with-openssl], [Enable OpenSSL support for ycmd]))
 AC_ARG_ENABLE(ycmd,
 AS_HELP_STRING([--enable-ycmd], [Enable code completion support via ycmd]))
 have_ycmd=no
+AC_DEFUN([AC_CHECK_YCMD_CORE_VERSION],[
+	ycmd_core_version=$(cat "$1/../CORE_VERSION")
+	AC_MSG_CHECKING([ycmd core version])
+	if test $ycmd_core_version -eq 39 ; then
+		AC_MSG_RESULT([39])
+		AC_DEFINE([YCMD_CORE_VERSION],39,[Define this to set the ycmd server core version and to match the protocol version.])
+	else
+		if test $ycmd_core_version -eq 43 ; then
+			AC_MSG_RESULT([43])
+			AC_DEFINE([YCMD_CORE_VERSION],43,[Define this to set the ycmd server core version and to match the protocol version.])
+		else
+			AC_MSG_ERROR([ycmd core version is incompatible.  Needs to be 39 or 43.])
+		fi
+	fi
+])
+
 if test "x$enable_ycmd" = xyes; then
-    AC_MSG_RESULT([YCMD_PYTHON_PATH is $YCMD_PYTHON_PATH])
-    AC_MSG_RESULT([YCMG_PYTHON_PATH is $YCMG_PYTHON_PATH])
-    AC_MSG_RESULT([GOCODE_PATH is $GOCODE_PATH])
-    AC_MSG_RESULT([GODEF_PATH is $GODEF_PATH])
-    AC_MSG_RESULT([RUST_SRC_PATH is $RUST_SRC_PATH])
-    AC_MSG_RESULT([RACERD_PATH is $RACERD_PATH])
-    AC_MSG_RESULT([YCMG_PATH is $YCMG_PATH])
+	AC_CHECK_YCMD_CORE_VERSION([$YCMD_PATH])
+	AC_MSG_RESULT([CLANGD_PATH is $CLANGD_PATH])
+	AC_MSG_RESULT([GOCODE_PATH is $GOCODE_PATH])
+	AC_MSG_RESULT([GODEF_PATH is $GODEF_PATH])
+	AC_MSG_RESULT([GOPLS_PATH is $GOPLS_PATH])
+	AC_MSG_RESULT([NINJA_PATH is $NINJA_PATH])
+	AC_MSG_RESULT([OMNISHARP_PATH is $OMNISHARP_PATH])
+	AC_MSG_RESULT([RACERD_PATH is $RACERD_PATH])
+	AC_MSG_RESULT([RLS_PATH is $RLS_PATH])
+	AC_MSG_RESULT([RUST_SRC_PATH is $RUST_SRC_PATH])
+	AC_MSG_RESULT([RUSTC_PATH is $RUSTC_PATH])
+	AC_MSG_RESULT([TSSERVER_PATH is $TSSERVER_PATH])
+	AC_MSG_RESULT([YCMD_PATH is $YCMD_PATH])
+	AC_MSG_RESULT([YCMD_PYTHON_PATH is $YCMD_PYTHON_PATH])
+	AC_MSG_RESULT([YCMG_PATH is $YCMG_PATH])
+	AC_MSG_RESULT([YCMG_PYTHON_PATH is $YCMG_PYTHON_PATH])
 
-    PKG_CHECK_MODULES([GLIB], [glib-2.0], [
-        GLIB_LIB=$GLIB_LIBS
-        CPPFLAGS="$GLIB_CFLAGS $CPPFLAGS"
-        GLIB_LIB_NAME=glib-2.0
-    ], [:])
+	PKG_CHECK_MODULES([GLIB], [glib-2.0], [
+		GLIB_LIB=$GLIB_LIBS
+		CPPFLAGS="$GLIB_CFLAGS $CPPFLAGS"
+		GLIB_LIB_NAME=glib-2.0
+	], [:])
 
-    AC_SEARCH_LIBS([nx_json_get], [nxjson], [], [
-        AC_MSG_ERROR([unable to find the nx_json_get() function])
-    ])
-
-    if test "x$with_openmp" = xyes; then
-        AC_SEARCH_LIBS([omp_get_thread_num], [omp], [], [
-            AC_MSG_ERROR([unable to find the omp_get_thread_num() function])
-        ])
-        have_openmp=yes
-    fi
-
-    if test "x$with_openssl" = xyes; then
-        PKG_CHECK_MODULES([OPENSSL], [openssl], [
-            OPENSSL_LIB=$OPENSSL_LIBS
-            CPPFLAGS="$OPENSSL_CFLAGS $CPPFLAGS"
-            OPENSSL_LIB_NAME=openssl
-        ], [:])
-        have_openssl=yes
-    elif test "x$with_nettle" = xyes; then
-        PKG_CHECK_MODULES([NETTLE], [nettle], [
-            NETTLE_LIB=$NETTLE_LIBS
-            CPPFLAGS="$NETTLE_CFLAGS $CPPFLAGS"
-            NETTLE_LIB_NAME=nettle
-        ], [:])
-        have_nettle=yes
-    elif test "x$with_libgcrypt" = xyes; then
-	AC_SEARCH_LIBS([gcry_mac_open], [gcrypt], [], [
-		AC_MSG_ERROR([unable to find the gcry_mac_open() function])
+	AC_SEARCH_LIBS([nx_json_get], [nxjson], [], [
+		AC_MSG_ERROR([unable to find the nx_json_get() function])
 	])
-        have_libgcrypt=yes
-    else
-	AC_MSG_ERROR([You must choose a crypto library: nettle, openssl, libgcrypt])
-    fi
-    PKG_CHECK_MODULES([NEON], [neon], [
-        NEON_LIB=$NEON_LIBS
-        CPPFLAGS="$NEON_CFLAGS $CPPFLAGS"
-        NEON_LIB_NAME=neon
-    ], [:])
-    AC_CHECK_FILE([$YCMD_PATH/hmac_utils.py], [ycmd_found=yes], [ycmd_found=no])
-    AC_MSG_CHECKING([ycmd])
-    if test "x$ycmd_found" = xno ; then
-        AC_MSG_RESULT([no])
-	AC_MSG_ERROR([Your ycmd is possibly old or you haven't installed it or forgot to set the YCMD_PATH environmental variable to point to the path of ycmd])
-    else
-        AC_MSG_RESULT([yes])
-	have_ycmd=yes
-    fi
 
-    AC_CHECK_FILE([$YCMD_PYTHON_PATH], [ycmd_python_found=yes], [ycmd_python_found=no])
-    AC_MSG_CHECKING([ycmd_python])
-    if test "x$ycmd_python_found" = xno ; then
-        AC_MSG_RESULT([no])
-	AC_MSG_ERROR([You must set the YCMD_PYTHON_PATH to your python executible or you may need to install python])
-    else
-        AC_MSG_RESULT([yes])
-    fi
+	if test "x$with_openmp" = xyes; then
+		AC_SEARCH_LIBS([omp_get_thread_num], [omp], [], [
+			AC_MSG_ERROR([unable to find the omp_get_thread_num() function])
+		])
+		have_openmp=yes
+	fi
 
-    AC_CHECK_FILE([$YCMG_PYTHON_PATH], [ycmg_python_found=yes], [ycmg_python_found=no])
-    AC_MSG_CHECKING([ycmg_python])
-    if test "x$ycmg_python_found" = xno ; then
-        AC_MSG_RESULT([no])
-	AC_MSG_ERROR([You must set the YCMG_PYTHON_PATH to your python executible or you may need to install python])
-    else
-        AC_MSG_RESULT([yes])
-    fi
+	if test "x$with_openssl" = xyes; then
+		PKG_CHECK_MODULES([OPENSSL], [openssl], [
+			OPENSSL_LIB=$OPENSSL_LIBS
+			CPPFLAGS="$OPENSSL_CFLAGS $CPPFLAGS"
+			OPENSSL_LIB_NAME=openssl
+		], [:])
+		have_openssl=yes
+	elif test "x$with_nettle" = xyes; then
+		PKG_CHECK_MODULES([NETTLE], [nettle], [
+			NETTLE_LIB=$NETTLE_LIBS
+			CPPFLAGS="$NETTLE_CFLAGS $CPPFLAGS"
+			NETTLE_LIB_NAME=nettle
+		], [:])
+		have_nettle=yes
+	elif test "x$with_libgcrypt" = xyes; then
+		AC_SEARCH_LIBS([gcry_mac_open], [gcrypt], [], [
+			AC_MSG_ERROR([unable to find the gcry_mac_open() function])
+		])
+		have_libgcrypt=yes
+	else
+		AC_MSG_ERROR([You must choose a crypto library: nettle, openssl, libgcrypt])
+	fi
+	PKG_CHECK_MODULES([NEON], [neon], [
+		NEON_LIB=$NEON_LIBS
+		CPPFLAGS="$NEON_CFLAGS $CPPFLAGS"
+		NEON_LIB_NAME=neon
+	], [:])
+	AC_CHECK_FILE([$YCMD_PATH/hmac_utils.py], [ycmd_found=yes], [ycmd_found=no])
+	AC_MSG_CHECKING([ycmd])
+	if test "x$ycmd_found" = xno ; then
+		AC_MSG_RESULT([no])
+		AC_MSG_ERROR([Your ycmd is possibly old or you haven't installed it or forgot to set the YCMD_PATH environmental variable to point to the path of ycmd])
+	else
+		AC_MSG_RESULT([yes])
+		have_ycmd=yes
+		AC_CHECK_YCMD_CORE_VERSION([$YCMD_PATH])
+	fi
+
+	AC_CHECK_FILE([$YCMD_PYTHON_PATH], [ycmd_python_found=yes], [ycmd_python_found=no])
+	AC_MSG_CHECKING([ycmd_python])
+	if test "x$ycmd_python_found" = xno ; then
+		AC_MSG_RESULT([no])
+		AC_MSG_ERROR([You must set the YCMD_PYTHON_PATH to your python executable or you may need to install python])
+	else
+		AC_MSG_RESULT([yes])
+	fi
+
+	AC_CHECK_FILE([$YCMG_PYTHON_PATH], [ycmg_python_found=yes], [ycmg_python_found=no])
+	AC_MSG_CHECKING([ycmg_python])
+	if test "x$ycmg_python_found" = xno ; then
+		AC_MSG_RESULT([no])
+		AC_MSG_ERROR([You must set the YCMG_PYTHON_PATH to your python executable or you may need to install python])
+	else
+		AC_MSG_RESULT([yes])
+	fi
 fi
-AM_CONDITIONAL([HAVE_YCMD_PYTHON], [test x$YCMD_PYTHON_PATH != x])
-AM_CONDITIONAL([HAVE_YCMG_PYTHON], [test x$YCMG_PYTHON_PATH != x])
+AM_CONDITIONAL([HAVE_CLANGD], [test x$CLANGD_PATH != x])
 AM_CONDITIONAL([HAVE_GOCODE], [test x$GOCODE_PATH != x])
 AM_CONDITIONAL([HAVE_GODEF], [test x$GODEF_PATH != x])
-AM_CONDITIONAL([HAVE_RUST_SRC], [test  x$RUST_SRC_PATH != x])
-AM_CONDITIONAL([HAVE_RACERD], [test x$RACERD_PATH != x])
-AM_CONDITIONAL([HAVE_YCMG], [test x$YCMG_PATH != x])
-AM_CONDITIONAL([HAVE_COMPDB], [test x$COMPDB_PATH != x])
-AM_CONDITIONAL([HAVE_NINJA], [test x$NINJA_PATH != x])
-AM_CONDITIONAL([HAVE_YCMD], [test x$have_ycmd = xyes])
-
-AM_CONDITIONAL([HAVE_OPENSSL], [test x$have_openssl = xyes])
-AM_CONDITIONAL([HAVE_NETTLE], [test x$have_nettle = xyes])
+AM_CONDITIONAL([HAVE_GOPLS], [test x$GOPLS_PATH != x])
 AM_CONDITIONAL([HAVE_LIBGCRYPT], [test x$have_libgcrypt = xyes])
+AM_CONDITIONAL([HAVE_NETTLE], [test x$have_nettle = xyes])
+AM_CONDITIONAL([HAVE_NINJA], [test x$NINJA_PATH != x])
+AM_CONDITIONAL([HAVE_OMNISHARP], [test x$OMNISHARP_PATH != x])
 AM_CONDITIONAL([HAVE_OPENMP], [test x$have_openmp = xyes])
+AM_CONDITIONAL([HAVE_OPENSSL], [test x$have_openssl = xyes])
+AM_CONDITIONAL([HAVE_RACERD], [test x$RACERD_PATH != x])
+AM_CONDITIONAL([HAVE_RLS], [test x$RLS_PATH != x])
+AM_CONDITIONAL([HAVE_RUST_SRC], [test  x$RUST_SRC_PATH != x])
+AM_CONDITIONAL([HAVE_RUSTC], [test x$RUSTC_PATH != x])
+AM_CONDITIONAL([HAVE_TSSERVER], [test x$TSSERVER_PATH != x])
+AM_CONDITIONAL([HAVE_YCMD], [test x$have_ycmd = xyes])
+AM_CONDITIONAL([HAVE_YCMD_PYTHON], [test x$YCMD_PYTHON_PATH != x])
+AM_CONDITIONAL([HAVE_YCMG], [test x$YCMG_PATH != x])
+AM_CONDITIONAL([HAVE_YCMG_PYTHON], [test x$YCMG_PYTHON_PATH != x])
 
 AC_ARG_ENABLE(tiny,
 AS_HELP_STRING([--enable-tiny], [Disable features for the sake of size]))

@@ -4,7 +4,7 @@
  *   Copyright (C) 2001, 2002, 2003, 2004, 2005, 2006, 2007, 2008, 2009,  *
  *   2010, 2011, 2013, 2014, 2015 Free Software Foundation, Inc.          *
  *   Copyright (C) 2015, 2016 Benno Schulenberg                           *
- *   Copyright (C) 2017 Orson Teodoro                                     *
+ *   Copyright (C) 2017-2020 Orson Teodoro                                *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
  *   it under the terms of the GNU General Public License as published    *
@@ -125,6 +125,8 @@ void init_file_ready_to_parse_results(FILE_READY_TO_PARSE_RESULTS *frtpr);
 char *_ne_read_response_body_full(ne_request *request);
 char *ycmd_compute_request(char *method, char *path, char *body);
 char *ycmd_compute_response(char *response_body);
+char *ycmd_create_default_json_core_version_43();
+char *ycmd_create_default_json_core_version_39();
 void ycmd_start_server();
 void ycmd_stop_server();
 char *ycmd_generate_secret_base64(char *secret);
@@ -876,6 +878,7 @@ void ycmd_init()
 #ifdef DEBUG
 	fprintf(stderr, "Init ycmd.\n");
 #endif
+	ycmd_globals.core_version = DEFAULT_YCMD_CORE_VERSION;
 	ycmd_globals.session = 0;
 	ycmd_globals.scheme = "http";
 	ycmd_globals.hostname = "127.0.0.1";
@@ -1098,6 +1101,7 @@ int bear_generate(char *project_path)
 //returns 1 on success 0 on failure;
 int ninja_compdb_generate(char *project_path)
 {
+#ifdef USE_NINJA
 #ifdef DEBUG
 	fprintf(stderr, "Entered ninja_compdb_generate\n");
 #endif
@@ -1188,6 +1192,7 @@ void get_project_path(char *path_project)
 #endif
 		getcwd(path_project, PATH_MAX);
 	}
+#endif
 }
 
 //precondition: path_project must be populated first from get_project_path()
@@ -1316,11 +1321,70 @@ sed -e "s|'do_cache': True|'do_cache': False|g" -e "s|'-I.'|'-isystem','$(echo $
 	blank_statusbar();
 }
 
-
-//needs to be freed
 char *ycmd_create_default_json()
 {
+	if (ycmd_globals.core_version == 39)
+		return ycmd_create_default_json_core_version_39();
+	else if (ycmd_globals.core_version == 43)
+		return ycmd_create_default_json_core_version_43();
+}
 
+//needs to be freed
+char *ycmd_create_default_json_core_version_43()
+{
+	char *_json = "{"
+		"  \"filepath_completion_use_working_dir\": 0,"
+		"  \"auto_trigger\": 1,"
+		"  \"min_num_of_chars_for_completion\": 2,"
+		"  \"min_num_identifier_candidate_chars\": 0,"
+		"  \"semantic_triggers\": {},"
+		"  \"filetype_specific_completion_to_disable\": {"
+		"    \"gitcommit\": 1"
+		"  },"
+		"  \"collect_identifiers_from_comments_and_strings\": 0,"
+		"  \"max_num_identifier_candidates\": 10,"
+		"  \"max_num_candidates\": 50,"
+		"  \"extra_conf_globlist\": [],"
+		"  \"global_ycm_extra_conf\": \"\","
+		"  \"confirm_extra_conf\": 1,"
+		"  \"max_diagnostics_to_display\": 30,"
+		"  \"filepath_blacklist\": {"
+		"    \"html\": 1,"
+		"    \"jsx\": 1,"
+		"    \"xml\": 1"
+		"  },"
+		"  \"auto_start_csharp_server\": 1,"
+		"  \"auto_stop_csharp_server\": 1,"
+		"  \"use_ultisnips_completer\": 1,"
+		"  \"csharp_server_port\": 0,"
+		"  \"hmac_secret\": \"HMAC_SECRET\","
+		"  \"server_keep_logfiles\": 0,"
+		"  \"python_binary_path\": \"YCMD_PYTHON_PATH\","
+		"  \"language_server\": [],"
+		"  \"java_jdtls_use_clean_workspace\": 1,"
+		"  \"java_jdtls_workspace_root_path\": \"\","
+		"  \"java_jdtls_extension_path\": [],"
+		"  \"use_clangd\": 1,"
+		"  \"clangd_binary_path\": \"CLANGD_PATH\","
+		"  \"clangd_args\": [],"
+		"  \"clangd_uses_ycmd_caching\": 1,"
+		"  \"disable_signature_help\": 0,"
+		"  \"gopls_binary_path\": \"GOPLS_PATH\","
+		"  \"gopls_args\": [],"
+		"  \"rls_binary_path\": \"RLS_PATH\","
+		"  \"rustc_binary_path\": \"RUSTC_PATH\","
+		"  \"tsserver_binary_path\": \"TSSERVER_PATH\","
+		"  \"roslyn_binary_path\": \"OMNISHARP_PATH\""
+		"}";
+
+	static char *json;
+	json = strdup(_json);
+	return json;
+}
+
+//needs to be freed
+char *ycmd_create_default_json_core_version_39()
+{
 	char *_json = "{"
 		"  \"filepath_completion_use_working_dir\": 0,"
 		"  \"auto_trigger\": 1,"
@@ -1357,17 +1421,23 @@ char *ycmd_create_default_json()
 		"    \"infolog\": 1,"
 		"    \"mail\": 1"
 		"  },"
+		"  \"filepath_blacklist\": {"
+		"    \"html\": 1,"
+		"    \"jsx\": 1,"
+		"    \"xml\": 1"
+		"  },"
 		"  \"auto_start_csharp_server\": 1,"
 		"  \"auto_stop_csharp_server\": 1,"
 		"  \"use_ultisnips_completer\": 1,"
 		"  \"csharp_server_port\": 0,"
 		"  \"hmac_secret\": \"HMAC_SECRET\","
 		"  \"server_keep_logfiles\": 0,"
-		"  \"python_binary_path\": \"YCMD_PYTHON_PATH\","
 		"  \"gocode_binary_path\": \"GOCODE_PATH\","
 		"  \"godef_binary_path\": \"GODEF_PATH\","
 		"  \"rust_src_path\": \"RUST_SRC_PATH\","
-		"  \"racerd_binary_path\": \"RACERD_PATH\""
+		"  \"racerd_binary_path\": \"RACERD_PATH\","
+		"  \"python_binary_path\": \"YCMD_PYTHON_PATH\","
+		"  \"java_jdtls_use_clean_workspace\": 1"
 		"}";
 
 	static char *json;
@@ -3463,10 +3533,19 @@ void ycmd_start_server()
 	ycmd_globals.json = ycmd_create_default_json();
 
 	string_replace_w(&ycmd_globals.json, "HMAC_SECRET", ycmd_globals.secret_key_base64, 0);
-	string_replace_w(&ycmd_globals.json, "GOCODE_PATH", GOCODE_PATH, 0);
-	string_replace_w(&ycmd_globals.json, "GODEF_PATH", GODEF_PATH, 0);
-	string_replace_w(&ycmd_globals.json, "RUST_SRC_PATH", RUST_SRC_PATH, 0);
-	string_replace_w(&ycmd_globals.json, "RACERD_PATH", RACERD_PATH, 0);
+	if (ycmd_globals.core_version == 39) {
+		string_replace_w(&ycmd_globals.json, "GOCODE_PATH", GOCODE_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "GODEF_PATH", GODEF_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "RUST_SRC_PATH", RUST_SRC_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "RACERD_PATH", RACERD_PATH, 0);
+	} else if (ycmd_globals.core_version == 43) {
+		string_replace_w(&ycmd_globals.json, "CLANGD_PATH", CLANGD_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "GOPLS_PATH", GOPLS_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "RLS_PATH", RLS_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "RUSTC_PATH", RUSTC_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "TSSERVER_PATH", TSSERVER_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "OMNISHARP_PATH", OMNISHARP_PATH, 0);
+	}
 	string_replace_w(&ycmd_globals.json, "YCMD_PYTHON_PATH", YCMD_PYTHON_PATH, 0);
 
 #ifdef DEBUG
@@ -5650,7 +5729,7 @@ void do_code_completion(char letter)
 
 	while(func)
 	{
-		if (func && func->menus & MCODECOMPLETION)
+		if (func && (func->menus == MCODECOMPLETION))
 			break;
 		func = func->next;
 	}
