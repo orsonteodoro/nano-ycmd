@@ -164,7 +164,7 @@ char *menunames[NUMBER_OF_MENUS] = { "main", "search", "replace", "replacewith",
 									"all" };
 int menusymbols[NUMBER_OF_MENUS] = { MMAIN, MWHEREIS, MREPLACE, MREPLACEWITH,
 									MYESNO, MGOTOLINE, MWRITEFILE, MINSERTFILE,
-									MEXTCMD, MHELP, MSPELL, MLINTER,
+									MEXECUTE, MHELP, MSPELL, MLINTER,
 									MBROWSER, MWHEREISFILE, MGOTODIR,
 #ifdef ENABLE_YCMD
 									MCODECOMPLETION, MCOMPLETERCOMMANDS, MREFACTORRENAME,
@@ -282,10 +282,8 @@ keystruct *strtosc(const char *input)
 #ifdef ENABLE_COLOR
 	else if (!strcmp(input, "linter"))
 		s->func = do_linter;
-#ifdef ENABLE_SPELLER
 	else if (!strcmp(input, "formatter"))
 		s->func = do_formatter;
-#endif
 #endif
 	else if (!strcmp(input, "curpos"))
 		s->func = do_cursorpos_void;
@@ -1242,7 +1240,7 @@ void pick_up_name(const char *kind, char *ptr, char **storage)
 	*storage = mallocstrcpy(*storage, ptr);
 }
 
-/* Handle the four syntax-only commands. */
+/* Handle the six syntax-only commands. */
 bool parse_syntax_commands(char *keyword, char *ptr)
 {
 	if (strcmp(keyword, "color") == 0)
@@ -1254,9 +1252,7 @@ bool parse_syntax_commands(char *keyword, char *ptr)
 		pick_up_name("comment", ptr, &live_syntax->comment);
 #endif
 	} else if (strcmp(keyword, "tabgives") == 0) {
-#ifdef ENABLE_COLOR
 		pick_up_name("tabgives", ptr, &live_syntax->tab);
-#endif
 	} else if (strcmp(keyword, "linter") == 0)
 		pick_up_name("linter", ptr, &live_syntax->linter);
 	else if (strcmp(keyword, "formatter") == 0)
@@ -1422,7 +1418,7 @@ void parse_rcfile(FILE *rcstream, bool just_syntax, bool intros_only)
 			if (!opensyntax)
 				jot_error(N_("A '%s' command requires a preceding "
 									"'syntax' command"), keyword);
-			if (strcasestr("icolor", keyword))
+			if (strstr("icolor", keyword))
 				seen_color_command = TRUE;
 			continue;
 		} else if (parse_syntax_commands(keyword, ptr))

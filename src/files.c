@@ -130,7 +130,7 @@ bool write_lockfile(const char *lockfilename, const char *filename, bool modifie
 	struct passwd *mypwuid = getpwuid(myuid);
 	char myhostname[32];
 	int fd;
-	FILE *filestream;
+	FILE *filestream = NULL;
 	char *lockdata;
 	size_t wroteamt;
 
@@ -156,7 +156,7 @@ bool write_lockfile(const char *lockfilename, const char *filename, bool modifie
 	if (fd > 0)
 		filestream = fdopen(fd, "wb");
 
-	if (fd < 0 || filestream == NULL) {
+	if (filestream == NULL) {
 		statusline(MILD, _("Error writing lock file %s: %s"),
 							lockfilename, strerror(errno));
 		if (fd > 0)
@@ -1130,7 +1130,7 @@ void do_insertfile(void)
 
 		response = do_prompt(TRUE, TRUE,
 #ifndef NANO_TINY
-							execute ? MEXTCMD :
+							execute ? MEXECUTE :
 #endif
 							MINSERTFILE, given,
 #ifndef NANO_TINY
@@ -1696,19 +1696,10 @@ bool write_file(const char *name, FILE *thefile, bool tmp,
 			goto cleanup_and_exit;
 		}
 
-		/* Only try chowning the backup when we're root. */
-		if (geteuid() == NANO_ROOT_UID &&
-						fchown(backup_fd, openfile->current_stat->st_uid,
-						openfile->current_stat->st_gid) == -1 &&
-						!ISSET(INSECURE_BACKUP)) {
-			fclose(backup_file);
-			if (prompt_failed_backupwrite(backupname))
-				goto skip_backup;
-			statusline(HUSH, _("Error writing backup file %s: %s"),
-						backupname, strerror(errno));
-			free(backupname);
-			goto cleanup_and_exit;
-		}
+		/* Try to change owner and group to those of the original file;
+		 * ignore errors, as a normal user cannot change the owner. */
+		fchown(backup_fd, openfile->current_stat->st_uid,
+							openfile->current_stat->st_gid);
 
 		/* Set the backup's mode bits. */
 		if (fchmod(backup_fd, openfile->current_stat->st_mode) == -1 &&

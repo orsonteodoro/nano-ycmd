@@ -724,10 +724,8 @@ void shortcut_init(void)
 	const char *lint_gist = N_("Invoke the linter, if available");
 	const char *prevlint_gist = N_("Go to previous linter msg");
 	const char *nextlint_gist = N_("Go to next linter msg");
-#ifdef ENABLE_SPELLER
 	const char *formatter_gist =
 		N_("Invoke a program to format/arrange/manipulate the buffer");
-#endif
 #endif
 #endif /* ENABLE_HELP */
 
@@ -843,7 +841,7 @@ void shortcut_init(void)
 	add_to_funcs(regexp_void, MWHEREIS|MREPLACE,
 		N_("Reg.exp."), WITHORSANS(regexp_gist), TOGETHER, VIEW);
 	add_to_funcs(backwards_void, MWHEREIS|MREPLACE,
-		N_("Backwards"), WITHORSANS(reverse_gist), TOGETHER, VIEW);
+		N_("Backwards"), WITHORSANS(reverse_gist), BLANKAFTER, VIEW);
 
 	add_to_funcs(flip_replace, MWHEREIS,
 		N_("Replace"), WITHORSANS(replace_gist), BLANKAFTER, VIEW);
@@ -859,7 +857,7 @@ void shortcut_init(void)
 #endif
 
 	add_to_funcs(flip_goto, MWHEREIS,
-		N_("Go To Line"), WITHORSANS(gotoline_gist), TOGETHER, VIEW);
+		N_("Go To Line"), WITHORSANS(gotoline_gist), BLANKAFTER, VIEW);
 
 #ifdef ENABLE_JUSTIFY
 	add_to_funcs(do_full_justify, MWHEREIS,
@@ -1059,13 +1057,11 @@ void shortcut_init(void)
 	if (!ISSET(RESTRICTED)) {
 		add_to_funcs(do_linter, MMAIN,
 				N_("Linter"), WITHORSANS(lint_gist), TOGETHER, NOVIEW);
-#ifdef ENABLE_SPELLER
 		add_to_funcs(do_formatter, MMAIN,
 				N_("Formatter"), WITHORSANS(formatter_gist), BLANKAFTER, NOVIEW);
-#endif
 	}
 #endif
-#endif
+#endif /* NANO_TINY */
 	add_to_funcs(do_savefile, MMAIN,
 		N_("Save"), WITHORSANS(savefile_gist), BLANKAFTER, NOVIEW);
 
@@ -1095,22 +1091,22 @@ void shortcut_init(void)
 #ifdef ENABLE_MULTIBUFFER
 	/* Multiple buffers are only available when not in restricted mode. */
 	if (!ISSET(RESTRICTED))
-		add_to_funcs(flip_newbuffer, MINSERTFILE|MEXTCMD,
+		add_to_funcs(flip_newbuffer, MINSERTFILE|MEXECUTE,
 			N_("New Buffer"), WITHORSANS(newbuffer_gist), TOGETHER, NOVIEW);
 #endif
 #ifndef NANO_TINY
 	add_to_funcs(flip_convert, MINSERTFILE,
-		N_("No Conversion"), WITHORSANS(convert_gist), TOGETHER, NOVIEW);
+		N_("No Conversion"), WITHORSANS(convert_gist), BLANKAFTER, NOVIEW);
 
 	/* Command execution is only available when not in restricted mode. */
 	if (!ISSET(RESTRICTED) && !ISSET(VIEW_MODE)) {
 		add_to_funcs(flip_execute, MINSERTFILE,
-			N_("Execute Command"), WITHORSANS(execute_gist), TOGETHER, NOVIEW);
+			N_("Execute Command"), WITHORSANS(execute_gist), BLANKAFTER, NOVIEW);
 
-		add_to_funcs(flip_pipe, MEXTCMD,
-			N_("Pipe Text"), WITHORSANS(pipe_gist), TOGETHER, NOVIEW);
+		add_to_funcs(flip_pipe, MEXECUTE,
+			N_("Pipe Text"), WITHORSANS(pipe_gist), BLANKAFTER, NOVIEW);
 
-		add_to_funcs(flip_execute, MEXTCMD,
+		add_to_funcs(flip_execute, MEXECUTE,
 			N_("Read File"), WITHORSANS(readfile_gist), TOGETHER, NOVIEW);
 	}
 #endif
@@ -1118,7 +1114,7 @@ void shortcut_init(void)
 	/* The file browser is only available when not in restricted mode. */
 	if (!ISSET(RESTRICTED))
 		add_to_funcs(to_files, MWRITEFILE|MINSERTFILE,
-			N_("Browse"), WITHORSANS(tofiles_gist), TOGETHER, VIEW);
+			N_("Browse"), WITHORSANS(tofiles_gist), BLANKAFTER, VIEW);
 
 	add_to_funcs(do_page_up, MBROWSER,
 		N_("Prev Page"), WITHORSANS(prevpage_gist), TOGETHER, VIEW);
@@ -1366,9 +1362,7 @@ void shortcut_init(void)
 #endif
 #ifdef ENABLE_COLOR
 	add_to_sclist(MMAIN, "M-B", 0, do_linter, 0);
-#ifdef ENABLE_SPELLER
 	add_to_sclist(MMAIN, "M-F", 0, do_formatter, 0);
-#endif
 #endif
 	add_to_sclist(MMAIN, "^C", 0, do_cursorpos_void, 0);
 	add_to_sclist(MMAIN, "^_", 0, do_gotolinecolumn_void, 0);
@@ -1578,17 +1572,17 @@ void shortcut_init(void)
 	add_to_sclist(MWHEREIS|MREPLACE, "^R", 0, flip_replace, 0);
 	add_to_sclist(MWHEREIS|MGOTOLINE, "^T", 0, flip_goto, 0);
 #ifdef ENABLE_HISTORIES
-	add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXTCMD, "^P", 0, get_history_older_void, 0);
-	add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXTCMD, "^N", 0, get_history_newer_void, 0);
+	add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXECUTE, "^P", 0, get_history_older_void, 0);
+	add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXECUTE, "^N", 0, get_history_newer_void, 0);
 #ifdef ENABLE_UTF8
 	if (using_utf8()) {
-		add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXTCMD, "\xE2\x96\xb2", KEY_UP, get_history_older_void, 0);
-		add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXTCMD, "\xE2\x96\xbc", KEY_DOWN, get_history_newer_void, 0);
+		add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXECUTE, "\xE2\x96\xb2", KEY_UP, get_history_older_void, 0);
+		add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXECUTE, "\xE2\x96\xbc", KEY_DOWN, get_history_newer_void, 0);
 	} else
 #endif
 	{
-		add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXTCMD, "Up", KEY_UP, get_history_older_void, 0);
-		add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXTCMD, "Down", KEY_DOWN, get_history_newer_void, 0);
+		add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXECUTE, "Up", KEY_UP, get_history_older_void, 0);
+		add_to_sclist(MWHEREIS|MREPLACE|MREPLACEWITH|MWHEREISFILE|MFINDINHELP|MEXECUTE, "Down", KEY_DOWN, get_history_newer_void, 0);
 	}
 #endif
 #ifdef ENABLE_JUSTIFY
@@ -1623,16 +1617,16 @@ void shortcut_init(void)
 		add_to_sclist(MWRITEFILE, "M-A", 0, append_void, 0);
 		add_to_sclist(MWRITEFILE, "M-P", 0, prepend_void, 0);
 		add_to_sclist(MWRITEFILE, "M-B", 0, backup_file_void, 0);
-		add_to_sclist(MINSERTFILE|MEXTCMD, "^X", 0, flip_execute, 0);
+		add_to_sclist(MINSERTFILE|MEXECUTE, "^X", 0, flip_execute, 0);
 	}
 	add_to_sclist(MINSERTFILE, "M-N", 0, flip_convert, 0);
 #endif
 #ifdef ENABLE_MULTIBUFFER
 	/* Only when not in restricted mode, allow multiple buffers. */
 	if (!ISSET(RESTRICTED)) {
-		add_to_sclist(MINSERTFILE|MEXTCMD, "M-F", 0, flip_newbuffer, 0);
+		add_to_sclist(MINSERTFILE|MEXECUTE, "M-F", 0, flip_newbuffer, 0);
 #ifndef NANO_TINY
-		add_to_sclist(MEXTCMD, "M-\\", 0, flip_pipe, 0);
+		add_to_sclist(MEXECUTE, "M-\\", 0, flip_pipe, 0);
 #endif
 	}
 #endif

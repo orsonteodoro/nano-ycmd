@@ -2873,7 +2873,6 @@ void do_linter(void)
 	titlebar(NULL);
 }
 
-#ifdef ENABLE_SPELLER
 /* Run a manipulation program on the contents of the buffer. */
 void do_formatter(void)
 {
@@ -2909,7 +2908,6 @@ void do_formatter(void)
 	unlink(temp_name);
 	free(temp_name);
 }
-#endif /* ENABLE_SPELLER */
 #endif /* ENABLE_COLOR */
 
 #ifndef NANO_TINY
