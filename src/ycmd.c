@@ -1050,7 +1050,7 @@ void ycmd_init()
 	}
 }
 
-//generates a compile_commands.json for clang completer
+//generates a compile_commands.json for the clang completer
 //returns 1 on success
 int bear_generate(char *project_path)
 {
@@ -1097,11 +1097,10 @@ int bear_generate(char *project_path)
 	return ret == 0;
 }
 
-//generate json for ninja build system
+//generate a compile_commands.json for projects using the ninja build system
 //returns 1 on success 0 on failure;
 int ninja_compdb_generate(char *project_path)
 {
-#ifdef USE_NINJA
 #ifdef DEBUG
 	fprintf(stderr, "Entered ninja_compdb_generate\n");
 #endif
@@ -1192,7 +1191,6 @@ void get_project_path(char *path_project)
 #endif
 		getcwd(path_project, PATH_MAX);
 	}
-#endif
 }
 
 //precondition: path_project must be populated first from get_project_path()
@@ -1201,7 +1199,7 @@ void get_extra_conf_path(char *path_project, char *path_extra_conf)
 	snprintf(path_extra_conf, PATH_MAX, "%s/.ycm_extra_conf.py", path_project);
 }
 
-//generates a .ycm_extra_conf.py for c family completer
+//generates a .ycm_extra_conf.py for the c family completer
 //language must be: c, c++, objective-c, objective-c++
 void ycm_generate(char *filepath, char *content)
 {
@@ -1212,6 +1210,7 @@ void ycm_generate(char *filepath, char *content)
 
 	get_project_path(path_project);
 
+#ifdef ENABLE_YCM_GENERATOR
 	char *ycmg_flags = getenv("YCMG_FLAGS");
 	if (!ycmg_flags || strcmp(ycmg_flags,"(null)") == 0)
 	{
@@ -1227,12 +1226,19 @@ void ycm_generate(char *filepath, char *content)
 #endif
 		snprintf(flags, PATH_MAX, "%s",ycmg_flags);
 	}
+#endif
 
 	get_extra_conf_path(path_project, path_extra_conf);
 
 	//generate bear's json first because ycm-generator deletes the Makefiles
+#ifdef ENABLE_BEAR
 	if (!bear_generate(path_project))
+#endif
+#ifdef ENABLE_NINJA
 		ninja_compdb_generate(path_project); //handle ninja build system.
+#else
+		;
+#endif
 
 	if (access(path_extra_conf, F_OK) == 0)
 	{
@@ -1241,6 +1247,7 @@ void ycm_generate(char *filepath, char *content)
 	}
 	else
 	{
+#ifdef ENABLE_YCM_GENERATOR
 		statusline(HUSH, "Please wait.  Generating a .ycm_extra_conf.py file.");
 		snprintf(command, PATH_MAX*2, "\"%s\" \"%s\" -f %s \"%s\" >/dev/null", YCMG_PYTHON_PATH, YCMG_PATH, flags, path_project);
 #ifdef DEBUG
@@ -1252,7 +1259,7 @@ void ycm_generate(char *filepath, char *content)
 			statusline(HUSH, "Sucessfully generated a .ycm_extra_conf.py file.");
 			//usleep(3000000);
 
-
+#if defined(ENABLE_BEAR) || defined(ENABLE_NINJA)
 			snprintf(command, PATH_MAX*2, "sed -i -e \"s|compilation_database_folder = ''|compilation_database_folder = '%s'|g\" \"%s\"", path_project, path_extra_conf);
 			int ret2 = system(command);
 			if (ret2 == 0)
@@ -1265,6 +1272,7 @@ void ycm_generate(char *filepath, char *content)
 				statusline(HUSH, "Failed patching .ycm_extra_conf.py with compile_commands.json.");
 				//usleep(3000000);
 			}
+#endif
 
 			char language[10];
 			if (strstr(filepath,".mm"))
@@ -1317,6 +1325,7 @@ sed -e "s|'do_cache': True|'do_cache': False|g" -e "s|'-I.'|'-isystem','$(echo $
 			statusline(HUSH, "Failed to generate a .ycm_extra_conf.py file.");
 			//usleep(3000000);
 		}
+#endif
 	}
 	blank_statusbar();
 }
@@ -1885,9 +1894,11 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 		if (is_c_family(ft2))
 		{
 			ycmd_gen_extra_conf(openfile->filename, content);
+#ifdef USE_YCM_GENERATOR
 			get_project_path(path_project);
 			get_extra_conf_path(path_project, path_extra_conf);
 			ycmd_req_load_extra_conf_file(path_extra_conf);
+#endif
 		}
 
 		int ret = ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand, ccr);
@@ -2695,9 +2706,11 @@ void do_completer_command_restartserver(void)
 		if (is_c_family(ft))
 		{
 			ycmd_gen_extra_conf(openfile->filename, content);
+#ifdef USE_YCM_GENERATOR
 			get_project_path(path_project);
 			get_extra_conf_path(path_project, path_extra_conf);
 			ycmd_req_load_extra_conf_file(path_extra_conf);
+#endif
 		}
 
 		COMPLETER_COMMAND_RESULTS ccr;
@@ -5642,9 +5655,11 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 		if (is_c_family(ft))
 		{
 			ycmd_gen_extra_conf(filepath, content);
+#ifdef USE_YCM_GENERATOR
 			get_project_path(path_project);
 			get_extra_conf_path(path_project, path_extra_conf);
 			ycmd_req_load_extra_conf_file(path_extra_conf);
+#endif
 		}
 		ycmd_json_event_notification(columnnum, linenum, filepath, "FileReadyToParse", content);
 		ycmd_req_completions_suggestions(linenum, columnnum, filepath, content, "filetype_default");
