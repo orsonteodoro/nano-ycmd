@@ -2,7 +2,7 @@
 # Generate configure & friends for GIT users.
 
 gnulib_url="git://git.sv.gnu.org/gnulib.git"
-gnulib_hash="360979fd6fb84567e0ffc6839b0431fc00d6362f"
+gnulib_hash="c9b44f214c7c798c7701c7a281584e262b263655"
 
 modules="
 	futimens
@@ -30,7 +30,7 @@ modules="
 
 # Make sure the local gnulib git repo is up-to-date.
 if [ ! -d "gnulib" ]; then
-	git clone --depth=123 ${gnulib_url}
+	git clone --depth=1111 ${gnulib_url}
 fi
 cd gnulib >/dev/null || exit 1
 curr_hash=$(git log -1 --format=%H)

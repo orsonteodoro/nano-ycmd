@@ -1,7 +1,7 @@
 /**************************************************************************
  *   utils.c  --  This file is part of GNU nano.                          *
  *                                                                        *
- *   Copyright (C) 1999-2011, 2013-2020 Free Software Foundation, Inc.    *
+ *   Copyright (C) 1999-2011, 2013-2021 Free Software Foundation, Inc.    *
  *   Copyright (C) 2016, 2017, 2019 Benno Schulenberg                     *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
@@ -19,7 +19,7 @@
  *                                                                        *
  **************************************************************************/
 
-#include "proto.h"
+#include "prototypes.h"
 
 #include <errno.h>
 #ifdef HAVE_PWD_H
@@ -38,7 +38,7 @@ void get_homedir(void)
 #ifdef HAVE_PWD_H
 		/* When HOME isn't set, or when we're root, get the home directory
 		 * from the password file instead. */
-		if (homenv == NULL || geteuid() == 0) {
+		if (homenv == NULL || geteuid() == ROOT_UID) {
 			const struct passwd *userage = getpwuid(geteuid());
 
 			if (userage != NULL)
@@ -68,7 +68,7 @@ const char *tail(const char *path)
 char *concatenate(const char *path, const char *name)
 {
 	size_t pathlen = strlen(path);
-	char *joined = charalloc(pathlen + strlen(name) + 1);
+	char *joined = nmalloc(pathlen + strlen(name) + 1);
 
 	strcpy(joined, path);
 	strcpy(joined + pathlen, name);
@@ -76,7 +76,6 @@ char *concatenate(const char *path, const char *name)
 	return joined;
 }
 
-#ifdef ENABLE_LINENUMBERS
 /* Return the number of digits that the given integer n takes up. */
 int digits(ssize_t n)
 {
@@ -106,21 +105,20 @@ int digits(ssize_t n)
 		}
 	}
 }
-#endif
 
-/* Read an integer from str.  If it parses okay, store it in *result
- * and return TRUE; otherwise, return FALSE. */
-bool parse_num(const char *str, ssize_t *result)
+/* Read an integer from the given string.  If it parses okay,
+ * store it in *result and return TRUE; otherwise, return FALSE. */
+bool parse_num(const char *string, ssize_t *result)
 {
-	char *first_error;
 	ssize_t value;
+	char *excess;
 
-	/* The manual page for strtol() says this is required. */
+	/* Clear the error number so that we can check it afterward. */
 	errno = 0;
 
-	value = (ssize_t)strtol(str, &first_error, 10);
+	value = (ssize_t)strtol(string, &excess, 10);
 
-	if (errno == ERANGE || *str == '\0' || *first_error != '\0')
+	if (errno == ERANGE || *string == '\0' || *excess != '\0')
 		return FALSE;
 
 	*result = value;
@@ -195,22 +193,18 @@ void free_chararray(char **array, size_t len)
 #endif
 
 #ifdef ENABLE_SPELLER
-/* Is the word starting at the given position in buf and of the given length
- * a separate word?  That is: is it not part of a longer word?*/
-bool is_separate_word(size_t position, size_t length, const char *buf)
+/* Is the word starting at the given position in 'text' and of the given
+ * length a separate word?  That is: is it not part of a longer word? */
+bool is_separate_word(size_t position, size_t length, const char *text)
 {
-	char before[MAXCHARLEN], after[MAXCHARLEN];
-	size_t word_end = position + length;
-
-	/* Get the characters before and after the word, if any. */
-	collect_char(buf + step_left(buf, position), before);
-	collect_char(buf + word_end, after);
+	const char *before = text + step_left(text, position);
+	const char *after = text + position + length;
 
 	/* If the word starts at the beginning of the line OR the character before
 	 * the word isn't a letter, and if the word ends at the end of the line OR
 	 * the character after the word isn't a letter, we have a whole word. */
 	return ((position == 0 || !is_alpha_char(before)) &&
-				(buf[word_end] == '\0' || !is_alpha_char(after)));
+					(*after == '\0' || !is_alpha_char(after)));
 }
 #endif /* ENABLE_SPELLER */
 
@@ -294,7 +288,10 @@ void *nmalloc(size_t howmuch)
 {
 	void *r = malloc(howmuch);
 
-	if (r == NULL && howmuch != 0)
+	if (howmuch == 0)
+		die("Allocating zero bytes.  Please report a bug.\n");
+
+	if (r == NULL)
 		die(_("Nano is out of memory!\n"));
 
 	return r;
@@ -306,7 +303,10 @@ void *nrealloc(void *ptr, size_t howmuch)
 {
 	void *r = realloc(ptr, howmuch);
 
-	if (r == NULL && howmuch != 0)
+	if (howmuch == 0)
+		die("Allocating zero bytes.  Please report a bug.\n");
+
+	if (r == NULL)
 		die(_("Nano is out of memory!\n"));
 
 	return r;
@@ -318,7 +318,7 @@ char *mallocstrcpy(char *dest, const char *src)
 {
 	size_t count = strlen(src) + 1;
 
-	dest = charealloc(dest, count);
+	dest = nrealloc(dest, count);
 	strncpy(dest, src, count);
 
 	return dest;
@@ -328,9 +328,9 @@ char *mallocstrcpy(char *dest, const char *src)
  * of the given string, and NUL-terminate the copy. */
 char *measured_copy(const char *string, size_t count)
 {
-	char *thecopy = charalloc(count + 1);
+	char *thecopy = nmalloc(count + 1);
 
-	strncpy(thecopy, string, count);
+	memcpy(thecopy, string, count);
 	thecopy[count] = '\0';
 
 	return thecopy;
@@ -349,14 +349,12 @@ char *free_and_assign(char *dest, char *src)
 	return src;
 }
 
-/* When not in softwrap mode, nano scrolls horizontally within a line in
- * chunks (a bit smaller than the chunks used in softwrapping).  Return the
- * column number of the first character displayed in the edit window when the
- * cursor is at the given column.  Note that (0 <= column -
- * get_page_start(column) < COLS). */
+/* When not softwrapping, nano scrolls the current line horizontally by
+ * chunks ("pages").  Return the column number of the first character
+ * displayed in the edit window when the cursor is at the given column. */
 size_t get_page_start(size_t column)
 {
-	if (column + 2 < editwincols || ISSET(SOFTWRAP) || column == 0)
+	if (column == 0 || column + 2 < editwincols || ISSET(SOFTWRAP))
 		return 0;
 	else if (editwincols > 8)
 		return column - 6 - (column - 6) % (editwincols - 8);
@@ -431,6 +429,9 @@ void new_magicline(void)
 	openfile->filebot->next = make_new_node(openfile->filebot);
 	openfile->filebot->next->data = copy_of("");
 	openfile->filebot = openfile->filebot->next;
+#ifndef NANO_TINY
+	openfile->filebot->extrarows = 0;
+#endif
 	openfile->totsize++;
 }
 

@@ -8,8 +8,8 @@
 
 @smallbook
 @set EDITION 0.5
-@set VERSION 4.9
-@set UPDATED March 2020
+@set VERSION 5.6.1
+@set UPDATED March 2021
 
 @dircategory Editors
 @direntry
@@ -23,7 +23,7 @@
 @titlepage
 @title GNU @command{nano}
 @subtitle a small and friendly text editor
-@subtitle version 4.9
+@subtitle version 5.6.1
 
 @author Chris Allegretta
 @page
@@ -33,7 +33,7 @@ This manual documents the GNU @command{nano} editor.
 This manual is part of the GNU @command{nano} distribution.@*
 
 @sp 4
-Copyright @copyright{} 1999-2009, 2014-2020 Free Software Foundation, Inc.
+Copyright @copyright{} 1999-2009, 2014-2021 Free Software Foundation, Inc.
 
 @sp 1
 This document is dual-licensed.  You may distribute and/or modify it
@@ -63,7 +63,7 @@ e-mail: @email{chrisa@@asty.org}@*
 @node Top
 @top
 
-This manual documents the GNU @command{nano} editor, version 4.9.
+This manual documents the GNU @command{nano} editor, version 5.6.1.
 
 @menu
 * Introduction::
@@ -71,9 +71,9 @@ This manual documents the GNU @command{nano} editor, version 4.9.
 * Command-line Options::
 * Editor Basics::
 * Built-in Help::
+* The File Browser::
 * Feature Toggles::
 * Nanorc Files::
-* The File Browser::
 * Pico Compatibility::
 * Building and Configure Options::
 @end menu
@@ -99,14 +99,14 @@ Pico differ.
 Starting with version 4.0, @command{nano} no longer hard-wraps an overlong
 line by default.  It further uses linewise scrolling by default, and by
 default includes the line below the title bar into the editing area.
-
 If you want the old, Pico behavior back, you can use the
 following options: @option{--breaklonglines},
 @option{--jumpyscrolling}, and @option{--emptyline}
-(or @option{-bje} for short).
+(or @option{-bje}).
 
 Please report bugs via @url{https://savannah.gnu.org/bugs/?group=nano}.
 
+For background information see @url{https://nano-editor.org/}.
 
 @node Invoking
 @chapter Invoking
@@ -239,6 +239,11 @@ hard-wrapping occurs or when text is justified.
 @itemx --noconvert
 Disable automatic conversion of files from DOS/Mac format.
 
+@item -O
+@itemx --bookstyle
+When justifying, treat any line that starts with whitespace as the
+beginning of a paragraph (unless auto-indenting is on).
+
 @item -P
 @itemx --positionlog
 For the 200 most recent files, log the last position of the cursor,
@@ -247,7 +252,7 @@ and place it at that position again upon reopening such a file.
 @item -Q "@var{regex}"
 @itemx --quotestr="@var{regex}"
 Set the regular expression for matching the quoting part of a line.
-The default value is @t{"^([@w{ }\t]*([!#%:;>|@}]|//))+"}.
+The default value is "@t{^([@w{ }\t]*([!#%:;>|@}]|//))+}".
 (Note that @code{\t} stands for a literal Tab character.)
 This makes it possible to rejustify blocks of quoted text when composing
 email, and to rewrap blocks of line comments when writing source code.
@@ -276,9 +281,9 @@ Set the displayed tab length to @var{number} columns.  The value of
 
 @item -U
 @itemx --quickblank
-Do quick status-bar blanking: status-bar messages will disappear after 1
-keystroke instead of 25.  Note that option @option{-c}
-(@option{--constantshow}) overrides this.
+Make status-bar messages disappear after 1 keystroke instead of after 20.
+Note that options @option{-c} (@option{--constantshow})
+and @option{-_} (@option{--minibar}) override this.
 
 @item -V
 @itemx --version
@@ -365,6 +370,7 @@ position to the end of the line, instead of cutting the entire line.
 @item -l
 @itemx --linenumbers
 Display line numbers to the left of the text area.
+(Any line with an anchor additionally gets a mark in the margin.)
 
 @item -m
 @itemx --mouse
@@ -392,6 +398,12 @@ similar to a chroot.
 Preserve the @kbd{^Q} (XON) and @kbd{^S} (XOFF) sequences so data being
 sent to the editor can be stopped and started.
 
+@item -q
+@itemx --indicator
+Display a "scrollbar" on the righthand side of the edit window.
+It shows the position of the viewport in the buffer
+and how much of the buffer is covered by the viewport.
+
 @item -r @var{number}
 @itemx --fill=@var{number}
 Set the target width for justifying and automatic hard-wrapping at this
@@ -415,6 +427,7 @@ to be installed.
 Save a changed buffer without prompting (when exiting with @kbd{^X}).
 This can be handy when @command{nano} is used as the composer of an
 email program.
+(The old form of the long option, @code{--tempfile}, is deprecated.)
 
 @item -u
 @item --unix
@@ -454,6 +467,38 @@ Make Ctrl+Right and Ctrl+Delete stop at word ends instead of beginnings.
 @itemx --suspendable
 Enable the ability to suspend @command{nano} using the system's suspend
 keystroke (usually @kbd{^Z}).
+
+@item -%
+@itemx --stateflags
+Use the top-right corner of the screen for showing some state flags:
+@code{I} when auto-indenting, @code{M} when the mark is on, @code{L} when
+hard-wrapping (breaking long lines), @code{R} when recording a macro,
+and @code{S} when soft-wrapping.
+When the buffer is modified, a star (@code{*}) is shown after the
+filename in the center of the title bar.
+
+@item -_
+@itemx --minibar
+Suppress the title bar and instead show information about
+the current buffer at the bottom of the screen, in the space
+for the status bar.  In this "minibar" the file name is shown
+on the left, followed by an asterisk if the buffer has been modified.
+On the right are displayed the current line and column number, the
+code of the character under the cursor (in Unicode format: U+xxxx),
+the same flags as are shown by @code{--stateflags}, and a percentage
+that expresses how far the cursor is into the file (linewise).
+When a file is loaded or saved, and also when switching between buffers,
+the number of lines in the buffer is displayed after the file name.
+This number is cleared upon the next keystroke, or replaced with an
+[i/n] counter when multiple buffers are open.
+The line plus column numbers and the character code are displayed only when
+@code{--constantshow} is used, and can be toggled on and off with @key{M-C}.
+The state flags are displayed only when @code{--stateflags} is used.
+
+@item -!
+@itemx --magic
+When neither the file's name nor its first line give a clue,
+try using libmagic to determine the applicable syntax.
 
 @end table
 
@@ -524,23 +569,22 @@ and then pressing the desired key.
 @node The Cutbuffer
 @section The Cutbuffer
 
-Text can be cut from a file, a whole line at a time, by using the 'Cut Text'
-command (default key binding: @kbd{^K}).  The cut line is stored in
-the cutbuffer.  Consecutive strokes of @kbd{^K} will add each cut line
-to this buffer, but a @kbd{^K}
+Text can be cut from a file a whole line at a time with @kbd{^K}.
+The cut line is stored in the cutbuffer.  Consecutive strokes of @kbd{^K}
+will add each cut line to this buffer, but a @kbd{^K}
 after any other keystroke will overwrite the entire cutbuffer.
 
-The contents of the cutbuffer can be pasted back into the file with the
-'Uncut Text' command (default key binding: @kbd{^U}).
+The contents of the cutbuffer can be pasted at the current cursor position
+with @kbd{^U}.
 
-A line of text can be copied into the cutbuffer (without cutting it) with
-the 'Copy Text' command (default key binding: @kbd{M-6}).
+A line of text can be copied into the cutbuffer (without cutting it)
+with @kbd{M-6}.
 
 @node The Mark
 @section The Mark
 
-Text can be selected by first 'setting the Mark' (default key bindings:
-@kbd{^6} and @kbd{M-A}) and then moving the cursor to the other end of the portion
+Text can be selected by first 'setting the Mark' with @kbd{^6}
+or @kbd{M-A} and then moving the cursor to the other end of the portion
 to be selected.  The selected portion of text will be highlighted.
 This selection can now be cut or copied in its entirety with a single
 @kbd{^K} or @kbd{M-6}.  Or the selection can be used to limit the scope of
@@ -551,8 +595,8 @@ while using the cursor keys.  Holding down the @kbd{Ctrl} or @kbd{Alt}
 key too will increase the stride.  Such a selection is cancelled
 upon any cursor movement where @kbd{Shift} isn't held.
 
-Cutting or copying selected text will toggle the mark off automatically.
-If necessary, it can be toggled off manually with another @kbd{^6} or @kbd{M-A}.
+Cutting or copying selected text toggles off the mark automatically.
+If needed, it can be toggled off manually with another @kbd{^6} or @kbd{M-A}.
 
 @node Screen Layout
 @section Screen Layout
@@ -618,6 +662,8 @@ inherits the anchor.  After performing an operation on the entire buffer
 spell check on it), any anchors that were present are gone.  And when
 you close the buffer, all its anchors simply disappear; they are not saved.
 
+Anchors are visualized in the margin when line numbers are activated.
+
 @node Limitations
 @section Limitations
 
@@ -633,6 +679,25 @@ The built-in help system in @command{nano} is available by pressing @kbd{^G}.
 It is fairly self-explanatory.  It documents the various parts of the
 editor and the available keystrokes.  Navigation is via the @kbd{^Y} (Page Up)
 and @kbd{^V} (Page Down) keys.  @kbd{^X} exits from the help system.
+
+
+@node The File Browser
+@chapter The File Browser
+
+When in the Read-File (@kbd{^R}) or Write-Out menu (@kbd{^O}),
+pressing @kbd{^T} will invoke the file browser.
+Here, one can navigate directories in a graphical manner in order to
+find the desired file.
+
+Basic movement in the file browser is accomplished with the arrow and
+other cursor-movement keys.  More targeted movement is accomplished by
+searching, via @kbd{^W} or @kbd{w}, or by changing directory, via
+@kbd{^_} or @kbd{g}.  The behavior of the @kbd{Enter} key (or @kbd{s})
+varies by what is currently selected.
+If the currently selected object is a directory, the file browser will
+enter and display the contents of the directory.  If the object is a
+file, this filename and path are copied to the status bar, and the file
+browser exits.
 
 
 @node Feature Toggles
@@ -762,12 +827,16 @@ function tags, line numbers, and selected text.  This is overridden by
 setting the options @code{titlecolor}, @code{statuscolor}, @code{keycolor},
 @code{functioncolor}, @code{numbercolor}, and/or @code{selectedcolor}.
 
+@item set bookstyle
+When justifying, treat any line that starts with whitespace as the
+beginning of a paragraph (unless auto-indenting is on).
+
 @item set brackets "@var{characters}"
 Set the characters treated as closing brackets when justifying
 paragraphs.  This may not include blank characters.  Only closing
 punctuation (see @code{set punct}), optionally followed by the specified
 closing brackets, can end sentences.  The default value is
-@t{""')>]@}"}.
+"@t{"')>]@}}".
 
 @item set breaklonglines
 Automatically hard-wrap the current line when it becomes overlong.
@@ -785,7 +854,7 @@ Use cut-from-cursor-to-end-of-line by default, instead of cutting the whole line
 @item set emptyline
 Do not use the line below the title bar, leaving it entirely blank.
 
-@item set errorcolor @var{fgcolor},@var{bgcolor}
+@item set errorcolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
 Use this color combination for the status bar when an error message is displayed.
 The default value is @t{brightwhite,red}.
 @xref{@code{set functioncolor}} for valid color names.
@@ -798,15 +867,26 @@ point to vary along with the width of the screen if the screen is resized.
 The default value is @t{-8}.
 
 @anchor{@code{set functioncolor}}
-@item set functioncolor @var{fgcolor},@var{bgcolor}
+@item set functioncolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
 Use this color combination for the concise function descriptions
 in the two help lines at the bottom of the screen.
-Valid names for foreground and background color are:
-@code{white}, @code{black}, @code{blue}, @code{green},
-@code{red}, @code{cyan}, @code{yellow}, @code{magenta}, and @code{normal}
+Valid names for the foreground and background colors are:
+@code{red}, @code{green}, @code{blue},
+@code{magenta}, @code{yellow}, @code{cyan},
+@code{white}, and @code{black}.
+Each of these eight names may be prefixed with the word
+@code{light} to get a brighter version of that color.
+
+On terminal emulators that can do at least 256 colors,
+other valid (but unprefixable) color names are:
+@code{pink}, @code{purple}, @code{mauve},
+@code{lagoon}, @code{mint}, @code{lime},
+@code{peach}, @code{orange}, @code{latte}, and @code{normal}
 --- where @code{normal} means the default foreground or background color.
-The name of the foreground color may be prefixed with @code{bright}.
-And either @var{fgcolor} or ,@var{bgcolor} may be left out.
+Either @var{fgcolor} or ,@var{bgcolor} may be left out,
+and the pair may be preceded by @code{bold} and/or @code{italic}
+(separated by commas) to get a bold and/or slanting typeface,
+if your terminal can do those.
 
 @item set guidestripe @var{number}
 Draw a vertical stripe at the given column, to help judge the width of the
@@ -816,29 +896,55 @@ text.  (The color of the stripe can be changed with @code{set stripecolor}.)
 Save the last hundred search strings and replacement strings and
 executed commands, so they can be easily reused in later sessions.
 
+@item set indicator
+Display a "scrollbar" on the righthand side of the edit window.
+It shows the position of the viewport in the buffer
+and how much of the buffer is covered by the viewport.
+
 @item set jumpyscrolling
 Scroll the buffer contents per half-screen instead of per line.
 
-@item set keycolor @var{fgcolor},@var{bgcolor}
+@item set keycolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
 Use this color combination for the shortcut key combos
 in the two help lines at the bottom of the screen.
 @xref{@code{set functioncolor}} for valid color names.
 
 @item set linenumbers
 Display line numbers to the left of the text area.
+(Any line with an anchor additionally gets a mark in the margin.)
 
 @item set locking
 Enable vim-style lock-files for when editing files.
 
+@item set magic
+When neither the file's name nor its first line give a clue,
+try using libmagic to determine the applicable syntax.
+(Calling libmagic can be relatively time consuming.
+It is therefore not done by default.)
+
+@anchor{@code{set matchbrackets}}
 @item set matchbrackets "@var{characters}"
-Set the opening and closing brackets that can be found by bracket
+Specify the opening and closing brackets that can be found by bracket
 searches.  This may not include blank characters.  The opening set must
 come before the closing set, and the two sets must be in the same order.
-The default value is @t{"(<[@{)>]@}"}.
+The default value is "@t{(<[@{)>]@}}".
 
-@item set morespace
-Deprecated option since it has become the default setting.
-When needed, use @code{unset emptyline} instead.
+@item set minibar
+Suppress the title bar and instead show information about
+the current buffer at the bottom of the screen, in the space
+for the status bar.  In this "minibar" the file name is shown
+on the left, followed by an asterisk if the buffer has been modified.
+On the right are displayed the current line and column number, the
+code of the character under the cursor (in Unicode format: U+xxxx),
+the same flags as are shown by @code{set stateflags}, and a percentage
+that expresses how far the cursor is into the file (linewise).
+When a file is loaded or saved, and also when switching between buffers,
+the number of lines in the buffer is displayed after the file name.
+This number is cleared upon the next keystroke, or replaced with an
+[i/n] counter when multiple buffers are open.
+The line plus column numbers and the character code are displayed only when
+@code{set constantshow} is used, and can be toggled on and off with @key{M-C}.
+The state flags are displayed only when @code{set stateflags} is used.
 
 @item set mouse
 Enable mouse support, so that mouse clicks can be used to place the
@@ -857,14 +963,11 @@ Don't display the help lists at the bottom of the screen.
 Don't automatically add a newline when a text does not end with one.
 (This can cause you to save non-POSIX text files.)
 
-@item set nopauses
-Obsolete option.  Ignored.
-
 @item set nowrap
 Deprecated option since it has become the default setting.
 When needed, use @code{unset breaklonglines} instead.
 
-@item set numbercolor @var{fgcolor},@var{bgcolor}
+@item set numbercolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
 Use this color combination for line numbers.
 @xref{@code{set functioncolor}} for valid color names.
 
@@ -881,20 +984,25 @@ The cursor position is remembered for the 200 most-recently edited files.
 @item set preserve
 Preserve the XON and XOFF keys (@kbd{^Q} and @kbd{^S}).
 
+@item set promptcolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
+Use this color combination for the prompt bar.
+(When this option is not specified, the colors of the title bar are used.)
+@xref{@code{set functioncolor}} for valid color names.
+
 @item set punct "@var{characters}"
 Set the characters treated as closing punctuation when justifying
 paragraphs.  This may not include blank characters.  Only the
 specified closing punctuation, optionally followed by closing brackets
 (see @code{set brackets}), can end sentences.
-The default value is @t{"!.?"}.
+The default value is "@t{!.?}".
 
 @item set quickblank
-Do quick status-bar blanking: status-bar messages will disappear after 1
-keystroke instead of 25.  Note that @option{constantshow} overrides this.
+Make status-bar messages disappear after 1 keystroke instead of after 20.
+Note that options @option{constantshow} and @option{minibar} override this.
 
 @item set quotestr "@var{regex}"
 Set the regular expression for matching the quoting part of a line.
-The default value is @t{"^([@w{ }\t]*([!#%:;>|@}]|//))+"}.
+The default value is "@t{^([@w{ }\t]*([!#%:;>|@}]|//))+}".
 (Note that @code{\t} stands for a literal Tab character.)
 This makes it possible to rejustify blocks of quoted text when composing
 email, and to rewrap blocks of line comments when writing source code.
@@ -914,7 +1022,17 @@ system either Backspace acts like Delete or Delete acts like Backspace.
 Do regular-expression searches by default.
 Regular expressions in @command{nano} are of the extended type (ERE).
 
-@item set selectedcolor @var{fgcolor},@var{bgcolor}
+@item set saveonexit
+Save a changed buffer automatically on exit (@kbd{^X}); don't prompt.
+(The old form of this option, @code{set tempfile}, is deprecated.)
+
+@item set scrollercolor @var{fgcolor},@var{bgcolor}
+Use this color combination for the indicator alias "scrollbar".
+(On terminal emulators that link to a libvte older than version 0.55,
+using a background color here does not work correctly.)
+@xref{@code{set functioncolor}} for valid color names.
+
+@item set selectedcolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
 Use this color combination for selected text.
 @xref{@code{set functioncolor}} for valid color names.
 
@@ -930,10 +1048,6 @@ jump to that beginning (either forwards or backwards).  If the cursor is
 already at that position, it will jump to the true beginning of the
 line.
 
-@item set smooth
-Deprecated option since it has become the default setting.
-When needed, use @code{unset jumpyscrolling} instead.
-
 @item set softwrap
 Display lines that exceed the screen's width over multiple screen lines.
 (You can make this soft-wrapping occur at whitespace instead of rudely at
@@ -943,11 +1057,24 @@ the screen's edge, by using also @code{set atblanks}.)
 Use the given program to do spell checking and correcting.
 @xref{@option{--speller}} for details.
 
-@item set statuscolor @var{fgcolor},@var{bgcolor}
+@item set spotlightcolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
+Use this color combination for highlighting a search match.
+The default value is @t{black,lightyellow}.
+@xref{@code{set functioncolor}} for valid color names.
+
+@item set stateflags
+Use the top-right corner of the screen for showing some state flags:
+@code{I} when auto-indenting, @code{M} when the mark is on, @code{L} when
+hard-wrapping (breaking long lines), @code{R} when recording a macro,
+and @code{S} when soft-wrapping.
+When the buffer is modified, a star (@code{*}) is shown after the
+filename in the center of the title bar.
+
+@item set statuscolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
 Use this color combination for the status bar.
 @xref{@code{set functioncolor}} for valid color names.
 
-@item set stripecolor @var{fgcolor},@var{bgcolor}
+@item set stripecolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
 Use this color combination for the vertical guiding stripe.
 @xref{@code{set functioncolor}} for valid color names.
 
@@ -961,10 +1088,7 @@ greater than 0.  The default value is @t{8}.
 @item set tabstospaces
 Convert typed tabs to spaces.
 
-@item set tempfile
-Save automatically on exit, don't prompt.
-
-@item set titlecolor @var{fgcolor},@var{bgcolor}
+@item set titlecolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
 Use this color combination for the title bar.
 @xref{@code{set functioncolor}} for valid color names.
 
@@ -976,11 +1100,6 @@ hard-wrapping occurs or when text is justified.
 Save a file by default in Unix format.  This overrides nano's
 default behavior of saving a file in the format that it had.
 (This option has no effect when you also use @code{set noconvert}.)
-
-@item set view
-Disallow file modification: read-only mode.
-This mode allows the user to open also other files for viewing,
-unless @option{--restricted} is given on the command line.
 
 @anchor{Whitespace}
 @item set whitespace "@var{characters}"
@@ -1012,6 +1131,9 @@ This is inherently imperfect, because regular expressions are not
 powerful enough to fully parse a file.  Nevertheless, regular
 expressions can do a lot and are easy to make, so they are a
 good fit for a small editor like @command{nano}.
+
+See @file{/usr/share/nano/} and @file{/usr/share/nano/extra/}
+for the syntax-coloring definitions that are available out of the box.
 
 All regular expressions in @command{nano} are POSIX extended regular expressions
 (ERE).  This means that @code{.}, @code{?}, @code{*}, @code{+}, @code{^},
@@ -1080,32 +1202,40 @@ characters after the pipe are appended at the end of the line.  If no pipe
 character is present, the full string is prepended; for example, @t{"#"} for
 Python files.  If empty double quotes are specified, the comment/uncomment
 functions are disabled; for example, @t{""} for JSON.
-The default value is @t{"#"}.
+The default value is "@t{#}".
 
 @item tabgives "@var{string}"
 Make the <Tab> key produce the given @var{string}.  Useful for languages like
 Python that want to see only spaces for indentation.
 This overrides the setting of the @code{tabstospaces} option.
 
-@item color @var{fgcolor},@var{bgcolor} "@var{regex}" @dots{}
+@item color [bold,][italic,]@var{fgcolor},@var{bgcolor} "@var{regex}" @dots{}
 Paint all pieces of text that match the extended regular expression "regex"
 with the given foreground and background colors, at least one of which must
 be specified.  Valid color names are:
-@code{white}, @code{black}, @code{blue}, @code{green},
-@code{red}, @code{cyan}, @code{yellow}, @code{magenta}, and @code{normal}
+@code{red}, @code{green}, @code{blue},
+@code{magenta}, @code{yellow}, @code{cyan},
+@code{white}, and @code{black}.
+Each of these eight names may be prefixed with the word
+@code{light} to get a brighter version of that color.
+
+On terminal emulators that can do at least 256 colors,
+other valid (but unprefixable) color names are:
+@code{pink}, @code{purple}, @code{mauve},
+@code{lagoon}, @code{mint}, @code{lime},
+@code{peach}, @code{orange}, @code{latte}, and @code{normal}
 --- where @code{normal} means the default foreground or background color.
-You may use the prefix @code{bright} for the foreground color to get a
-stronger highlight.
-If your terminal supports transparency, not specifying a "bgcolor"
-tells @command{nano} to attempt to use a transparent background.
+The color pair may be preceded by @code{bold} and/or @code{italic}
+(separated by commas) to get a bold and/or slanting typeface,
+if your terminal can do those.
 
 All coloring commands are applied in the order in which they are specified,
 which means that later commands can recolor stuff that was colored earlier.
 
-@item icolor @var{fgcolor},@var{bgcolor} "@var{regex}" @dots{}
+@item icolor [bold,][italic,]@var{fgcolor},@var{bgcolor} "@var{regex}" @dots{}
 Same as above, except that the matching is case insensitive.
 
-@item color @var{fgcolor},@var{bgcolor} start="@var{fromrx}" end="@var{torx}"
+@item color [bold,][italic,]@var{fgcolor},@var{bgcolor} start="@var{fromrx}" end="@var{torx}"
 Paint all pieces of text whose start matches extended regular expression
 "fromrx" and whose end matches extended regular expression "torx" with
 the given foreground and background colors, at least one of
@@ -1113,7 +1243,7 @@ which must be specified.  This means that, after an initial instance of
 "fromrx", all text until the first instance of "torx" will be colored.
 This allows syntax highlighting to span multiple lines.
 
-@item icolor @var{fgcolor},@var{bgcolor} start="@var{fromrx}" end="@var{torx}"
+@item icolor [bold,][italic,]@var{fgcolor},@var{bgcolor} start="@var{fromrx}" end="@var{torx}"
 Same as above, except that the matching is case insensitive.
 
 @item include "@var{syntaxfile}"
@@ -1207,7 +1337,7 @@ Invokes the help viewer.
 Cancels the current command.
 
 @item exit
-Exits from the program (or from the help viewer or the file browser).
+Exits from the program (or from the help viewer or file browser).
 
 @item writeout
 Writes the current buffer to disk, asking for a name.
@@ -1267,11 +1397,17 @@ Cuts all text from the cursor position till the end of the buffer.
 Sets the mark at the current position, to start selecting text.
 Or, when it is set, unsets the mark.
 
-@item curpos
-Shows the current cursor position: the line, column, and character positions.
+@item location
+Reports the current position of the cursor in the buffer:
+the line, column, and character positions.
+(The old name of this function, 'curpos', is deprecated.)
 
 @item wordcount
 Counts the number of words, lines and characters in the current buffer.
+
+@item execute
+Prompts for a program to execute.  The program's output will be inserted
+into the current buffer (or into a new buffer when @kbd{M-F} is toggled).
 
 @item speller
 Invokes a spell-checking program, either the default @command{hunspell}
@@ -1327,6 +1463,9 @@ while keeping the cursor in the same text position, if possible.
 Scrolls the viewport down one row (meaning that the text slides up)
 while keeping the cursor in the same text position, if possible.
 
+@item center
+Scrolls the line with the cursor to the middle of the screen.
+
 @item prevword
 Moves the cursor to the beginning of the previous word.
 
@@ -1369,11 +1508,12 @@ Goes to a specific line (and column if specified).  Negative numbers count
 from the end of the file (and end of the line).
 
 @item findbracket
-Moves the cursor to the bracket (brace, parenthesis, etc.) that matches
-(pairs) with the one under the cursor.
+Moves the cursor to the bracket (or brace or parenthesis, etc.) that matches
+(pairs) with the one under the cursor.  @xref{@code{set matchbrackets}}.
 
 @item anchor
 Places an anchor at the current line, or removes it when already present.
+(An anchor is visible when line numbers are activated.)
 
 @item prevanchor
 Goes to the first anchor before the current line.
@@ -1480,20 +1620,23 @@ When about to write a file, discard the current buffer without saving.
 is in effect.)
 
 @item browser
-Starts the file browser, allowing to select a file from a list.
+Starts the file browser (in the Read File and Write Out menus),
+allowing to select a file from a list.
 
 @item gotodir
 Goes to a directory to be specified, allowing to browse anywhere
 in the filesystem.
 
 @item firstfile
-Goes to the first file when using the file browser (reading or writing files).
+Goes to the first file in the list when using the file browser.
 
 @item lastfile
-Goes to the last file when using the file browser (reading or writing files).
+Goes to the last file in the list when using the file browser.
 
 @item nohelp
 Toggles the presence of the two-line list of key bindings at the bottom of the screen.
+(This toggle is special: it is available in all menus except the help viewer
+and the linter.  All further toggles are available in the main menu only.)
 
 @item constantshow
 Toggles the constant display of the current line, column, and character positions.
@@ -1522,8 +1665,9 @@ is the beginning of a paragraph.
 Toggles whether cutting text will cut the whole line or just from the current cursor
 position to the end of the line.
 
-@item nowrap
+@item breaklonglines
 Toggles whether long lines will be hard-wrapped to the next line.
+(The old name of this function, 'nowrap', is deprecated.)
 
 @item tabstospaces
 Toggles whether typed tabs will be converted to spaces.
@@ -1570,17 +1714,21 @@ The 'write file' menu.
 @item insert
 The 'insert file' menu.
 
-@item extcmd
-The menu for inserting output from an external command, reached from the insert menu.
-
 @item browser
-The file browser, for choosing a file to read from or write to.
+The 'file browser' menu, for selecting a file to be opened or
+inserted or written to.
 
 @item whereisfile
 The 'search for a file' menu in the file browser.
 
 @item gotodir
 The 'go to directory' menu in the file browser.
+
+@item execute
+The menu for inserting the output from an external command,
+or for filtering the buffer (or the marked region) through
+an external command, or for executing one of several tools.
+(The old form of this menu name, 'extcmd', is deprecated.)
 
 @item spell
 The menu of the integrated spell checker where the user can edit a misspelled word.
@@ -1594,25 +1742,6 @@ all menus where the specified @code{function} exists; for @code{unbind}
 it means all menus where the specified @code{key} exists.
 
 @end table
-
-
-@node The File Browser
-@chapter The File Browser
-
-When in the Read-File (@kbd{^R}) or Write-Out menu (@kbd{^O}),
-pressing @kbd{^T} will invoke the file browser.
-Here, one can navigate directories in a graphical manner in order to
-find the desired file.
-
-Basic movement in the file browser is accomplished with the arrow and
-other cursor-movement keys.  More targeted movement is accomplished by
-searching, via @kbd{^W} or @kbd{w}, or by changing directory, via
-@kbd{^_} or @kbd{g}.  The behavior of the @kbd{Enter} key (or @kbd{s})
-varies by what is currently selected.
-If the currently selected object is a directory, the file browser will
-enter and display the contents of the directory.  If the object is a
-file, this filename and path are copied to the status bar, and the file
-browser exits.
 
 
 @node Pico Compatibility
@@ -1821,8 +1950,8 @@ Exclude Native Language support.  This will disable the use of any
 available GNU @command{nano} translations.
 
 @item --enable-utf8
-Include support for reading and writing Unicode files.  This will require
-either a wide version of curses, or a UTF-8-enabled version of Slang.
+Include support for reading and writing Unicode files.
+This requires a wide version of the curses library.
 
 @item --disable-utf8
 Exclude support for reading and writing Unicode files.  Normally the
@@ -1832,10 +1961,6 @@ You can use this or the previous option to override that detection.
 @item --enable-altrcname=@var{name}
 Use the file with the given @var{name} (in the user's home directory)
 as nano's settings file, instead of the default @code{.nanorc}.
-
-@item --with-slang
-Compile @command{nano} against Slang instead of against ncurses or other
-curses libraries.
 
 @end table
 

@@ -1,9 +1,9 @@
 /**************************************************************************
  *   cut.c  --  This file is part of GNU nano.                            *
  *                                                                        *
- *   Copyright (C) 1999-2011, 2013-2020 Free Software Foundation, Inc.    *
+ *   Copyright (C) 1999-2011, 2013-2021 Free Software Foundation, Inc.    *
  *   Copyright (C) 2014 Mark Majeres                                      *
- *   Copyright (C) 2016, 2018, 2019 Benno Schulenberg                     *
+ *   Copyright (C) 2016, 2018-2020 Benno Schulenberg                      *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
  *   it under the terms of the GNU General Public License as published    *
@@ -20,7 +20,7 @@
  *                                                                        *
  **************************************************************************/
 
-#include "proto.h"
+#include "prototypes.h"
 
 #include <string.h>
 #ifdef ENABLE_YCMD
@@ -38,7 +38,7 @@ void do_deletion(undo_type action)
 		int charlen = char_length(openfile->current->data + openfile->current_x);
 		size_t line_len = strlen(openfile->current->data + openfile->current_x);
 #ifndef NANO_TINY
-		size_t old_amount = 0;
+		size_t old_amount = openfile->current->extrarows;
 
 		/* If the type of action changed or the cursor moved to a different
 		 * line, create a new undo item, otherwise update the existing item. */
@@ -47,19 +47,19 @@ void do_deletion(undo_type action)
 			add_undo(action, NULL);
 		else
 			update_undo(action);
-
-		if (ISSET(SOFTWRAP))
-			old_amount = extra_chunks_in(openfile->current);
 #endif
 		/* Move the remainder of the line "in", over the current character. */
 		memmove(&openfile->current->data[openfile->current_x],
 					&openfile->current->data[openfile->current_x + charlen],
 					line_len - charlen + 1);
 #ifndef NANO_TINY
-		/* If the number of screen rows that a softwrapped line occupies
-		 * has changed, we need a full refresh. */
-		if (ISSET(SOFTWRAP) && extra_chunks_in(openfile->current) != old_amount)
-			refresh_needed = TRUE;
+		/* When softwrapping, recompute the number of chunks in the line,
+		 * and schedule a refresh if the number changed. */
+		if (ISSET(SOFTWRAP)) {
+			openfile->current->extrarows = extra_chunks_in(openfile->current);
+			if (openfile->current->extrarows != old_amount)
+				refresh_needed = TRUE;
+		}
 
 		/* Adjust the mark if it is after the cursor on the current line. */
 		if (openfile->mark == openfile->current &&
@@ -92,12 +92,16 @@ void do_deletion(undo_type action)
 		openfile->current->has_anchor |= joining->has_anchor;
 #endif
 		/* Add the content of the next line to that of the current one. */
-		openfile->current->data = charealloc(openfile->current->data,
+		openfile->current->data = nrealloc(openfile->current->data,
 				strlen(openfile->current->data) + strlen(joining->data) + 1);
 		strcat(openfile->current->data, joining->data);
 
 		unlink_node(joining);
 
+#ifndef NANO_TINY
+		if (ISSET(SOFTWRAP))
+			openfile->current->extrarows = extra_chunks_in(openfile->current);
+#endif
 		/* Two lines were joined, so do a renumbering and refresh the screen. */
 		renumber_from(openfile->current);
 		refresh_needed = TRUE;
@@ -121,7 +125,14 @@ void do_delete(void)
 		zap_text();
 	else
 #endif
+	{
 		do_deletion(DEL);
+#ifdef ENABLE_UTF8
+		while (openfile->current->data[openfile->current_x] != '\0' &&
+				is_zerowidth(openfile->current->data + openfile->current_x))
+			do_deletion(DEL);
+#endif
+	}
 #ifdef ENABLE_YCMD
 	ualarm(SEND_TO_SERVER_DELAY,0);
 #endif
@@ -136,7 +147,10 @@ void do_backspace(void)
 		zap_text();
 	else
 #endif
-	if (openfile->current_x > 0 || openfile->current != openfile->filetop) {
+	if (openfile->current_x > 0) {
+		openfile->current_x = step_left(openfile->current->data, openfile->current_x);
+		do_deletion(BACK);
+	} else if (openfile->current != openfile->filetop) {
 		do_left();
 		do_deletion(BACK);
 	}
@@ -295,7 +309,7 @@ void extract_segment(linestruct *top, size_t top_x, linestruct *bot, size_t bot_
 		if (bot->next)
 			bot->next->prev = top;
 
-		top->data = charealloc(top->data, top_x + strlen(bot->data + bot_x) + 1);
+		top->data = nrealloc(top->data, top_x + strlen(bot->data + bot_x) + 1);
 		strcpy(top->data + top_x, bot->data + bot_x);
 
 		last = bot;
@@ -314,7 +328,7 @@ void extract_segment(linestruct *top, size_t top_x, linestruct *bot, size_t bot_
 		cutbuffer = taken;
 		cutbottom = last;
 	} else {
-		cutbottom->data = charealloc(cutbottom->data,
+		cutbottom->data = nrealloc(cutbottom->data,
 							strlen(cutbottom->data) + strlen(taken->data) + 1);
 		strcat(cutbottom->data, taken->data);
 
@@ -331,6 +345,9 @@ void extract_segment(linestruct *top, size_t top_x, linestruct *bot, size_t bot_
 
 #ifndef NANO_TINY
 	openfile->current->has_anchor = was_anchored;
+
+	if (ISSET(SOFTWRAP))
+		openfile->current->extrarows = extra_chunks_in(openfile->current);
 
 	if (post_marked || same_line)
 		openfile->mark = openfile->current;
@@ -378,12 +395,16 @@ void ingraft_buffer(linestruct *topline)
 
 	if (extralen > 0) {
 		/* Insert the text of topline at the current cursor position. */
-		line->data = charealloc(line->data, length + extralen + 1);
+		line->data = nrealloc(line->data, length + extralen + 1);
 		memmove(line->data + xpos + extralen, line->data + xpos, length - xpos + 1);
 		strncpy(line->data + xpos, topline->data, extralen);
 	}
 
 	if (topline != botline) {
+#ifndef NANO_TINY
+		/* First compute the softwrapped chunks for each line in the graft. */
+		compute_the_extra_rows_per_line_from(topline);
+#endif
 		/* When inserting at end-of-buffer, update the relevant pointer. */
 		if (line->next == NULL)
 			openfile->filebot = botline;
@@ -400,7 +421,7 @@ void ingraft_buffer(linestruct *topline)
 		/* Add the text after the cursor position at the end of botline. */
 		length = strlen(botline->data);
 		extralen = strlen(tailtext);
-		botline->data = charealloc(botline->data, length + extralen + 1);
+		botline->data = nrealloc(botline->data, length + extralen + 1);
 		strcpy(botline->data + length, tailtext);
 
 		/* Put the cursor at the end of the grafted text. */
@@ -416,6 +437,11 @@ void ingraft_buffer(linestruct *topline)
 		openfile->mark_x += length - xpos;
 	} else if (mark_follows)
 		openfile->mark_x += extralen;
+
+	if (ISSET(SOFTWRAP)) {
+		line->extrarows = extra_chunks_in(line);
+		openfile->current->extrarows = extra_chunks_in(openfile->current);
+	}
 #endif
 
 	delete_node(topline);
@@ -535,6 +561,8 @@ void cut_text(void)
 /* Cut from the current cursor position to the end of the file. */
 void cut_till_eof(void)
 {
+	ran_a_tool = TRUE;
+
 	if (openfile->current->data[openfile->current_x] == '\0' &&
 				(openfile->current->next == NULL ||
 				(!ISSET(NO_NEWLINES) && openfile->current_x > 0 &&
@@ -694,7 +722,7 @@ void paste_text(void)
 		/* The leftedge where we started the paste. */
 
 	if (cutbuffer == NULL) {
-		statusbar(_("Cutbuffer is empty"));
+		statusline(AHEM, _("Cutbuffer is empty"));
 		return;
 	}
 
@@ -716,6 +744,10 @@ void paste_text(void)
 	/* If we pasted less than a screenful, don't center the cursor. */
 	if (less_than_a_screenful(was_lineno, was_leftedge))
 		focusing = FALSE;
+#ifdef ENABLE_COLOR
+	else
+		precalc_multicolorinfo();
+#endif
 
 	/* Set the desired x position to where the pasted text ends. */
 	openfile->placewewant = xplustabs();

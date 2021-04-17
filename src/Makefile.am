@@ -119,7 +119,7 @@ CLEANFILES = revision.h
 if BUILDING_FROM_GIT
 SOMETHING = "REVISION \"`git describe --tags 2>/dev/null`\""
 else
-SOMETHING = "NOTHING \"from tarball\""
+SOMETHING = "PLAINBUILD \"from tarball\""
 endif
 
 nano.o: revision.h
@@ -134,7 +134,10 @@ revision.h: FORCE
 FORCE:
 
 bin_PROGRAMS = 	nano
-nano_SOURCES =	browser.c \
+nano_SOURCES = \
+		definitions.h \
+		prototypes.h \
+		browser.c \
 		chars.c \
 		color.c \
 		cut.c \
@@ -144,9 +147,7 @@ nano_SOURCES =	browser.c \
 		history.c \
 		move.c \
 		nano.c \
-		nano.h \
 		prompt.c \
-		proto.h \
 		rcfile.c \
 		search.c \
 		text.c \

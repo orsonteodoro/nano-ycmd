@@ -1,7 +1,7 @@
 /**************************************************************************
  *   nano.c  --  This file is part of GNU nano.                           *
  *                                                                        *
- *   Copyright (C) 1999-2011, 2013-2020 Free Software Foundation, Inc.    *
+ *   Copyright (C) 1999-2011, 2013-2021 Free Software Foundation, Inc.    *
  *   Copyright (C) 2014-2020 Benno Schulenberg                            *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
@@ -19,7 +19,7 @@
  *                                                                        *
  **************************************************************************/
 
-#include "proto.h"
+#include "prototypes.h"
 #include "revision.h"
 
 #include <ctype.h>
@@ -46,9 +46,9 @@
 #endif
 
 #ifdef ENABLE_MULTIBUFFER
-#define read_them_all TRUE
+#define read_them_all  TRUE
 #else
-#define read_them_all FALSE
+#define read_them_all  FALSE
 #endif
 
 #ifdef ENABLE_MOUSE
@@ -79,6 +79,7 @@ linestruct *make_new_node(linestruct *prevnode)
 #endif
 	newnode->lineno = (prevnode) ? prevnode->lineno + 1 : 1;
 #ifndef NANO_TINY
+	newnode->extrarows = -2;  /* Bad value, to make it easier to find bugs. */
 	newnode->has_anchor = FALSE;
 #endif
 
@@ -154,6 +155,7 @@ linestruct *copy_node(const linestruct *src)
 #endif
 	dst->lineno = src->lineno;
 #ifndef NANO_TINY
+	dst->extrarows = src->extrarows;
 	dst->has_anchor = FALSE;
 #endif
 
@@ -198,27 +200,19 @@ void renumber_from(linestruct *line)
 /* Display a warning about a key disabled in view mode. */
 void print_view_warning(void)
 {
-	statusbar(_("Key is invalid in view mode"));
+	statusline(AHEM, _("Key is invalid in view mode"));
 }
 
 /* When in restricted mode, show a warning and return TRUE. */
 bool in_restricted_mode(void)
 {
 	if (ISSET(RESTRICTED)) {
-		statusbar(_("This function is disabled in restricted mode"));
+		statusline(AHEM, _("This function is disabled in restricted mode"));
 		beep();
 		return TRUE;
 	} else
 		return FALSE;
 }
-
-#ifndef ENABLE_HELP
-/* Indicate that help texts are unavailable. */
-void say_there_is_no_help(void)
-{
-	statusbar(_("Help is not available"));
-}
-#endif
 
 /* Make sure the cursor is visible, then exit from curses mode, disable
  * bracketed-paste mode, and restore the original terminal settings. */
@@ -227,13 +221,13 @@ void restore_terminal(void)
 	curs_set(1);
 	endwin();
 #ifndef NANO_TINY
-	printf("\e[?2004l");
+	printf("\x1B[?2004l");
 	fflush(stdout);
 #endif
-	tcsetattr(0, TCSANOW, &original_state);
+	tcsetattr(STDIN_FILENO, TCSANOW, &original_state);
 }
 
-/* Exit normally: restore the terminal state and save history files. */
+/* Exit normally: restore terminal state and report any startup errors. */
 void finish(void)
 {
 #ifdef ENABLE_YCMD
@@ -266,6 +260,100 @@ void finish(void)
 	exit(0);
 }
 
+/* Close the current buffer, and terminate nano if it is the only buffer. */
+void close_and_go(void)
+{
+#ifndef NANO_TINY
+	if (openfile->lock_filename)
+		delete_lockfile(openfile->lock_filename);
+#endif
+#ifdef ENABLE_HISTORIES
+	if (ISSET(POSITIONLOG))
+		update_poshistory();
+#endif
+#ifdef ENABLE_MULTIBUFFER
+	/* If there is another buffer, close this one; otherwise just terminate. */
+	if (openfile != openfile->next) {
+		switch_to_next_buffer();
+		openfile = openfile->prev;
+		close_buffer();
+		openfile = openfile->next;
+		/* Adjust the count in the top bar. */
+		titlebar(NULL);
+	} else
+#endif
+	{
+#ifdef ENABLE_HISTORIES
+		if (ISSET(HISTORYLOG))
+			save_history();
+#endif
+		finish();
+	}
+}
+
+/* Close the current buffer if it is unmodified; otherwise (when not doing
+ * automatic saving), ask the user whether to save it, then close it and
+ * exit, or return when the user cancelled. */
+void do_exit(void)
+{
+	int choice;
+
+	/* When unmodified, simply close.  Else, when doing automatic saving
+	 * and the file has a name, simply save.  Otherwise, ask the user. */
+	if (!openfile->modified)
+		choice = 0;
+	else if (ISSET(SAVE_ON_EXIT) && openfile->filename[0] != '\0')
+		choice = 1;
+	else {
+		if (ISSET(SAVE_ON_EXIT))
+			warn_and_briefly_pause(_("No file name"));
+
+		choice = do_yesno_prompt(FALSE, _("Save modified buffer? "));
+	}
+
+	/* When not saving, or the save succeeds, close the buffer. */
+	if (choice == 0 || (choice == 1 && do_writeout(TRUE, TRUE) > 0))
+		close_and_go();
+	else if (choice != 1)
+		statusbar(_("Cancelled"));
+}
+
+/* Save the current buffer under the given name (or under the name "nano"
+ * for a nameless buffer).  If needed, the name is modified to be unique. */
+void emergency_save(const char *plainname)
+{
+	bool failed = TRUE;
+	char *targetname;
+
+	if (*plainname == '\0')
+		plainname = "nano";
+
+	targetname = get_next_filename(plainname, ".save");
+
+	if (*targetname != '\0')
+		failed = !write_file(targetname, NULL, TRUE, OVERWRITE, FALSE);
+
+	if (!failed)
+		fprintf(stderr, _("\nBuffer written to %s\n"), targetname);
+	else if (*targetname != '\0')
+		fprintf(stderr, _("\nBuffer not written to %s: %s\n"),
+										targetname, strerror(errno));
+	else
+		fprintf(stderr, _("\nToo many .save files"));
+
+#ifndef NANO_TINY
+	/* Try to chmod/chown the saved file to the values of the original file,
+	 * but ignore any failure as we are in a hurry to get out. */
+	if (openfile->statinfo) {
+		IGNORE_CALL_RESULT(chmod(targetname, openfile->statinfo->st_mode));
+		IGNORE_CALL_RESULT(chown(targetname, openfile->statinfo->st_uid,
+												openfile->statinfo->st_gid));
+	}
+#endif
+
+	free(targetname);
+}
+
 /* Die gracefully -- by restoring the terminal state and saving any buffers
  * that were modified. */
 void die(const char *msg, ...)
@@ -293,7 +381,7 @@ void die(const char *msg, ...)
 		/* When modified, save the current buffer.  But not when in restricted
 		 * mode, as it would write a file not mentioned on the command line. */
 		if (openfile->modified && !ISSET(RESTRICTED))
-			emergency_save(openfile->filename, openfile->current_stat);
+			emergency_save(openfile->filename);
 
 #ifdef ENABLE_MULTIBUFFER
 		openfile = openfile->next;
@@ -304,44 +392,6 @@ void die(const char *msg, ...)
 
 	/* Abandon the building. */
 	exit(1);
-}
-
-/* Save the current buffer under the given name.
- * If necessary, the name is modified to be unique. */
-void emergency_save(const char *die_filename, struct stat *die_stat)
-{
-	char *targetname;
-	bool failed = TRUE;
-
-	/* If the buffer has no name, simply call it "nano". */
-	if (*die_filename == '\0')
-		die_filename = "nano";
-
-	targetname = get_next_filename(die_filename, ".save");
-
-	if (*targetname != '\0')
-		failed = !write_file(targetname, NULL, TRUE, OVERWRITE, FALSE);
-
-	if (!failed)
-		fprintf(stderr, _("\nBuffer written to %s\n"), targetname);
-	else if (*targetname != '\0')
-		fprintf(stderr, _("\nBuffer not written to %s: %s\n"), targetname,
-				strerror(errno));
-	else
-		fprintf(stderr, _("\nBuffer not written: %s\n"),
-				_("Too many backup files?"));
-
-#ifndef NANO_TINY
-	/* Try to chmod/chown the saved file to the values of the original file,
-	 * but ignore any failure as we are in a hurry to get out. */
-	if (die_stat) {
-		IGNORE_CALL_RESULT(chmod(targetname, die_stat->st_mode));
-		IGNORE_CALL_RESULT(chown(targetname, die_stat->st_uid,
-												die_stat->st_gid));
-	}
-#endif
-
-	free(targetname);
 }
 
 /* Initialize the three window portions nano uses. */
@@ -355,22 +405,28 @@ void window_init(void)
 		delwin(bottomwin);
 	}
 
+	topwin = NULL;
+
 	/* If the terminal is very flat, don't set up a title bar. */
 	if (LINES < 3) {
-		topwin = NULL;
 		editwinrows = 1;
 		/* Set up two subwindows.  If the terminal is just one line,
 		 * edit window and status-bar window will cover each other. */
 		edit = newwin(1, COLS, 0, 0);
 		bottomwin = newwin(1, COLS, LINES - 1, 0);
 	} else {
-		int toprows = (!ISSET(EMPTY_LINE) ? 1 : (LINES < 6) ? 1 : 2);
-		int bottomrows = (ISSET(NO_HELP) ? 1 : (LINES < 5) ? 1 : 3);
+		int toprows = ((ISSET(EMPTY_LINE) && LINES > 5) ? 2 : 1);
+		int bottomrows = ((ISSET(NO_HELP) || LINES < 5) ? 1 : 3);
 
+#ifndef NANO_TINY
+		if (ISSET(MINIBAR))
+			toprows = 0;
+#endif
 		editwinrows = LINES - toprows - bottomrows;
 
 		/* Set up the normal three subwindows. */
-		topwin = newwin(toprows, COLS, 0, 0);
+		if (toprows > 0)
+			topwin = newwin(toprows, COLS, 0, 0);
 		edit = newwin(editwinrows, COLS, toprows, 0);
 		bottomwin = newwin(bottomrows, COLS, toprows + editwinrows, 0);
 	}
@@ -439,6 +495,7 @@ void print_opt(const char *shortflag, const char *longflag, const char *desc)
 void usage(void)
 {
 	printf(_("Usage: nano [OPTIONS] [[+LINE[,COLUMN]] FILE]...\n\n"));
+#ifndef NANO_TINY
 	/* TRANSLATORS: The next two strings are part of the --help output.
 	 * It's best to keep its lines within 80 characters. */
 	printf(_("To place the cursor on a specific line of a file, put the line number with\n"
@@ -446,7 +503,6 @@ void usage(void)
 	printf(_("When a filename is '-', nano reads data from standard input.\n\n"));
 	/* TRANSLATORS: The next three are column headers of the --help output. */
 	print_opt(_("Option"), _("Long option"), N_("Meaning"));
-#ifndef NANO_TINY
 	/* TRANSLATORS: The next forty or so strings are option descriptions
 	 * for the --help output.  Try to keep them at most 40 characters. */
 	print_opt("-A", "--smarthome", N_("Enable smart home key"));
@@ -493,6 +549,8 @@ void usage(void)
 #ifndef NANO_TINY
 	print_opt("-N", "--noconvert",
 					N_("Don't convert files from DOS/Mac format"));
+	print_opt("-O", "--bookstyle",
+					N_("Leading whitespace means new paragraph"));
 #endif
 #ifdef ENABLE_HISTORIES
 	if (!ISSET(RESTRICTED))
@@ -509,9 +567,9 @@ void usage(void)
 		print_opt("-R", "--restricted", N_("Restrict access to the filesystem"));
 #ifndef NANO_TINY
 	print_opt("-S", "--softwrap", N_("Display overlong lines on multiple rows"));
-#endif
 	print_opt(_("-T <number>"), _("--tabsize=<number>"),
 					N_("Make a tab this number of columns wide"));
+#endif
 	print_opt("-U", "--quickblank", N_("Wipe status bar upon next keystroke"));
 	print_opt("-V", "--version", N_("Print version information and exit"));
 #ifndef NANO_TINY
@@ -535,7 +593,9 @@ void usage(void)
 	print_opt("-c", "--constantshow", N_("Constantly show cursor position"));
 	print_opt("-d", "--rebinddelete",
 					N_("Fix Backspace/Delete confusion problem"));
+#ifndef NANO_TINY
 	print_opt("-e", "--emptyline", N_("Keep the line below the title bar empty"));
+#endif
 #ifdef ENABLE_NANORC
 	print_opt(_("-f <file>"), _("--rcfile=<file>"),
 					N_("Use only this file for configuring nano"));
@@ -546,9 +606,7 @@ void usage(void)
 	print_opt("-h", "--help", N_("Show this help text and exit"));
 #ifndef NANO_TINY
 	print_opt("-i", "--autoindent", N_("Automatically indent new lines"));
-#endif
 	print_opt("-j", "--jumpyscrolling", N_("Scroll per half-screen, not per line"));
-#ifndef NANO_TINY
 	print_opt("-k", "--cutfromcursor", N_("Cut from cursor to end of line"));
 #endif
 #ifdef ENABLE_LINENUMBERS
@@ -557,12 +615,17 @@ void usage(void)
 #ifdef ENABLE_MOUSE
 	print_opt("-m", "--mouse", N_("Enable the use of the mouse"));
 #endif
+#ifndef NANO_TINY
 	print_opt("-n", "--noread", N_("Do not read the file (only write it)"));
+#endif
 #ifdef ENABLE_OPERATINGDIR
 	print_opt(_("-o <dir>"), _("--operatingdir=<dir>"),
 					N_("Set operating directory"));
 #endif
 	print_opt("-p", "--preserve", N_("Preserve XON (^Q) and XOFF (^S) keys"));
+#ifndef NANO_TINY
+	print_opt("-q", "--indicator", N_("Show a position+portion indicator"));
+#endif
 #ifdef ENABLED_WRAPORJUSTIFY
 	print_opt(_("-r <number>"), _("--fill=<number>"),
 					N_("Set width for hard-wrap and justify"));
@@ -599,11 +662,17 @@ void usage(void)
 #endif
 	if (!ISSET(RESTRICTED))
 		print_opt("-z", "--suspendable", N_("Enable suspension"));
+#ifndef NANO_TINY
+	print_opt("-%", "--stateflags", N_("Show some states on the title bar"));
+	print_opt("-_", "--minibar", N_("Show a feedback bar at the bottom"));
+#endif
+#ifdef HAVE_LIBMAGIC
+	print_opt("-!", "--magic", N_("Also try magic to determine syntax"));
+#endif
 }
 
-/* Display the current version of nano, the date and time it was
- * compiled, contact information for it, and the configuration options
- * it was compiled with. */
+/* Display the version number of this nano, a copyright notice, some contact
+ * information, and the configuration options this nano was compiled with. */
 void version(void)
 {
 #ifdef REVISION
@@ -611,10 +680,11 @@ void version(void)
 #else
 	printf(_(" GNU nano, version %s\n"), VERSION);
 #endif
-	printf(" (C) 1999-2011, 2013-2020 Free Software Foundation, Inc.\n");
-	printf(_(" (C) 2014-%s the contributors to nano\n"), "2020");
-	printf(_(" Email: nano@nano-editor.org	Web: https://nano-editor.org/"));
-	printf(_("\n Compiled options:"));
+#ifndef NANO_TINY
+	printf(" (C) 1999-2011, 2013-2021 Free Software Foundation, Inc.\n");
+	printf(_(" (C) 2014-%s the contributors to nano\n"), "2021");
+#endif
+	printf(_(" Compiled options:"));
 
 #ifdef ENABLE_YCMD
 	printf(_("\n"));
@@ -831,81 +901,11 @@ void version(void)
 #else
 	printf(" --disable-utf8");
 #endif
-#ifdef USE_SLANG
-	printf(" --with-slang");
-#endif
 	printf("\n");
 }
 
-/* If the current file buffer has been modified, and the SAVE_ON_EXIT
- * flag isn't set, ask whether or not to save the file buffer.  If the
- * SAVE_ON_EXIT flag is set and the current file has a name, save it
- * unconditionally.  Then, if more than one file buffer is open, close
- * the current file buffer and switch to the next one.  If only one file
- * buffer is open, exit from nano. */
-void do_exit(void)
-{
-	int choice;
-
-	/* If the file hasn't been modified, pretend the user chose not to
-	 * save. */
-	if (!openfile->modified)
-		choice = 0;
-	/* If the SAVE_ON_EXIT flag is set and the current file has a name,
-	 * pretend the user chose to save. */
-	else if (openfile->filename[0] != '\0' && ISSET(SAVE_ON_EXIT))
-		choice = 1;
-	/* Otherwise, ask the user whether or not to save. */
-	else {
-		/* If the SAVE_ON_EXIT flag is set, and the current file doesn't
-		 * have a name, warn the user before prompting for a name. */
-		if (ISSET(SAVE_ON_EXIT))
-			warn_and_shortly_pause(_("No file name"));
-
-		choice = do_yesno_prompt(FALSE, _("Save modified buffer? "));
-	}
-
-	/* If the user chose not to save, or if the user chose to save and
-	 * the save succeeded, we're ready to exit. */
-	if (choice == 0 || (choice == 1 && do_writeout(TRUE, TRUE) > 0))
-		close_and_go();
-	else if (choice != 1)
-		statusbar(_("Cancelled"));
-}
-
-/* Close the current buffer, or terminate nano if it is the only buffer. */
-void close_and_go(void)
-{
-#ifndef NANO_TINY
-	if (openfile->lock_filename)
-		delete_lockfile(openfile->lock_filename);
-#endif
-#ifdef ENABLE_HISTORIES
-	if (ISSET(POSITIONLOG))
-		update_poshistory();
-#endif
-#ifdef ENABLE_MULTIBUFFER
-	/* If there is another buffer, just close this one; otherwise terminate. */
-	if (openfile != openfile->next) {
-		switch_to_next_buffer();
-		openfile = openfile->prev;
-		close_buffer();
-		openfile = openfile->next;
-		/* Adjust the count in the top bar. */
-		titlebar(NULL);
-	} else
-#endif
-	{
-#ifdef ENABLE_HISTORIES
-		if (ISSET(HISTORYLOG))
-			save_history();
-#endif
-		finish();
-	}
-}
-
 /* Register that Ctrl+C was pressed during some system call. */
-RETSIGTYPE make_a_note(int signal)
+void make_a_note(int signal)
 {
 	control_C_was_pressed = TRUE;
 }
@@ -929,20 +929,20 @@ void restore_handler_for_Ctrl_C(void)
 	disable_kb_interrupt();
 }
 
+#ifndef NANO_TINY
 /* Reconnect standard input to the tty, and store its state. */
 void reconnect_and_store_state(void)
 {
 	int thetty = open("/dev/tty", O_RDONLY);
 
-	if (thetty < 1)
+	if (thetty < 0 || dup2(thetty, STDIN_FILENO) < 0)
 		die(_("Could not reconnect stdin to keyboard\n"));
 
-	dup2(thetty, STANDARD_INPUT);
 	close(thetty);
 
 	/* If input was not cut short, store the current state of the terminal. */
 	if (!control_C_was_pressed)
-		tcgetattr(0, &original_state);
+		tcgetattr(STDIN_FILENO, &original_state);
 }
 
 /* Read whatever comes from standard input into a new buffer. */
@@ -953,7 +953,7 @@ bool scoop_stdin(void)
 	restore_terminal();
 
 	/* When input comes from a terminal, show a helpful message. */
-	if (isatty(STANDARD_INPUT))
+	if (isatty(STDIN_FILENO))
 		fprintf(stderr, _("Reading data from keyboard; "
 							"type ^D or ^D^D to finish.\n"));
 
@@ -986,6 +986,7 @@ bool scoop_stdin(void)
 
 	return TRUE;
 }
+#endif
 
 /* Register half a dozen signal handlers. */
 void signal_init(void)
@@ -1012,25 +1013,17 @@ void signal_init(void)
 	sigaction(SIGWINCH, &deed, NULL);
 #endif
 
-	if (ISSET(SUSPENDABLE)) {
-		/* Block all other signals in the suspend and continue handlers.
-		 * If we don't do this, other stuff interrupts them! */
-		sigfillset(&deed.sa_mask);
+	/* In the suspend and continue handlers, block all other signals.
+	 * If we don't do this, other stuff interrupts them! */
+	sigfillset(&deed.sa_mask);
 #ifdef SIGTSTP
-		/* Trap a normal suspend (^Z) so we can handle it ourselves. */
-		deed.sa_handler = do_suspend;
-		sigaction(SIGTSTP, &deed, NULL);
+	deed.sa_handler = do_suspend;
+	sigaction(SIGTSTP, &deed, NULL);
 #endif
 #ifdef SIGCONT
-		deed.sa_handler = do_continue;
-		sigaction(SIGCONT, &deed, NULL);
+	deed.sa_handler = do_continue;
+	sigaction(SIGCONT, &deed, NULL);
 #endif
-	} else {
-#ifdef SIGTSTP
-		deed.sa_handler = SIG_IGN;
-		sigaction(SIGTSTP, &deed, NULL);
-#endif
-	}
 
 #if !defined(NANO_TINY) && !defined(DEBUG)
 	if (getenv("NANO_NOCATCH") == NULL) {
@@ -1046,21 +1039,21 @@ void signal_init(void)
 }
 
 /* Handler for SIGHUP (hangup) and SIGTERM (terminate). */
-RETSIGTYPE handle_hupterm(int signal)
+void handle_hupterm(int signal)
 {
 	die(_("Received SIGHUP or SIGTERM\n"));
 }
 
 #if !defined(NANO_TINY) && !defined(DEBUG)
 /* Handler for SIGSEGV (segfault) and SIGABRT (abort). */
-RETSIGTYPE handle_crash(int signal)
+void handle_crash(int signal)
 {
 	die(_("Sorry! Nano crashed!  Code: %d.  Please report a bug.\n"), signal);
 }
 #endif
 
 /* Handler for SIGTSTP (suspend). */
-RETSIGTYPE do_suspend(int signal)
+void do_suspend(int signal)
 {
 #ifdef ENABLE_MOUSE
 	disable_mouse_support();
@@ -1074,7 +1067,7 @@ RETSIGTYPE do_suspend(int signal)
 	fflush(stdout);
 
 	/* The suspend keystroke must not elicit cursor-position display. */
-	suppress_cursorpos=TRUE;
+	lastmessage = HUSH;
 
 #ifdef SIGSTOP
 	/* Do what mutt does: send ourselves a SIGSTOP. */
@@ -1085,16 +1078,17 @@ RETSIGTYPE do_suspend(int signal)
 /* Put nano to sleep (if suspension is enabled). */
 void do_suspend_void(void)
 {
-	if (ISSET(SUSPENDABLE))
-		do_suspend(0);
-	else {
-		statusbar(_("Suspension is not enabled"));
+	if (!ISSET(SUSPENDABLE)) {
+		statusline(AHEM, _("Suspension is not enabled"));
 		beep();
-	}
+	} else
+		do_suspend(0);
+
+	ran_a_tool = TRUE;
 }
 
 /* Handler for SIGCONT (continue after suspend). */
-RETSIGTYPE do_continue(int signal)
+void do_continue(int signal)
 {
 #ifdef ENABLE_MOUSE
 	if (ISSET(USE_MOUSE))
@@ -1108,11 +1102,12 @@ RETSIGTYPE do_continue(int signal)
 	/* Put the terminal in the desired state again. */
 	terminal_init();
 #endif
-	/* Tickle the input routine so it will update the screen. */
+
+	/* Insert a fake keystroke, to neutralize a key-eating issue. */
 	ungetch(KEY_FLUSH);
 }
 
-#if !defined(NANO_TINY) || defined(ENABLE_SPELLER)
+#if !defined(NANO_TINY) || defined(ENABLE_SPELLER) || defined(ENABLE_COLOR)
 /* Block or unblock the SIGWINCH signal, depending on the blockit parameter. */
 void block_sigwinch(bool blockit)
 {
@@ -1131,10 +1126,18 @@ void block_sigwinch(bool blockit)
 
 #ifndef NANO_TINY
 /* Handler for SIGWINCH (window size change). */
-RETSIGTYPE handle_sigwinch(int signal)
+void handle_sigwinch(int signal)
 {
 	/* Let the input routine know that a SIGWINCH has occurred. */
 	the_window_resized = TRUE;
+}
+
+/* Compute and store how many extra rows each line needs when softwrapping. */
+void compute_the_extra_rows_per_line_from(linestruct *fromline)
+{
+	if (ISSET(SOFTWRAP))
+		for (linestruct *line = fromline; line != NULL; line = line->next)
+			line->extrarows = extra_chunks_in(line);
 }
 
 /* Reinitialize and redraw the screen completely. */
@@ -1163,7 +1166,10 @@ void regenerate_screen(void)
 	COLS = win.ws_col;
 	LINES = win.ws_row;
 #endif
-	editwincols = COLS - margin;
+	thebar = (ISSET(INDICATOR) && LINES > 5 && COLS > 9) ? 1 : 0;
+	bardata = nrealloc(bardata, LINES * sizeof(int));
+
+	editwincols = COLS - margin - thebar;
 
 	/* Do as the website suggests: leave and immediately reenter curses mode. */
 	endwin();
@@ -1176,16 +1182,15 @@ void regenerate_screen(void)
 
 	/* If we have an open buffer, redraw the contents of the subwindows. */
 	if (openfile) {
+		compute_the_extra_rows_per_line_from(openfile->filetop);
 		ensure_firstcolumn_is_aligned();
-		total_refresh();
+		draw_all_subwindows();
 	}
 }
 
 /* Handle the global toggle specified in flag. */
 void do_toggle(int flag)
 {
-	bool enabled;
-
 	if (flag == SUSPENDABLE && in_restricted_mode())
 		return;
 
@@ -1195,18 +1200,17 @@ void do_toggle(int flag)
 	switch (flag) {
 		case NO_HELP:
 			window_init();
-			total_refresh();
+			draw_all_subwindows();
 			break;
 #ifdef ENABLE_MOUSE
 		case USE_MOUSE:
 			mouse_init();
 			break;
 #endif
-		case SUSPENDABLE:
-			signal_init();
-			break;
 		case SOFTWRAP:
-			if (!ISSET(SOFTWRAP))
+			if (ISSET(SOFTWRAP))
+				compute_the_extra_rows_per_line_from(openfile->filetop);
+			else
 				openfile->firstcolumn = 0;
 			refresh_needed = TRUE;
 			break;
@@ -1222,13 +1226,27 @@ void do_toggle(int flag)
 #endif
 	}
 
-	enabled = ISSET(flag);
+	if (!ISSET(MINIBAR) && ISSET(STATEFLAGS))
+		if (flag == AUTOINDENT || flag == BREAK_LONG_LINES || flag == SOFTWRAP)
+			titlebar(NULL);
 
-	if (flag == NO_HELP || flag == NO_SYNTAX)
-		enabled = !enabled;
+	if (ISSET(MINIBAR) && (flag == NO_HELP || flag == LINE_NUMBERS ))
+		return;
 
-	statusline(HUSH, "%s %s", _(flagtostr(flag)),
-						enabled ? _("enabled") : _("disabled"));
+	if (flag == CONSTANT_SHOW)
+		wipe_statusbar();
+	else if (!ISSET(MINIBAR) || !ISSET(STATEFLAGS) || flag == SMART_HOME ||
+						flag == NO_SYNTAX || flag == WHITESPACE_DISPLAY ||
+						flag == CUT_FROM_CURSOR || flag == TABS_TO_SPACES ||
+						flag == USE_MOUSE || flag == SUSPENDABLE) {
+		bool enabled = ISSET(flag);
+
+		if (flag == NO_HELP || flag == NO_SYNTAX)
+			enabled = !enabled;
+
+		statusline(REMARK, "%s %s", _(flagtostr(flag)),
+									enabled ? _("enabled") : _("disabled"));
+	}
 }
 #endif /* !NANO_TINY */
 
@@ -1303,41 +1321,20 @@ void enable_flow_control(void)
  * control characters. */
 void terminal_init(void)
 {
-#ifdef USE_SLANG
-	/* Slang curses emulation brain damage, part 2: Slang doesn't
-	 * implement raw(), nonl(), or noecho() properly, so there's no way
-	 * to properly reinitialize the terminal using them.  We have to
-	 * disable the special control keys and interpretation of the flow
-	 * control characters using termios, save the terminal state after
-	 * the first call, and restore it on subsequent calls. */
-	static struct termios desired_state;
-	static bool have_new_state = FALSE;
+	raw();
+	nonl();
+	noecho();
 
-	if (!have_new_state) {
-#endif
-		raw();
-		nonl();
-		noecho();
-		disable_extended_io();
+	disable_extended_io();
 
-		if (ISSET(PRESERVE))
-			enable_flow_control();
-#ifdef USE_SLANG
-		else
-			disable_flow_control();
+	if (ISSET(PRESERVE))
+		enable_flow_control();
 
-		tcgetattr(0, &desired_state);
-		have_new_state = TRUE;
-	} else
-		tcsetattr(0, TCSANOW, &desired_state);
-
-	SLang_init_tty(-1, 0, 0);
-#endif
 	disable_kb_interrupt();
 
 #ifndef NANO_TINY
 	/* Tell the terminal to enable bracketed pastes. */
-	printf("\e[?2004h");
+	printf("\x1B[?2004h");
 	fflush(stdout);
 #endif
 }
@@ -1369,12 +1366,17 @@ void confirm_margin(void)
 		needed_margin = 0;
 
 	if (needed_margin != margin) {
+		bool keep_focus = (margin > 0) && focusing;
+
 		margin = needed_margin;
-		editwincols = COLS - margin;
+		editwincols = COLS - margin - thebar;
 
 #ifndef NANO_TINY
-		/* Ensure that firstcolumn is the starting column of its chunk. */
+		/* Recompute the softwrapped chunks for each line in the buffer,
+		 * and ensure a proper starting column for the first screen row. */
+		compute_the_extra_rows_per_line_from(openfile->filetop);
 		ensure_firstcolumn_is_aligned();
+		focusing = keep_focus;
 #endif
 		/* The margin has changed -- schedule a full refresh. */
 		refresh_needed = TRUE;
@@ -1385,29 +1387,33 @@ void confirm_margin(void)
 /* Say that an unbound key was struck, and if possible which one. */
 void unbound_key(int code)
 {
-	if (code > 0x7F)
-		statusline(ALERT, _("Unbound key"));
+	if (code == FOREIGN_SEQUENCE)
+		/* TRANSLATORS: This refers to a sequence of escape codes
+		 * (from the keyboard) that nano does not recognize. */
+		statusline(AHEM, _("Unknown sequence"));
+	else if (code > 0x7F)
+		statusline(AHEM, _("Unbound key"));
 	else if (meta_key) {
-		if (code == '[')
-			statusline(ALERT, _("Unbindable key: M-["));
 #ifndef NANO_TINY
-		else if (code < 0x20)
-			statusline(ALERT, _("Unbindable key: M-^%c"), code + 0x40);
+		if (code < 0x20)
+			statusline(AHEM, _("Unbindable key: M-^%c"), code + 0x40);
+		else
 #endif
 #ifdef ENABLE_NANORC
-		else if (shifted_metas && 'A' <= code && code <= 'Z')
-			statusline(ALERT, _("Unbound key: Sh-M-%c"), code);
-#endif
+		if (shifted_metas && 'A' <= code && code <= 'Z')
+			statusline(AHEM, _("Unbound key: Sh-M-%c"), code);
 		else
-			statusline(ALERT, _("Unbound key: M-%c"), toupper(code));
+#endif
+			statusline(AHEM, _("Unbound key: M-%c"), toupper(code));
 	} else if (code == ESC_CODE)
-		statusline(ALERT, _("Unbindable key: ^["));
+		statusline(AHEM, _("Unbindable key: ^["));
 	else if (code < 0x20)
-		statusline(ALERT, _("Unbound key: ^%c"), code + 0x40);
+		statusline(AHEM, _("Unbound key: ^%c"), code + 0x40);
 #if defined(ENABLE_BROWSER) || defined (ENABLE_HELP)
 	else
-		statusline(ALERT, _("Unbound key: %c"), code);
+		statusline(AHEM, _("Unbound key: %c"), code);
 #endif
+	set_blankdelay_to_one();
 }
 
 #ifdef ENABLE_MOUSE
@@ -1449,9 +1455,11 @@ int do_mouse(void)
 #ifndef NANO_TINY
 		/* Clicking where the cursor is toggles the mark, as does clicking
 		 * beyond the line length with the cursor at the end of the line. */
-		if (sameline && openfile->current_x == current_x_save)
+		if (sameline && openfile->current_x == current_x_save) {
 			do_mark();
-		else
+			if (ISSET(STATEFLAGS))
+				titlebar(NULL);
+		} else
 #endif
 			/* The cursor moved; clean the cutbuffer on the next cut. */
 			keep_cutbuffer = FALSE;
@@ -1512,7 +1520,7 @@ void suck_up_input_and_paste_it(void)
 			index = 0;
 		} else if ((0x20 <= input && input <= 0xFF && input != DEL_CODE) ||
 														input == '\t') {
-			line->data = charealloc(line->data, index + 2);
+			line->data = nrealloc(line->data, index + 2);
 			line->data[index++] = (char)input;
 			line->data[index] = '\0';
 		} else if (input != BRACKETED_PASTE_MARKER)
@@ -1532,12 +1540,12 @@ void inject(char *burst, size_t count)
 	linestruct *thisline = openfile->current;
 	size_t datalen = strlen(thisline->data);
 #ifndef NANO_TINY
-	size_t original_row = 0, old_amount = 0;
+	size_t old_amount = openfile->current->extrarows;
+	size_t original_row = 0;
 
 	if (ISSET(SOFTWRAP)) {
 		if (openfile->current_y == editwinrows - 1)
 			original_row = chunk_for(xplustabs(), thisline);
-		old_amount = extra_chunks_in(thisline);
 	}
 #endif
 
@@ -1556,7 +1564,7 @@ void inject(char *burst, size_t count)
 #endif
 
 	/* Make room for the new bytes and copy them into the line. */
-	thisline->data = charealloc(thisline->data, datalen + count + 1);
+	thisline->data = nrealloc(thisline->data, datalen + count + 1);
 	memmove(thisline->data + openfile->current_x + count,
 						thisline->data + openfile->current_x,
 						datalen - openfile->current_x + 1);
@@ -1598,14 +1606,17 @@ void inject(char *burst, size_t count)
 #endif
 
 #ifndef NANO_TINY
-	/* If we were on the last row of the edit window and moved to a new chunk,
-	 * or if the number of chunks that the current softwrapped line occupies
-	 * changed, we need a full refresh. */
-	if (ISSET(SOFTWRAP) && ((openfile->current_y == editwinrows - 1 &&
-				chunk_for(xplustabs(), openfile->current) > original_row) ||
-				extra_chunks_in(openfile->current) != old_amount)) {
-		refresh_needed = TRUE;
-		focusing = FALSE;
+	/* When softwrapping and the number of chunks in the current line changed,
+	 * or we were on the last row of the edit window and moved to a new chunk,
+	 * we need a full refresh. */
+	if (ISSET(SOFTWRAP)) {
+		openfile->current->extrarows = extra_chunks_in(openfile->current);
+		if (openfile->current->extrarows != old_amount ||
+					(openfile->current_y == editwinrows - 1 &&
+					chunk_for(xplustabs(), openfile->current) > original_row)) {
+			refresh_needed = TRUE;
+			focusing = FALSE;
+		}
 	}
 #endif
 
@@ -1628,10 +1639,17 @@ void process_a_keystroke(void)
 		/* The input buffer for actual characters. */
 	static size_t depth = 0;
 		/* The length of the input buffer. */
+#ifndef NANO_TINY
+	linestruct *was_mark = openfile->mark;
+#endif
+	static bool give_a_hint = TRUE;
 	const keystruct *shortcut;
 
 	/* Read in a keystroke, and show the cursor while waiting. */
 	input = get_kbinput(edit, VISIBLE);
+
+	lastmessage = VACUUM;
+	hide_cursor = FALSE;
 
 #ifndef NANO_TINY
 	if (input == KEY_WINCH)
@@ -1658,16 +1676,16 @@ void process_a_keystroke(void)
 		else if (ISSET(VIEW_MODE))
 			print_view_warning();
 		else {
+#ifndef NANO_TINY
+			if (openfile->mark && openfile->softmark) {
+				openfile->mark = NULL;
+				refresh_needed = TRUE;
+			}
+#endif
 			/* Store the byte, and leave room for a terminating zero. */
-			puddle = charealloc(puddle, depth + 2);
+			puddle = nrealloc(puddle, depth + 2);
 			puddle[depth++] = (char)input;
 		}
-#ifndef NANO_TINY
-		if (openfile->mark && openfile->kind_of_mark == SOFTMARK) {
-			openfile->mark = NULL;
-			refresh_needed = TRUE;
-		}
-#endif
 	}
 
 	/* If we have a command, or if there aren't any other key codes waiting,
@@ -1695,6 +1713,13 @@ void process_a_keystroke(void)
 		print_view_warning();
 		return;
 	}
+
+	if (input == '\b' && give_a_hint && openfile->current_x == 0 &&
+				openfile->current == openfile->filetop && !ISSET(NO_HELP)) {
+		statusbar(_("^W = Ctrl+W    M-W = Alt+W"));
+		give_a_hint = FALSE;
+	} else if (meta_key)
+		give_a_hint = FALSE;
 
 	/* When not cutting or copying text, drop the cutbuffer the next time. */
 	if (shortcut->func != cut_text) {
@@ -1729,7 +1754,7 @@ void process_a_keystroke(void)
 	if (shift_held && !openfile->mark) {
 		openfile->mark = openfile->current;
 		openfile->mark_x = openfile->current_x;
-		openfile->kind_of_mark = SOFTMARK;
+		openfile->softmark = TRUE;
 	}
 #endif
 
@@ -1741,7 +1766,7 @@ void process_a_keystroke(void)
 	 * discard a soft mark.  And when the marked region covers a
 	 * different set of lines, reset  the "last line too" flag. */
 	if (openfile->mark) {
-		if (!shift_held && openfile->kind_of_mark == SOFTMARK &&
+		if (!shift_held && openfile->softmark &&
 							(openfile->current != was_current ||
 							openfile->current_x != was_x ||
 							wanted_to_move(shortcut->func))) {
@@ -1762,6 +1787,9 @@ void process_a_keystroke(void)
 #ifndef NANO_TINY
 	if (bracketed_paste)
 		suck_up_input_and_paste_it();
+
+	if (ISSET(STATEFLAGS) && openfile->mark != was_mark)
+		titlebar(NULL);
 #endif
 }
 
@@ -1800,7 +1828,6 @@ int main(int argc, char **argv)
 		{"quotestr", 1, NULL, 'Q'},
 #endif
 		{"restricted", 0, NULL, 'R'},
-		{"tabsize", 1, NULL, 'T'},
 		{"quickblank", 0, NULL, 'U'},
 		{"version", 0, NULL, 'V'},
 #ifdef ENABLE_COLOR
@@ -1811,7 +1838,6 @@ int main(int argc, char **argv)
 #endif
 		{"constantshow", 0, NULL, 'c'},
 		{"rebinddelete", 0, NULL, 'd'},
-		{"emptyline", 0, NULL, 'e'},
 #ifdef ENABLE_NANORC
 		{"rcfile", 1, NULL, 'f'},
 #endif
@@ -1819,14 +1845,12 @@ int main(int argc, char **argv)
 		{"showcursor", 0, NULL, 'g'},
 #endif
 		{"help", 0, NULL, 'h'},
-		{"jumpyscrolling", 0, NULL, 'j'},
 #ifdef ENABLE_LINENUMBERS
 		{"linenumbers", 0, NULL, 'l'},
 #endif
 #ifdef ENABLE_MOUSE
 		{"mouse", 0, NULL, 'm'},
 #endif
-		{"noread", 0, NULL, 'n'},
 #ifdef ENABLE_OPERATINGDIR
 		{"operatingdir", 1, NULL, 'o'},
 #endif
@@ -1855,16 +1879,27 @@ int main(int argc, char **argv)
 		{"guidestripe", 1, NULL, 'J'},
 		{"nonewlines", 0, NULL, 'L'},
 		{"noconvert", 0, NULL, 'N'},
+		{"bookstyle", 0, NULL, 'O'},
 		{"positionlog", 0, NULL, 'P'},
 		{"softwrap", 0, NULL, 'S'},
+		{"tabsize", 1, NULL, 'T'},
 		{"wordbounds", 0, NULL, 'W'},
 		{"wordchars", 1, NULL, 'X'},
 		{"zap", 0, NULL, 'Z'},
 		{"atblanks", 0, NULL, 'a'},
+		{"emptyline", 0, NULL, 'e'},
 		{"autoindent", 0, NULL, 'i'},
+		{"jumpyscrolling", 0, NULL, 'j'},
 		{"cutfromcursor", 0, NULL, 'k'},
+		{"noread", 0, NULL, 'n'},
+		{"indicator", 0, NULL, 'q'},
 		{"unix", 0, NULL, 'u'},
 		{"afterends", 0, NULL, 'y'},
+		{"stateflags", 0, NULL, '%'},
+		{"minibar", 0, NULL, '_'},
+#endif
+#ifdef HAVE_LIBMAGIC
+		{"magic", 0, NULL, '!'},
 #endif
 		{NULL, 0, NULL, 0}
 	};
@@ -1873,27 +1908,22 @@ int main(int argc, char **argv)
 	struct vt_stat dummy;
 
 	/* Check whether we're running on a Linux console. */
-	on_a_vt = (ioctl(0, VT_GETSTATE, &dummy) == 0);
+	on_a_vt = (ioctl(STDOUT_FILENO, VT_GETSTATE, &dummy) == 0);
 #endif
 
 	/* Back up the terminal settings so that they can be restored. */
-	tcgetattr(0, &original_state);
+	tcgetattr(STDIN_FILENO, &original_state);
 
 	/* Get the state of standard input and ensure it uses blocking mode. */
-	stdin_flags = fcntl(0, F_GETFL, 0);
+	stdin_flags = fcntl(STDIN_FILENO, F_GETFL, 0);
 	if (stdin_flags != -1)
-		fcntl(0, F_SETFL, stdin_flags & ~O_NONBLOCK);
+		fcntl(STDIN_FILENO, F_SETFL, stdin_flags & ~O_NONBLOCK);
 
 #ifdef ENABLE_UTF8
-	/* If setting the locale is successful and it uses UTF-8, we need
-	 * to use the multibyte functions for text processing. */
-	if (setlocale(LC_ALL, "") != NULL &&
-				strcmp(nl_langinfo(CODESET), "UTF-8") == 0) {
-#ifdef USE_SLANG
-		SLutf8_enable(1);
-#endif
+	/* If setting the locale is successful and it uses UTF-8, we will
+	 * need to use the multibyte functions for text processing. */
+	if (setlocale(LC_ALL, "") && strcmp(nl_langinfo(CODESET), "UTF-8") == 0)
 		utf8_init();
-	}
 #else
 	setlocale(LC_ALL, "");
 #endif
@@ -1903,32 +1933,22 @@ int main(int argc, char **argv)
 	textdomain(PACKAGE);
 #endif
 
-#if defined(ENABLE_UTF8) && !defined(NANO_TINY)
-	if (MB_CUR_MAX > MAXCHARLEN)
-		fprintf(stderr, "Unexpected large character size: %i bytes"
-						" -- please report a bug\n", (int)MB_CUR_MAX);
-#endif
-
-	/* Set sensible defaults, different from what Pico does. */
+	/* Set a sensible default, different from what Pico does. */
 	SET(NO_WRAP);
-	SET(SMOOTH_SCROLL);
-
-	/* Give a small visual hint that nano has changed. */
-	SET(MORE_SPACE);
 
 	/* If the executable's name starts with 'r', activate restricted mode. */
 	if (*(tail(argv[0])) == 'r')
 		SET(RESTRICTED);
 
-	while ((optchr = getopt_long(argc, argv, "ABC:DEFGHIJ:KLMNPQ:RST:UVWX:Y:Z"
-				"abcdef:ghijklmno:pr:s:tuvwxyz$", long_options, NULL)) != -1) {
+	while ((optchr = getopt_long(argc, argv, "ABC:DEFGHIJ:KLMNOPQ:RST:UVWX:Y:Z"
+				"abcdef:ghijklmno:pqr:s:tuvwxyz$%_!", long_options, NULL)) != -1) {
 		switch (optchr) {
 #ifndef NANO_TINY
 			case 'A':
 				SET(SMART_HOME);
 				break;
 			case 'B':
-				SET(BACKUP_FILE);
+				SET(MAKE_BACKUP);
 				break;
 			case 'C':
 				backup_dir = mallocstrcpy(backup_dir, optarg);
@@ -1988,6 +2008,9 @@ int main(int argc, char **argv)
 			case 'N':
 				SET(NO_CONVERT);
 				break;
+			case 'O':
+				SET(BOOKSTYLE);
+				break;
 #endif
 #ifdef ENABLE_HISTORIES
 			case 'P':
@@ -2007,7 +2030,6 @@ int main(int argc, char **argv)
 			case '$':  /* Deprecated; remove in 2024. */
 				SET(SOFTWRAP);
 				break;
-#endif
 			case 'T':
 				if (!parse_num(optarg, &tabsize) || tabsize <= 0) {
 					fprintf(stderr, _("Requested tab size \"%s\" is invalid"), optarg);
@@ -2015,6 +2037,7 @@ int main(int argc, char **argv)
 					exit(1);
 				}
 				break;
+#endif
 			case 'U':
 				SET(QUICK_BLANK);
 				break;
@@ -2053,9 +2076,11 @@ int main(int argc, char **argv)
 			case 'd':
 				SET(REBIND_DELETE);
 				break;
+#ifndef NANO_TINY
 			case 'e':
 				SET(EMPTY_LINE);
 				break;
+#endif
 #ifdef ENABLE_NANORC
 			case 'f':
 				custom_nanorc = mallocstrcpy(custom_nanorc, optarg);
@@ -2073,11 +2098,9 @@ int main(int argc, char **argv)
 			case 'i':
 				SET(AUTOINDENT);
 				break;
-#endif
 			case 'j':
 				SET(JUMPY_SCROLLING);
 				break;
-#ifndef NANO_TINY
 			case 'k':
 				SET(CUT_FROM_CURSOR);
 				break;
@@ -2092,9 +2115,11 @@ int main(int argc, char **argv)
 				SET(USE_MOUSE);
 				break;
 #endif
+#ifndef NANO_TINY
 			case 'n':
 				SET(NOREAD_MODE);
 				break;
+#endif
 #ifdef ENABLE_OPERATINGDIR
 			case 'o':
 				operating_dir = mallocstrcpy(operating_dir, optarg);
@@ -2103,6 +2128,11 @@ int main(int argc, char **argv)
 			case 'p':
 				SET(PRESERVE);
 				break;
+#ifndef NANO_TINY
+			case 'q':
+				SET(INDICATOR);
+				break;
+#endif
 #ifdef ENABLED_WRAPORJUSTIFY
 			case 'r':
 				if (!parse_num(optarg, &fill)) {
@@ -2147,11 +2177,34 @@ int main(int argc, char **argv)
 			case 'z':
 				SET(SUSPENDABLE);
 				break;
+#ifndef NANO_TINY
+			case '%':
+				SET(STATEFLAGS);
+				break;
+			case '_':
+				SET(MINIBAR);
+				break;
+#endif
+#ifdef HAVE_LIBMAGIC
+			case '!':
+				SET(USE_MAGIC);
+				break;
+#endif
 			default:
 				printf(_("Type '%s -h' for a list of available options.\n"), argv[0]);
 				exit(1);
 		}
 	}
+
+	/* Enter into curses mode.  Abort if this fails. */
+	if (initscr() == NULL)
+		exit(1);
+
+#ifdef ENABLE_COLOR
+	/* If the terminal can do colors, tell ncurses to switch them on. */
+	if (has_colors())
+		start_color();
+#endif
 
 	/* Set up the function and shortcut lists.  This needs to be done
 	 * before reading the rcfile, to be able to rebind/unbind keys. */
@@ -2164,9 +2217,10 @@ int main(int argc, char **argv)
 		ssize_t fill_cmdline = fill;
 #endif
 #ifndef NANO_TINY
-		size_t stripeclm_cmdline = stripe_column;
 		char *backup_dir_cmdline = backup_dir;
 		char *word_chars_cmdline = word_chars;
+		size_t stripeclm_cmdline = stripe_column;
+		ssize_t tabsize_cmdline = tabsize;
 #endif
 #ifdef ENABLE_OPERATINGDIR
 		char *operating_dir_cmdline = operating_dir;
@@ -2177,7 +2231,6 @@ int main(int argc, char **argv)
 #ifdef ENABLE_SPELLER
 		char *alt_speller_cmdline = alt_speller;
 #endif
-		ssize_t tabsize_cmdline = tabsize;
 
 		/* Back up the command-line flags. */
 		unsigned flags_cmdline[sizeof(flags) / sizeof(flags[0])];
@@ -2206,8 +2259,6 @@ int main(int argc, char **argv)
 			fill = fill_cmdline;
 #endif
 #ifndef NANO_TINY
-		if (stripeclm_cmdline > 0)
-			stripe_column = stripeclm_cmdline;
 		if (backup_dir_cmdline != NULL) {
 			free(backup_dir);
 			backup_dir = backup_dir_cmdline;
@@ -2216,6 +2267,10 @@ int main(int argc, char **argv)
 			free(word_chars);
 			word_chars = word_chars_cmdline;
 		}
+		if (stripeclm_cmdline > 0)
+			stripe_column = stripeclm_cmdline;
+		if (tabsize_cmdline != -1)
+			tabsize = tabsize_cmdline;
 #endif
 #ifdef ENABLE_OPERATINGDIR
 		if (operating_dir_cmdline != NULL || ISSET(RESTRICTED)) {
@@ -2234,17 +2289,14 @@ int main(int argc, char **argv)
 			free(alt_speller);
 			alt_speller = alt_speller_cmdline;
 		}
+		/* Strip leading whitespace from the speller command, if any. */
+		while (alt_speller && *alt_speller && isblank(*alt_speller))
+			memmove(alt_speller, alt_speller + 1, strlen(alt_speller));
 #endif
-		if (tabsize_cmdline != -1)
-			tabsize = tabsize_cmdline;
 
-		/* If an rcfile undid the default settings, copy it to the new flags. */
+		/* If an rcfile undid the default setting, copy it to the new flag. */
 		if (!ISSET(NO_WRAP))
 			SET(BREAK_LONG_LINES);
-		if (!ISSET(SMOOTH_SCROLL))
-			SET(JUMPY_SCROLLING);
-		if (!ISSET(MORE_SPACE))
-			SET(EMPTY_LINE);
 
 		/* Simply OR the boolean flags from rcfile and command line. */
 		for (size_t i = 0; i < sizeof(flags) / sizeof(flags[0]); i++)
@@ -2266,7 +2318,7 @@ int main(int argc, char **argv)
 	/* When in restricted mode, disable backups, suspending, and history files,
 	 * since they allow writing to files not specified on the command line. */
 	if (ISSET(RESTRICTED)) {
-		UNSET(BACKUP_FILE);
+		UNSET(MAKE_BACKUP);
 		UNSET(SUSPENDABLE);
 #ifdef ENABLE_NANORC
 		UNSET(HISTORYLOG);
@@ -2322,7 +2374,7 @@ int main(int argc, char **argv)
 	quoterc = regcomp(&quotereg, quotestr, NANO_REG_EXTENDED);
 	if (quoterc != 0) {
 		size_t size = regerror(quoterc, &quotereg, NULL, 0);
-		char *message = charalloc(size);
+		char *message = nmalloc(size);
 
 		regerror(quoterc, &quotereg, message, size);
 		die(_("Bad quoting regex \"%s\": %s\n"), quotestr, message);
@@ -2376,14 +2428,8 @@ int main(int argc, char **argv)
 	if (tabsize == -1)
 		tabsize = WIDTH_OF_TAB;
 
-	/* Initialize curses mode.  If this fails, get out. */
-	if (initscr() == NULL)
-		exit(1);
-
-	started_curses = TRUE;
-
 #ifdef ENABLE_COLOR
-	/* On capable terminals, use colors, otherwise use just reverse or bold.*/
+	/* On capable terminals, use colors, otherwise just reverse or bold.*/
 	if (has_colors())
 		set_interface_colorpairs();
 	else
@@ -2392,7 +2438,10 @@ int main(int argc, char **argv)
 		interface_color_pair[TITLE_BAR] = hilite_attribute;
 		interface_color_pair[LINE_NUMBER] = hilite_attribute;
 		interface_color_pair[GUIDE_STRIPE] = A_REVERSE;
+		interface_color_pair[SCROLL_BAR] = A_NORMAL;
 		interface_color_pair[SELECTED_TEXT] = hilite_attribute;
+		interface_color_pair[SPOTLIGHTED] = A_REVERSE;
+		interface_color_pair[PROMPT_BAR] = hilite_attribute;
 		interface_color_pair[STATUS_BAR] = hilite_attribute;
 		interface_color_pair[ERROR_MESSAGE] = hilite_attribute;
 		interface_color_pair[KEY_COMBO] = hilite_attribute;
@@ -2406,7 +2455,11 @@ int main(int argc, char **argv)
 	window_init();
 	curs_set(0);
 
-	editwincols = COLS;
+#ifndef NANO_TINY
+	thebar = (ISSET(INDICATOR) && LINES > 5 && COLS > 9) ? 1 : 0;
+	bardata = nrealloc(bardata, LINES * sizeof(int));
+#endif
+	editwincols = COLS - thebar;
 
 	/* Set up the signal handlers. */
 	signal_init();
@@ -2497,13 +2550,16 @@ int main(int argc, char **argv)
 				statusline(ALERT, _("Invalid line or column number"));
 		}
 
+#ifndef NANO_TINY
 		/* If the filename is a dash, read from standard input; otherwise,
 		 * open the file; skip positioning the cursor if either failed. */
 		if (strcmp(argv[optind], "-") == 0) {
 			optind++;
 			if (!scoop_stdin())
 				continue;
-		} else if (!open_buffer(argv[optind++], TRUE))
+		} else
+#endif
+		 if (!open_buffer(argv[optind++], TRUE))
 			continue;
 
 		/* If a position was given on the command line, go there. */
@@ -2551,11 +2607,9 @@ int main(int argc, char **argv)
 		if (ISSET(VIEW_MODE))
 			SET(MULTIBUFFER);
 	}
-#endif
-
-#ifdef __linux__
-	/* Check again whether we're running on a Linux console. */
-	on_a_vt = (ioctl(0, VT_GETSTATE, &dummy) == 0);
+#else
+	if (optind < argc)
+		die(_("Can open just one file\n"));
 #endif
 
 	prepare_for_display();
@@ -2563,11 +2617,16 @@ int main(int argc, char **argv)
 #ifdef ENABLE_NANORC
 	if (startup_problem != NULL)
 		statusline(ALERT, startup_problem);
+
+#define NOTREBOUND  first_sc_for(MMAIN, do_help) && \
+						first_sc_for(MMAIN, do_help)->keycode == 0x07
+#else
+#define NOTREBOUND  TRUE
 #endif
 
 #ifdef ENABLE_HELP
 	if (*openfile->filename == '\0' && openfile->totsize == 0 &&
-				openfile->next == openfile && !ISSET(NO_HELP))
+				openfile->next == openfile && !ISSET(NO_HELP) && NOTREBOUND)
 		statusbar(_("Welcome to nano.  For basic help, type Ctrl+G."));
 #endif
 
@@ -2593,13 +2652,17 @@ int main(int argc, char **argv)
 #endif
 			bottombars(MMAIN);
 
-		lastmessage = VACUUM;
-		as_an_at = TRUE;
-
+#ifndef NANO_TINY
+		if (ISSET(MINIBAR) && lastmessage < REMARK)
+			minibar();
+		else
+#endif
 		/* Update the displayed current cursor position only when there
-		 * are no keys waiting in the input buffer. */
-		if (ISSET(CONSTANT_SHOW) && get_key_buffer_len() == 0)
-			do_cursorpos(FALSE);
+		 * is no message and no keys are waiting in the input buffer. */
+		if (ISSET(CONSTANT_SHOW) && lastmessage == VACUUM && get_key_buffer_len() == 0)
+			report_cursor_position();
+
+		as_an_at = TRUE;
 
 		/* Refresh just the cursor position or the entire edit window. */
 		if (!refresh_needed) {
@@ -2608,6 +2671,11 @@ int main(int argc, char **argv)
 		} else
 			edit_refresh();
 
+#ifndef NANO_TINY
+		/* Let the next keystroke cancel the highlighting of a search match. */
+		refresh_needed = spotlighted;
+		spotlighted = FALSE;
+#endif
 		errno = 0;
 		focusing = TRUE;
 

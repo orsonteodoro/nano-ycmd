@@ -1,6 +1,20 @@
 Improvements in GNU nano
 ========================
 
+Since 5.0:
+  - A search highlights the found text, in black on yellow by default.
+  - Option --minibar reduces the interface to a bottom bar with basic info.
+  - The cursor skips over combining characters, <Del> deletes them together
+    with the character they combine with, but <Bsp> deletes them separately.
+  - For using libmagic the option --magic or -! or 'set magic' is required.
+  - With --stateflags the state of some things is shown in the title bar.
+  - M-Bsp deletes a word leftward.
+  - With --indicator a "scrollbar" is shown, indicating position+portion.
+  - M-Ins places an anchor, M-PgUp/M-PgDn jump to the nearest anchor.
+  - Toggling help lines (M-X) and Refresh (^L) work nearly everywhere.
+  - Colors can be modified with the attributes "bold," and/or "italic,".
+  - Nine new color names: from pink and purple to orange and latte.
+
 Since 4.0:
   - Pasting from outside into nano suppresses auto-indentation.
   - Such an external paste can be undone with a single M-U.

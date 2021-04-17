@@ -1,8 +1,8 @@
 /**************************************************************************
  *   color.c  --  This file is part of GNU nano.                          *
  *                                                                        *
- *   Copyright (C) 2001-2011, 2013-2020 Free Software Foundation, Inc.    *
- *   Copyright (C) 2014-2017 Benno Schulenberg                            *
+ *   Copyright (C) 2001-2011, 2013-2021 Free Software Foundation, Inc.    *
+ *   Copyright (C) 2014-2017, 2020 Benno Schulenberg                      *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
  *   it under the terms of the GNU General Public License as published    *
@@ -19,7 +19,7 @@
  *                                                                        *
  **************************************************************************/
 
-#include "proto.h"
+#include "prototypes.h"
 
 #ifdef ENABLE_COLOR
 
@@ -29,49 +29,15 @@
 #endif
 #include <string.h>
 
-/* For early versions of ncurses-6.0, use an additional A_PROTECT attribute
- * for all colors, in order to work around an ncurses miscoloring bug. */
-#if defined(NCURSES_VERSION_MAJOR) && (NCURSES_VERSION_MAJOR == 6) && \
-		(NCURSES_VERSION_MINOR == 0) && (NCURSES_VERSION_PATCH < 20151017)
-#define A_BANDAID  A_PROTECT
-#else
-#define A_BANDAID  A_NORMAL
-#endif
-
-/* Assign pair numbers for the colors in the given syntax, giving identical
- * color pairs the same number. */
-void set_syntax_colorpairs(syntaxtype *sntx)
-{
-	int new_number = NUMBER_OF_ELEMENTS + 1;
-	colortype *ink;
-
-	for (ink = sntx->color; ink != NULL; ink = ink->next) {
-		const colortype *beforenow = sntx->color;
-
-		while (beforenow != ink && (beforenow->fg != ink->fg ||
-									beforenow->bg != ink->bg))
-			beforenow = beforenow->next;
-
-		if (beforenow != ink)
-			ink->pairnum = beforenow->pairnum;
-		else
-			ink->pairnum = new_number++;
-
-		ink->attributes |= COLOR_PAIR(ink->pairnum) | A_BANDAID;
-	}
-}
+static bool defaults_allowed = FALSE;
+		/* Whether ncurses accepts -1 to mean "default color". */
 
 /* Initialize the color pairs for nano's interface. */
 void set_interface_colorpairs(void)
 {
-	bool using_defaults = FALSE;
-
-	/* Tell ncurses to enable colors. */
-	start_color();
-
 #ifdef HAVE_USE_DEFAULT_COLORS
-	/* Allow using the default colors, if available. */
-	using_defaults = (use_default_colors() != ERR);
+	/* Ask ncurses to allow -1 to mean "default color". */
+	defaults_allowed = (use_default_colors() == OK);
 #endif
 
 	/* Initialize the color pairs for nano's interface elements. */
@@ -79,22 +45,27 @@ void set_interface_colorpairs(void)
 		colortype *combo = color_combo[index];
 
 		if (combo != NULL) {
-			if (combo->fg == USE_THE_DEFAULT && !using_defaults)
-				combo->fg = COLOR_WHITE;
-			if (combo->bg == USE_THE_DEFAULT && !using_defaults)
-				combo->bg = COLOR_BLACK;
+			if (!defaults_allowed) {
+				if (combo->fg == THE_DEFAULT)
+					combo->fg = COLOR_WHITE;
+				if (combo->bg == THE_DEFAULT)
+					combo->bg = COLOR_BLACK;
+			}
 			init_pair(index + 1, combo->fg, combo->bg);
-			interface_color_pair[index] = COLOR_PAIR(index + 1) | A_BANDAID |
-												combo->attributes;
+			interface_color_pair[index] = COLOR_PAIR(index + 1) | combo->attributes;
 		} else {
-			if (index == FUNCTION_TAG)
+			if (index == FUNCTION_TAG || index == SCROLL_BAR)
 				interface_color_pair[index] = A_NORMAL;
 			else if (index == GUIDE_STRIPE)
 				interface_color_pair[index] = A_REVERSE;
+			else if (index == SPOTLIGHTED) {
+				init_pair(index + 1, COLOR_BLACK, COLOR_YELLOW + (COLORS > 15 ? 8 : 0));
+				interface_color_pair[index] = COLOR_PAIR(index + 1);
+			} else if (index == PROMPT_BAR)
+				interface_color_pair[index] = interface_color_pair[TITLE_BAR];
 			else if (index == ERROR_MESSAGE) {
 				init_pair(index + 1, COLOR_WHITE, COLOR_RED);
-				interface_color_pair[index] = COLOR_PAIR(index + 1) |
-												A_BOLD | A_BANDAID;
+				interface_color_pair[index] = COLOR_PAIR(index + 1) | A_BOLD;
 			} else
 				interface_color_pair[index] = hilite_attribute;
 		}
@@ -103,31 +74,43 @@ void set_interface_colorpairs(void)
 	}
 }
 
+/* Assign a pair number to each of the foreground/background color combinations
+ * in the given syntax, giving identical combinations the same number. */
+void set_syntax_colorpairs(syntaxtype *sntx)
+{
+	short number = NUMBER_OF_ELEMENTS;
+	colortype *older;
+
+	for (colortype *ink = sntx->color; ink != NULL; ink = ink->next) {
+		if (!defaults_allowed) {
+			if (ink->fg == THE_DEFAULT)
+				ink->fg = COLOR_WHITE;
+			if (ink->bg == THE_DEFAULT)
+				ink->bg = COLOR_BLACK;
+		}
+
+		older = sntx->color;
+
+		while (older != ink && (older->fg != ink->fg || older->bg != ink->bg))
+			older = older->next;
+
+		ink->pairnum = (older != ink) ? older->pairnum : ++number;
+
+		ink->attributes |= COLOR_PAIR(ink->pairnum);
+	}
+}
+
 /* Initialize the color pairs for the current syntax. */
 void prepare_palette(void)
 {
-	const colortype *ink;
-	bool using_defaults = FALSE;
-	short foreground, background;
+	short number = NUMBER_OF_ELEMENTS;
 
-#ifdef HAVE_USE_DEFAULT_COLORS
-	/* Allow using the default colors, if available. */
-	using_defaults = (use_default_colors() != ERR);
-#endif
-
-	/* For each coloring expression, initialize the color pair. */
-	for (ink = openfile->syntax->color; ink != NULL; ink = ink->next) {
-		foreground = ink->fg;
-		background = ink->bg;
-
-		if (foreground == USE_THE_DEFAULT && !using_defaults)
-			foreground = COLOR_WHITE;
-
-		if (background == USE_THE_DEFAULT && !using_defaults)
-			background = COLOR_BLACK;
-
-		init_pair(ink->pairnum, foreground, background);
-	}
+	/* For each unique pair number, tell ncurses the combination of colors. */
+	for (colortype *ink = openfile->syntax->color; ink != NULL; ink = ink->next)
+		if (ink->pairnum > number) {
+			init_pair(ink->pairnum, ink->fg, ink->bg);
+			number = ink->pairnum;
+		}
 
 	have_palette = TRUE;
 }
@@ -140,7 +123,7 @@ bool found_in_list(regexlisttype *head, const char *shibboleth)
 	regex_t rgx;
 
 	for (item = head; item != NULL; item = item->next) {
-		regcomp(&rgx, item->full_regex, NANO_REG_EXTENDED);
+		regcomp(&rgx, item->full_regex, NANO_REG_EXTENDED | REG_NOSUB);
 
 		if (regexec(&rgx, shibboleth, 0, NULL, 0) == 0) {
 			regfree(&rgx);
@@ -200,8 +183,8 @@ void find_and_prime_applicable_syntax(void)
 	}
 
 #ifdef HAVE_LIBMAGIC
-	/* If we still don't have an answer, try using magic. */
-	if (sntx == NULL && !inhelp) {
+	/* If we still don't have an answer, try using magic (when requested). */
+	if (sntx == NULL && !inhelp && ISSET(USE_MAGIC)) {
 		struct stat fileinfo;
 		magic_t cookie = NULL;
 		const char *magicstring = NULL;
@@ -251,15 +234,6 @@ void find_and_prime_applicable_syntax(void)
 	openfile->syntax = sntx;
 }
 
-/* Allocate and initialize (for the given line) the cache for multiline info. */
-void set_up_multicache(linestruct *line)
-{
-	line->multidata = (short *)nmalloc(openfile->syntax->nmultis * sizeof(short));
-
-	for (short index = 0; index < openfile->syntax->nmultis; index++)
-		line->multidata[index] = -1;
-}
-
 /* Determine whether the matches of multiline regexes are still the same,
  * and if not, schedule a screen refresh, so things will be repainted. */
 void check_the_multis(linestruct *line)
@@ -273,8 +247,10 @@ void check_the_multis(linestruct *line)
 	if (openfile->syntax == NULL || openfile->syntax->nmultis == 0)
 		return;
 
-	if (line->multidata == NULL)
-		set_up_multicache(line);
+	if (line->multidata == NULL) {
+		refresh_needed = TRUE;
+		return;
+	}
 
 	for (ink = openfile->syntax->color; ink != NULL; ink = ink->next) {
 		/* If it's not a multiline regex, skip. */
@@ -286,18 +262,21 @@ void check_the_multis(linestruct *line)
 		anend = (regexec(ink->end, afterstart, 1, &endmatch, 0) == 0);
 
 		/* Check whether the multidata still matches the current situation. */
-		if (line->multidata[ink->id] == CNONE ||
-						line->multidata[ink->id] == CWHOLELINE) {
+		if (line->multidata[ink->id] == NOTHING) {
+			if (!astart)
+				continue;
+		} else if (line->multidata[ink->id] & (WHOLELINE|WOULDBE)) {
 			if (!astart && !anend)
 				continue;
-		} else if (line->multidata[ink->id] == CSTARTENDHERE) {
-			if (astart && anend && startmatch.rm_so < endmatch.rm_so)
+		} else if (line->multidata[ink->id] == JUSTONTHIS) {
+			if (astart && anend && regexec(ink->start, line->data + endmatch.rm_eo,
+														1, &startmatch, 0) != 0)
 				continue;
-		} else if (line->multidata[ink->id] == CBEGINBEFORE) {
-			if (!astart && anend)
-				continue;
-		} else if (line->multidata[ink->id] == CENDAFTER) {
+		} else if (line->multidata[ink->id] == STARTSHERE) {
 			if (astart && !anend)
+				continue;
+		} else if (line->multidata[ink->id] == ENDSHERE) {
+			if (!astart && anend)
 				continue;
 		}
 
@@ -315,13 +294,19 @@ void precalc_multicolorinfo(void)
 	regmatch_t startmatch, endmatch;
 	linestruct *line, *tailline;
 
-	if (openfile->syntax == NULL || openfile->syntax->nmultis == 0 ||
-					openfile->filetop->multidata || ISSET(NO_SYNTAX))
+	if (!openfile->syntax || openfile->syntax->nmultis == 0 || ISSET(NO_SYNTAX))
 		return;
+
+//#define TIMEPRECALC  123
+#ifdef TIMEPRECALC
+#include <time.h>
+	clock_t start = clock();
+#endif
 
 	/* For each line, allocate cache space for the multiline-regex info. */
 	for (line = openfile->filetop; line != NULL; line = line->next)
-		set_up_multicache(line);
+		if (!line->multidata)
+			line->multidata = nmalloc(openfile->syntax->nmultis * sizeof(short));
 
 	for (ink = openfile->syntax->color; ink != NULL; ink = ink->next) {
 		/* If this is not a multi-line regex, skip it. */
@@ -332,66 +317,68 @@ void precalc_multicolorinfo(void)
 			int index = 0;
 
 			/* Assume nothing applies until proven otherwise below. */
-			line->multidata[ink->id] = CNONE;
+			line->multidata[ink->id] = NOTHING;
 
-			/* For an unpaired start match, mark all remaining lines. */
-			if (line->prev && line->prev->multidata[ink->id] == CWOULDBE) {
-				line->multidata[ink->id] = CWOULDBE;
-				continue;
-			}
-
-			/* When the line contains a start match, look for an end, and if
-			 * found, mark all the lines that are affected. */
-			while (regexec(ink->start, line->data + index, 1,
-							&startmatch, (index == 0) ? 0 : REG_NOTBOL) == 0) {
+			/* When the line contains a start match, look for an end,
+			 * and if found, mark all the lines that are affected. */
+			while (regexec(ink->start, line->data + index, 1, &startmatch,
+										(index == 0) ? 0 : REG_NOTBOL) == 0) {
 				/* Begin looking for an end match after the start match. */
 				index += startmatch.rm_eo;
 
-				/* If there is an end match on this line, mark the line, but
-				 * continue looking for other starts after it. */
-				if (regexec(ink->end, line->data + index, 1,
-							&endmatch, (index == 0) ? 0 : REG_NOTBOL) == 0) {
-					line->multidata[ink->id] = CSTARTENDHERE;
+				/* If there is an end match on this same line, mark the line,
+				 * but continue looking for other starts after it. */
+				if (regexec(ink->end, line->data + index, 1, &endmatch,
+										(index == 0) ? 0 : REG_NOTBOL) == 0) {
+					line->multidata[ink->id] = JUSTONTHIS;
+
 					index += endmatch.rm_eo;
-					/* If both start and end are mere anchors, step ahead. */
-					if (startmatch.rm_so == startmatch.rm_eo &&
-								endmatch.rm_so == endmatch.rm_eo) {
-						/* When at end-of-line, we're done. */
+
+					/* If the total match has zero length, force an advance. */
+					if (startmatch.rm_eo - startmatch.rm_so + endmatch.rm_eo == 0) {
+						/* When at end-of-line, there is no other start. */
 						if (line->data[index] == '\0')
 							break;
 						index = step_right(line->data, index);
 					}
+
 					continue;
 				}
 
 				/* Look for an end match on later lines. */
 				tailline = line->next;
 
-				while (tailline != NULL) {
-					if (regexec(ink->end, tailline->data, 1, &endmatch, 0) == 0)
-						break;
+				while (tailline && regexec(ink->end, tailline->data,
+											1, &endmatch, 0) != 0)
 					tailline = tailline->next;
-				}
 
+				/* When there is no end match, mark relevant lines as such. */
 				if (tailline == NULL) {
-					line->multidata[ink->id] = CWOULDBE;
+					for (; line->next != NULL; line = line->next)
+						line->multidata[ink->id] = WOULDBE;
+					line->multidata[ink->id] = WOULDBE;
 					break;
 				}
 
-				/* We found it, we found it, la la la la la.  Mark all
-				 * the lines in between and the end properly. */
-				line->multidata[ink->id] = CENDAFTER;
+				/* We found it, we found it, la lala lala.  Mark the lines. */
+				line->multidata[ink->id] = STARTSHERE;
 
+				// Note that this also advances the line in the main loop.
 				for (line = line->next; line != tailline; line = line->next)
-					line->multidata[ink->id] = CWHOLELINE;
+					line->multidata[ink->id] = WHOLELINE;
 
-				tailline->multidata[ink->id] = CBEGINBEFORE;
+				tailline->multidata[ink->id] = ENDSHERE;
 
-				/* Begin looking for a new start after the end match. */
+				/* Look for a possible new start after the end match. */
 				index = endmatch.rm_eo;
 			}
 		}
 	}
+
+#ifdef TIMEPRECALC
+	statusline(INFO, "Precalculation: %.1f ms", 1000 * (double)(clock() - start) / CLOCKS_PER_SEC);
+	napms(1200);
+#endif
 }
 
 #endif /* ENABLE_COLOR */

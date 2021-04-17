@@ -1,7 +1,7 @@
 /**************************************************************************
  *   history.c  --  This file is part of GNU nano.                        *
  *                                                                        *
- *   Copyright (C) 2003-2011, 2013-2020 Free Software Foundation, Inc.    *
+ *   Copyright (C) 2003-2011, 2013-2021 Free Software Foundation, Inc.    *
  *   Copyright (C) 2016, 2017, 2019 Benno Schulenberg                     *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
@@ -19,7 +19,7 @@
  *                                                                        *
  **************************************************************************/
 
-#include "proto.h"
+#include "prototypes.h"
 
 #ifdef ENABLE_HISTORIES
 
@@ -27,19 +27,19 @@
 #include <string.h>
 
 #ifndef SEARCH_HISTORY
-#define SEARCH_HISTORY "search_history"
+#define SEARCH_HISTORY  "search_history"
 #endif
 
 #ifndef POSITION_HISTORY
-#define POSITION_HISTORY "filepos_history"
+#define POSITION_HISTORY  "filepos_history"
 #endif
 
 static bool history_changed = FALSE;
 		/* Whether any of the history lists has changed. */
-static struct stat stat_of_positions_file;
-		/* The last-obtained stat information of the positions file. */
 static char *poshistname = NULL;
 		/* The name of the positions-history file. */
+static time_t latest_timestamp = 942927132;
+		/* The last time the positions-history file was written. */
 static poshiststruct *position_history = NULL;
 		/* The list of filenames with their last cursor positions. */
 
@@ -178,53 +178,49 @@ void get_history_newer_void(void)
 }
 
 #ifdef ENABLE_TABCOMP
-/* Move h to the next string that's a tab completion of the string s,
- * looking at only the first len characters of s, and return that
- * string.  If there isn't one, or if len is 0, don't move h and return
- * s. */
+/* Go backward through one of three history lists, starting at its item h,
+ * searching for a string that is a tab completion of the given string s,
+ * looking at only the first len characters of s.  When found, make h point
+ * at it and return that string; otherwise, don't move h and return s. */
 char *get_history_completion(linestruct **h, char *s, size_t len)
 {
-	if (len > 0) {
-		linestruct *htop = NULL, *hbot = NULL, *p;
+	linestruct *htop = NULL, *hbot = NULL, *p;
 
-		if (*h == search_history) {
-			htop = searchtop;
-			hbot = searchbot;
-		} else if (*h == replace_history) {
-			htop = replacetop;
-			hbot = replacebot;
-		} else if (*h == execute_history) {
-			htop = executetop;
-			hbot = executebot;
-		}
-
-		/* Search the history list from the current position to the top
-		 * for a match of len characters.  Skip over an exact match. */
-		p = find_history((*h)->prev, htop, s, len);
-
-		while (p != NULL && strcmp(p->data, s) == 0)
-			p = find_history(p->prev, htop, s, len);
-
-		if (p != NULL) {
-			*h = p;
-			return mallocstrcpy(s, (*h)->data);
-		}
-
-		/* Search the history list from the bottom to the current position
-		 * for a match of len characters.  Skip over an exact match. */
-		p = find_history(hbot, *h, s, len);
-
-		while (p != NULL && strcmp(p->data, s) == 0)
-			p = find_history(p->prev, *h, s, len);
-
-		if (p != NULL) {
-			*h = p;
-			return mallocstrcpy(s, (*h)->data);
-		}
+	if (*h == search_history) {
+		htop = searchtop;
+		hbot = searchbot;
+	} else if (*h == replace_history) {
+		htop = replacetop;
+		hbot = replacebot;
+	} else if (*h == execute_history) {
+		htop = executetop;
+		hbot = executebot;
 	}
 
-	/* If we're here, we didn't find a match, we didn't find an inexact
-	 * match, or len is 0.  Return s. */
+	/* First search from the current position to the top of the list
+	 * for a match of len characters.  Skip over an exact match. */
+	p = find_history((*h)->prev, htop, s, len);
+
+	while (p != NULL && strcmp(p->data, s) == 0)
+		p = find_history(p->prev, htop, s, len);
+
+	if (p != NULL) {
+		*h = p;
+		return mallocstrcpy(s, (*h)->data);
+	}
+
+	/* Now search from the bottom of the list to the original position. */
+	p = find_history(hbot, *h, s, len);
+
+	while (p != NULL && strcmp(p->data, s) == 0)
+		p = find_history(p->prev, *h, s, len);
+
+	if (p != NULL) {
+		*h = p;
+		return mallocstrcpy(s, (*h)->data);
+	}
+
+	/* When no useful match was found, simply return the given string. */
 	return (char *)s;
 }
 #endif /* ENABLE_TABCOMP */
@@ -289,47 +285,50 @@ bool have_statedir(void)
 void load_history(void)
 {
 	char *histname = concatenate(statedir, SEARCH_HISTORY);
-	FILE *hisfile = fopen(histname, "rb");
+	FILE *histfile = fopen(histname, "rb");
 
-	if (hisfile == NULL) {
-		if (errno != ENOENT) {
-			/* When reading failed, don't save history when we quit. */
-			UNSET(HISTORYLOG);
-			jot_error(N_("Error reading %s: %s"), histname, strerror(errno));
-		}
-	} else {
-		/* Load the three history lists -- first search, then replace,
-		 * then execute -- from oldest entry to newest.  Between two
-		 * lists there is an empty line. */
-		linestruct **history = &search_history;
-		char *line = NULL;
-		size_t buf_len = 0;
-		ssize_t read;
-
-		while ((read = getline(&line, &buf_len, hisfile)) > 0) {
-			line[--read] = '\0';
-			if (read > 0) {
-				recode_NUL_to_LF(line, read);
-				update_history(history, line);
-			} else if (history == &search_history)
-				history = &replace_history;
-			else
-				history = &execute_history;
-		}
-
-		fclose(hisfile);
-		free(line);
+	/* If reading an existing file failed, don't save history when we quit. */
+	if (histfile == NULL && errno != ENOENT) {
+		jot_error(N_("Error reading %s: %s"), histname, strerror(errno));
+		UNSET(HISTORYLOG);
 	}
+
+	if (histfile == NULL) {
+		free(histname);
+		return;
+	}
+
+	linestruct **history = &search_history;
+	char *stanza = NULL;
+	size_t dummy = 0;
+	ssize_t read;
+
+	/* Load the three history lists (first search, then replace, then execute)
+	 * from oldest entry to newest.  Between two lists there is an empty line. */
+	while ((read = getline(&stanza, &dummy, histfile)) > 0) {
+		stanza[--read] = '\0';
+		if (read > 0) {
+			recode_NUL_to_LF(stanza, read);
+			update_history(history, stanza);
+		} else if (history == &search_history)
+			history = &replace_history;
+		else
+			history = &execute_history;
+	}
+
+	if (fclose(histfile) == EOF)
+		jot_error(N_("Error reading %s: %s"), histname, strerror(errno));
+
+	free(histname);
+	free(stanza);
 
 	/* Reading in the lists has marked them as changed; undo this side effect. */
 	history_changed = FALSE;
-
-	free(histname);
 }
 
 /* Write the lines of a history list, starting at head, from oldest to newest,
  * to the given file.  Return TRUE if writing succeeded, and FALSE otherwise. */
-bool write_list(const linestruct *head, FILE *hisfile)
+bool write_list(const linestruct *head, FILE *histfile)
 {
 	const linestruct *item;
 
@@ -339,9 +338,9 @@ bool write_list(const linestruct *head, FILE *hisfile)
 		/* Decode 0x0A bytes as embedded NULs. */
 		recode_LF_to_NUL(item->data);
 
-		if (fwrite(item->data, sizeof(char), length, hisfile) < length)
+		if (fwrite(item->data, sizeof(char), length, histfile) < length)
 			return FALSE;
-		if (putc('\n', hisfile) == EOF)
+		if (putc('\n', histfile) == EOF)
 			return FALSE;
 	}
 
@@ -352,30 +351,30 @@ bool write_list(const linestruct *head, FILE *hisfile)
 void save_history(void)
 {
 	char *histname;
-	FILE *hisfile;
+	FILE *histfile;
 
 	/* If the histories are unchanged, don't bother saving them. */
 	if (!history_changed)
 		return;
 
 	histname = concatenate(statedir, SEARCH_HISTORY);
-	hisfile = fopen(histname, "wb");
+	histfile = fopen(histname, "wb");
 
-	if (hisfile == NULL)
-		fprintf(stderr, _("Error writing %s: %s\n"), histname,
-						strerror(errno));
-	else {
-		/* Don't allow others to read or write the history file. */
-		chmod(histname, S_IRUSR | S_IWUSR);
-
-		if (!write_list(searchtop, hisfile) ||
-						!write_list(replacetop, hisfile) ||
-						!write_list(executetop, hisfile))
-			fprintf(stderr, _("Error writing %s: %s\n"), histname,
-						strerror(errno));
-
-		fclose(hisfile);
+	if (histfile == NULL) {
+		jot_error(N_("Error writing %s: %s"), histname, strerror(errno));
+		free(histname);
+		return;
 	}
+
+	/* Don't allow others to read or write the history file. */
+	chmod(histname, S_IRUSR | S_IWUSR);
+
+	if (!write_list(searchtop, histfile) || !write_list(replacetop, histfile) ||
+											!write_list(executetop, histfile))
+		jot_error(N_("Error writing %s: %s"), histname, strerror(errno));
+
+	if (fclose(histfile) == EOF)
+		jot_error(N_("Error writing %s: %s"), histname, strerror(errno));
 
 	free(histname);
 }
@@ -383,123 +382,134 @@ void save_history(void)
 /* Load the recorded cursor positions for files that were edited. */
 void load_poshistory(void)
 {
-	FILE *hisfile = fopen(poshistname, "rb");
+	FILE *histfile = fopen(poshistname, "rb");
 
-	if (hisfile == NULL) {
-		if (errno != ENOENT) {
-			/* When reading failed, don't save history when we quit. */
-			UNSET(POSITIONLOG);
-			jot_error(N_("Error reading %s: %s"), poshistname, strerror(errno));
-		}
-	} else {
-		char *line = NULL, *lineptr, *xptr;
-		size_t buf_len = 0;
-		ssize_t read, count = 0;
-		poshiststruct *record_ptr = NULL, *newrecord;
-
-		/* Read and parse each line, and store the extracted data. */
-		while ((read = getline(&line, &buf_len, hisfile)) > 5) {
-			/* Decode NULs as embedded newlines. */
-			recode_NUL_to_LF(line, read);
-
-			/* Find where the x index and line number are in the line. */
-			xptr = revstrstr(line, " ", line + read - 3);
-			if (xptr == NULL)
-				continue;
-			lineptr = revstrstr(line, " ", xptr - 2);
-			if (lineptr == NULL)
-				continue;
-
-			/* Now separate the three elements of the line. */
-			*(xptr++) = '\0';
-			*(lineptr++) = '\0';
-
-			/* Create a new position record. */
-			newrecord = (poshiststruct *)nmalloc(sizeof(poshiststruct));
-			newrecord->filename = copy_of(line);
-			newrecord->lineno = atoi(lineptr);
-			newrecord->xno = atoi(xptr);
-			newrecord->next = NULL;
-
-			/* Add the record to the list. */
-			if (position_history == NULL)
-				position_history = newrecord;
-			else
-				record_ptr->next = newrecord;
-
-			record_ptr = newrecord;
-
-			/* Impose a limit, so the file will not grow indefinitely. */
-			if (++count > 200) {
-				poshiststruct *drop_record = position_history;
-
-				position_history = position_history->next;
-
-				free(drop_record->filename);
-				free(drop_record);
-			}
-		}
-		fclose(hisfile);
-		free(line);
-
-		stat(poshistname, &stat_of_positions_file);
+	/* If reading an existing file failed, don't save history when we quit. */
+	if (histfile == NULL && errno != ENOENT) {
+		jot_error(N_("Error reading %s: %s"), poshistname, strerror(errno));
+		UNSET(POSITIONLOG);
 	}
+
+	if (histfile == NULL)
+		return;
+
+	ssize_t read, count = 0;
+	struct stat fileinfo;
+	poshiststruct *record_ptr = NULL, *newrecord;
+	char *lineptr, *columnptr;
+	char *stanza = NULL;
+	size_t dummy = 0;
+
+	/* Read and parse each line, and store the extracted data. */
+	while ((read = getline(&stanza, &dummy, histfile)) > 5) {
+		/* Decode NULs as embedded newlines. */
+		recode_NUL_to_LF(stanza, read);
+
+		/* Find the spaces before column number and line number. */
+		columnptr = revstrstr(stanza, " ", stanza + read - 3);
+		if (columnptr == NULL)
+			continue;
+		lineptr = revstrstr(stanza, " ", columnptr - 2);
+		if (lineptr == NULL)
+			continue;
+
+		/* Now separate the three elements of the line. */
+		*(columnptr++) = '\0';
+		*(lineptr++) = '\0';
+
+		/* Create a new position record. */
+		newrecord = nmalloc(sizeof(poshiststruct));
+		newrecord->filename = copy_of(stanza);
+		newrecord->linenumber = atoi(lineptr);
+		newrecord->columnnumber = atoi(columnptr);
+		newrecord->next = NULL;
+
+		/* Add the record to the list. */
+		if (position_history == NULL)
+			position_history = newrecord;
+		else
+			record_ptr->next = newrecord;
+
+		record_ptr = newrecord;
+
+		/* Impose a limit, so the file will not grow indefinitely. */
+		if (++count > 200) {
+			poshiststruct *drop_record = position_history;
+
+			position_history = position_history->next;
+
+			free(drop_record->filename);
+			free(drop_record);
+		}
+	}
+
+	if (fclose(histfile) == EOF)
+		jot_error(N_("Error reading %s: %s"), poshistname, strerror(errno));
+
+	free(stanza);
+
+	if (stat(poshistname, &fileinfo) == 0)
+		latest_timestamp = fileinfo.st_mtime;
 }
 
 /* Save the recorded cursor positions for files that were edited. */
 void save_poshistory(void)
 {
 	poshiststruct *posptr;
-	FILE *hisfile = fopen(poshistname, "wb");
+	struct stat fileinfo;
+	FILE *histfile = fopen(poshistname, "wb");
 
-	if (hisfile == NULL)
-		fprintf(stderr, _("Error writing %s: %s\n"), poshistname, strerror(errno));
-	else {
-		/* Don't allow others to read or write the history file. */
-		chmod(poshistname, S_IRUSR | S_IWUSR);
-
-		for (posptr = position_history; posptr != NULL; posptr = posptr->next) {
-			char *path_and_place;
-			size_t length;
-
-			/* Assume 20 decimal positions each for line and column number,
-			 * plus two spaces, plus the line feed, plus the null byte. */
-			path_and_place = charalloc(strlen(posptr->filename) + 44);
-			sprintf(path_and_place, "%s %zd %zd\n",
-						posptr->filename, posptr->lineno, posptr->xno);
-			length = strlen(path_and_place);
-
-			/* Encode newlines in filenames as NULs. */
-			recode_LF_to_NUL(path_and_place);
-			/* Restore the terminating newline. */
-			path_and_place[length - 1] = '\n';
-
-			if (fwrite(path_and_place, sizeof(char), length, hisfile) < length)
-				fprintf(stderr, _("Error writing %s: %s\n"),
-										poshistname, strerror(errno));
-			free(path_and_place);
-		}
-		fclose(hisfile);
-
-		stat(poshistname, &stat_of_positions_file);
+	if (histfile == NULL) {
+		jot_error(N_("Error writing %s: %s"), poshistname, strerror(errno));
+		return;
 	}
+
+	/* Don't allow others to read or write the history file. */
+	chmod(poshistname, S_IRUSR | S_IWUSR);
+
+	for (posptr = position_history; posptr != NULL; posptr = posptr->next) {
+		char *path_and_place;
+		size_t length;
+
+		/* Assume 20 decimal positions each for line and column number,
+		 * plus two spaces, plus the line feed, plus the null byte. */
+		path_and_place = nmalloc(strlen(posptr->filename) + 44);
+		sprintf(path_and_place, "%s %zd %zd\n",
+								posptr->filename, posptr->linenumber, posptr->columnnumber);
+		length = strlen(path_and_place);
+
+		/* Encode newlines in filenames as NULs. */
+		recode_LF_to_NUL(path_and_place);
+		/* Restore the terminating newline. */
+		path_and_place[length - 1] = '\n';
+
+		if (fwrite(path_and_place, sizeof(char), length, histfile) < length)
+			jot_error(N_("Error writing %s: %s"), poshistname, strerror(errno));
+
+		free(path_and_place);
+	}
+
+	if (fclose(histfile) == EOF)
+		jot_error(N_("Error writing %s: %s"), poshistname, strerror(errno));
+
+	if (stat(poshistname, &fileinfo) == 0)
+		latest_timestamp = fileinfo.st_mtime;
 }
 
 /* Reload the position history file if it has been modified since last load. */
 void reload_positions_if_needed(void)
 {
-	struct stat newstat;
+	struct stat fileinfo;
 
-	stat(poshistname, &newstat);
+	if (stat(poshistname, &fileinfo) == 0 && fileinfo.st_mtime != latest_timestamp) {
+		poshiststruct *item, *nextone;
 
-	if (newstat.st_mtime != stat_of_positions_file.st_mtime) {
-		poshiststruct *ptr, *nextone;
-
-		for (ptr = position_history; ptr != NULL; ptr = nextone) {
-			nextone = ptr->next;
-			free(ptr->filename);
-			free(ptr);
+		for (item = position_history; item != NULL; item = nextone) {
+			nextone = item->next;
+			free(item->filename);
+			free(item);
 		}
+
 		position_history = NULL;
 
 		load_poshistory();
@@ -547,7 +557,7 @@ void update_poshistory(void)
 	/* If we didn't find it, make a new node; otherwise, if we're
 	 * not at the end, move the matching one to the end. */
 	if (theone == NULL) {
-		theone = (poshiststruct *)nmalloc(sizeof(poshiststruct));
+		theone = nmalloc(sizeof(poshiststruct));
 		theone->filename = copy_of(fullpath);
 		if (position_history == NULL)
 			position_history = theone;
@@ -564,8 +574,8 @@ void update_poshistory(void)
 	}
 
 	/* Store the last cursor position. */
-	theone->lineno = openfile->current->lineno;
-	theone->xno = xplustabs() + 1;
+	theone->linenumber = openfile->current->lineno;
+	theone->columnnumber = xplustabs() + 1;
 	theone->next = NULL;
 
 	free(fullpath);
@@ -595,8 +605,8 @@ bool has_old_position(const char *file, ssize_t *line, ssize_t *column)
 	if (posptr == NULL)
 		return FALSE;
 
-	*line = posptr->lineno;
-	*column = posptr->xno;
+	*line = posptr->linenumber;
+	*column = posptr->columnnumber;
 	return TRUE;
 }
 #endif /* ENABLE_HISTORIES */

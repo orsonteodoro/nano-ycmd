@@ -1,5 +1,8 @@
 ## Syntax highlighting for Autoconf.
 
+## Original author:  Benno Schulenberg
+## License:  GPL version 3 or newer
+
 syntax autoconf "\.(ac|m4)$"
 comment "#"
 
@@ -14,7 +17,7 @@ color cyan "\<[[:upper:]_[:digit:]]+\>"
 color red "\<[-_.0-9]+\>"
 
 # Strings:
-color red "\"[^"]*\""  "\'[^']*\'"
+color red ""[^"]*""  "'[^']*'"
 
 # Backticks:
 color green "`[^`]*`"
