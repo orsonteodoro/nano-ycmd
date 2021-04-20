@@ -326,17 +326,19 @@ else
 fi
 
 AC_ARG_VAR([BEAR_PATH],[Define the full path to bear for the Ninja build system support in ycmd (optional)])
-AC_ARG_VAR([CLANGD_PATH],[Define the full path to clangd for C / C++ / Objective-C / Objective C++ language support in ycmd (optional)])
-AC_ARG_VAR([GOCODE_PATH],[Define the full path to your gocode executable for Go language support in ycmd (optional)])
-AC_ARG_VAR([GODEF_PATH],[Define the full path to your godef executable for Go language support in ycmd (optional)])
-AC_ARG_VAR([GOPLS_PATH],[Define the full path to your gopls executable for Go language support in ycmd (optional)])
+AC_ARG_VAR([CLANGD_PATH],[Define the full path to clangd for C / C++ / Objective-C / Objective C++ language support in ycmd >=41 (optional, experimental)])
+AC_ARG_VAR([GOCODE_PATH],[Define the full path to your gocode executable for Go language support in ycmd <42 (optional)])
+AC_ARG_VAR([GODEF_PATH],[Define the full path to your godef executable for Go language support in ycmd <42 (optional)])
+AC_ARG_VAR([GOPLS_PATH],[Define the full path to your gopls executable for Go language support in ycmd >=42 (optional)])
+AC_ARG_VAR([MONO_PATH],[Define the full path to your mono executable for CSharp language support in ycmd >=43 (optional)])
 AC_ARG_VAR([NINJA_PATH],[Define the full path to ninja for projects that depend on the Ninja build system in ycmd (optional)])
-AC_ARG_VAR([OMNISHARP_PATH],[Define the full path to your OmniSharp executable for C# language support in ycmd (optional)])
-AC_ARG_VAR([RACERD_PATH],[Define the full path to the racerd for racerd for Rust language support in ycmd (optional)])
-AC_ARG_VAR([RLS_PATH],[Define the full path to the rls (Rust Language Server) executable for Rust language support in ycmd (opitonal)])
-AC_ARG_VAR([RUST_SRC_PATH],[Define the full path to the Rust source code folder for Rust language support in ycmd (opitonal)])
-AC_ARG_VAR([RUSTC_PATH],[Define the full path to the rustc executable for Rust language support in ycmd (opitonal)])
-AC_ARG_VAR([TSSERVER_PATH],[Define the full path to the tsserver executable for TypeScript language support in ycmd (opitonal)])
+AC_ARG_VAR([OMNISHARP_PATH],[Define the full path to your OmniSharp executable for CSharp language support in ycmd >=42 (optional)])
+AC_ARG_VAR([RACERD_PATH],[Define the full path to the racerd for racerd for Rust language support in ycmd <42 (optional)])
+AC_ARG_VAR([RLS_PATH],[Define the full path to the rls (Rust Language Server) executable for Rust language support in ycmd >=42 and <44 (optional)])
+AC_ARG_VAR([RUST_SRC_PATH],[Define the full path to the Rust source code folder for Rust language support in ycmd <42 (optional)])
+AC_ARG_VAR([RUST_TOOLCHAIN_PATH],[Define the full path to the Rust toolchain for Rust language support in ycmd >=44 (optional)])
+AC_ARG_VAR([RUSTC_PATH],[Define the full path to the rustc executable for Rust language support in ycmd in ycmd >=42 and <44 (optional)])
+AC_ARG_VAR([TSSERVER_PATH],[Define the full path to the tsserver executable for TypeScript language support in ycmd >=42 (optional)])
 AC_ARG_VAR([YCMD_PATH],[Define the path to ycmd directory])
 AC_ARG_VAR([YCMD_PYTHON_PATH],[Define the full path to your ycmd python executable for ycmd])
 AC_ARG_VAR([YCMG_PATH],[Define the full path to YCM-Generator for C / C++ / Objective-C / Objective C++ language support in ycmd (optional)])
@@ -352,39 +354,72 @@ AC_ARG_ENABLE(ycmd,
 AS_HELP_STRING([--enable-ycmd], [Enable code completion support via ycmd]))
 have_ycmd=no
 AC_DEFUN([AC_CHECK_YCMD_CORE_VERSION],[
-	ycmd_core_version=$(cat "$1/../CORE_VERSION")
-	AC_MSG_CHECKING([ycmd core version])
-	if test $ycmd_core_version -eq 39 ; then
-		AC_MSG_RESULT([39])
-		AC_DEFINE([YCMD_CORE_VERSION],39,[Define this to set the ycmd server core version and to match the protocol version.])
+	AC_MSG_CHECKING([for YCMD_PATH])
+	if test -z "$1"; then
+		AC_MSG_ERROR([The YCMD_PATH environmental variable must be set.])
 	else
-		if test $ycmd_core_version -eq 43 ; then
-			AC_MSG_RESULT([43])
-			AC_DEFINE([YCMD_CORE_VERSION],43,[Define this to set the ycmd server core version and to match the protocol version.])
-		else
-			AC_MSG_ERROR([ycmd core version is incompatible.  Needs to be 39 or 43.])
-		fi
+		AC_MSG_RESULT([$YCMD_PATH])
+	fi
+	AC_MSG_CHECKING([for CORE_VERSION])
+	core_version_path=$(realpath "$1/../CORE_VERSION")
+	if test -f "$core_version_path"; then
+		AC_MSG_RESULT([$core_version_path])
+	else
+		AC_MSG_ERROR([Cannot find CORE_VERSION.])
+	fi
+	ycmd_core_version=$(cat "$core_version_path")
+	ycmd_core_found=0
+	AC_MSG_CHECKING([for ycmd CORE_VERSION])
+	test $ycmd_core_version -eq 45 && ycmd_core_found=45
+	test $ycmd_core_version -eq 44 && ycmd_core_found=44
+	test $ycmd_core_version -eq 43 && ycmd_core_found=43
+	test $ycmd_core_version -eq 39 && ycmd_core_found=39
+	if test $ycmd_core_found -gt 0; then
+		AC_MSG_RESULT([$ycmd_core_version])
+		AC_DEFINE_UNQUOTED([YCMD_CORE_VERSION], $ycmd_core_version, [Define this to set the ycmd server core version and to match the protocol version.])
+	else
+		AC_MSG_ERROR([Your CORE_VERSION ($ycmd_core_version) for ycmd is incompatible.  The CORE_VERSION needs to be either 39, 43, 44, 45.])
 	fi
 ])
 
 if test "x$enable_ycmd" = xyes; then
 	AC_CHECK_YCMD_CORE_VERSION([$YCMD_PATH])
-	AC_MSG_RESULT([BEAR_PATH is $BEAR_PATH])
-	AC_MSG_RESULT([CLANGD_PATH is $CLANGD_PATH])
-	AC_MSG_RESULT([GOCODE_PATH is $GOCODE_PATH])
-	AC_MSG_RESULT([GODEF_PATH is $GODEF_PATH])
-	AC_MSG_RESULT([GOPLS_PATH is $GOPLS_PATH])
-	AC_MSG_RESULT([NINJA_PATH is $NINJA_PATH])
-	AC_MSG_RESULT([OMNISHARP_PATH is $OMNISHARP_PATH])
-	AC_MSG_RESULT([RACERD_PATH is $RACERD_PATH])
-	AC_MSG_RESULT([RLS_PATH is $RLS_PATH])
-	AC_MSG_RESULT([RUST_SRC_PATH is $RUST_SRC_PATH])
-	AC_MSG_RESULT([RUSTC_PATH is $RUSTC_PATH])
-	AC_MSG_RESULT([TSSERVER_PATH is $TSSERVER_PATH])
-	AC_MSG_RESULT([YCMD_PATH is $YCMD_PATH])
-	AC_MSG_RESULT([YCMD_PYTHON_PATH is $YCMD_PYTHON_PATH])
-	AC_MSG_RESULT([YCMG_PATH is $YCMG_PATH])
-	AC_MSG_RESULT([YCMG_PYTHON_PATH is $YCMG_PYTHON_PATH])
+	AC_MSG_CHECKING([for BEAR_PATH])
+	AC_MSG_RESULT([$BEAR_PATH])
+	AC_MSG_CHECKING([for CLANGD_PATH])
+	AC_MSG_RESULT([$CLANGD_PATH])
+	AC_MSG_CHECKING([for GOCODE_PATH])
+	AC_MSG_RESULT([$GOCODE_PATH])
+	AC_MSG_CHECKING([for GODEF_PATH])
+	AC_MSG_RESULT([$GODEF_PATH])
+	AC_MSG_CHECKING([for GOPLS_PATH])
+	AC_MSG_RESULT([$GOPLS_PATH])
+	AC_MSG_CHECKING([for MONO_PATH])
+	AC_MSG_RESULT([$MONO_PATH])
+	AC_MSG_CHECKING([for NINJA_PATH])
+	AC_MSG_RESULT([$NINJA_PATH])
+	AC_MSG_CHECKING([for OMNISHARP_PATH])
+	AC_MSG_RESULT([$OMNISHARP_PATH])
+	AC_MSG_CHECKING([for RACERD_PATH])
+	AC_MSG_RESULT([$RACERD_PATH])
+	AC_MSG_CHECKING([for RLS_PATH])
+	AC_MSG_RESULT([$RLS_PATH])
+	AC_MSG_CHECKING([for RUST_SRC_PATH])
+	AC_MSG_RESULT([$RUST_SRC_PATH])
+	AC_MSG_CHECKING([for RUST_TOOLCHAIN_PATH])
+	AC_MSG_RESULT([$RUST_TOOLCHAIN_PATH])
+	AC_MSG_CHECKING([for RUSTC_PATH])
+	AC_MSG_RESULT([$RUSTC_PATH])
+	AC_MSG_CHECKING([for TSSERVER_PATH])
+	AC_MSG_RESULT([$TSSERVER_PATH])
+	AC_MSG_CHECKING([for YCMD_PATH])
+	AC_MSG_RESULT([$YCMD_PATH])
+	AC_MSG_CHECKING([for YCMD_PYTHON_PATH])
+	AC_MSG_RESULT([$YCMD_PYTHON_PATH])
+	AC_MSG_CHECKING([for YCMG_PATH])
+	AC_MSG_RESULT([$YCMG_PATH])
+	AC_MSG_CHECKING([for YCMG_PYTHON_PATH])
+	AC_MSG_RESULT([$YCMG_PYTHON_PATH])
 
 	PKG_CHECK_MODULES([GLIB], [glib-2.0], [
 		GLIB_LIB=$GLIB_LIBS
@@ -431,7 +466,7 @@ if test "x$enable_ycmd" = xyes; then
 		NEON_LIB_NAME=neon
 	], [:])
 	AC_CHECK_FILE([$YCMD_PATH/hmac_utils.py], [ycmd_found=yes], [ycmd_found=no])
-	AC_MSG_CHECKING([ycmd])
+	AC_MSG_CHECKING([for YCMD_PATH/hmac_utils.py])
 	if test "x$ycmd_found" = xno ; then
 		AC_MSG_RESULT([no])
 		AC_MSG_ERROR([Your ycmd is possibly old or you haven't installed it or forgot to set the YCMD_PATH environmental variable to point to the path of ycmd])
@@ -442,7 +477,7 @@ if test "x$enable_ycmd" = xyes; then
 	fi
 
 	AC_CHECK_FILE([$YCMD_PYTHON_PATH], [ycmd_python_found=yes], [ycmd_python_found=no])
-	AC_MSG_CHECKING([ycmd_python])
+	AC_MSG_CHECKING([for YCMD_PYTHON_PATH])
 	if test "x$ycmd_python_found" = xno ; then
 		AC_MSG_RESULT([no])
 		AC_MSG_ERROR([You must set the YCMD_PYTHON_PATH to your python executable or you may need to install python])
@@ -452,7 +487,7 @@ if test "x$enable_ycmd" = xyes; then
 
 	if test "x$with_ycm_generator" = xyes; then
 		AC_CHECK_FILE([$YCMG_PYTHON_PATH], [ycmg_python_found=yes], [ycmg_python_found=no])
-		AC_MSG_CHECKING([ycmg_python])
+		AC_MSG_CHECKING([for YCMG_PYTHON_PATH])
 		if test "x$ycmg_python_found" = xno ; then
 			AC_MSG_RESULT([no])
 			AC_MSG_ERROR([You must set the YCMG_PYTHON_PATH to your python executable or you may need to install python])
@@ -468,7 +503,7 @@ if test "x$enable_ycmd" = xyes; then
 
 		if test "x$with_bear" = xyes; then
 			AC_CHECK_FILE([$BEAR_PATH], [bear_found=yes], [bear_found=no])
-			AC_MSG_CHECKING([bear])
+			AC_MSG_CHECKING([for BEAR_PATH])
 			if test "x$bear_found" = xno ; then
 				AC_MSG_RESULT([no])
 			else
@@ -478,7 +513,7 @@ if test "x$enable_ycmd" = xyes; then
 
 		if test "x$with_ninja" = xyes; then
 			AC_CHECK_FILE([$NINJA_PATH], [ninja_found=yes], [ninja_found=no])
-			AC_MSG_CHECKING([ninja])
+			AC_MSG_CHECKING([for NINJA_PATH])
 			if test "x$bear_found" = xno ; then
 				AC_MSG_RESULT([no])
 			else
@@ -493,6 +528,7 @@ AM_CONDITIONAL([HAVE_GOCODE], [test x$GOCODE_PATH != x])
 AM_CONDITIONAL([HAVE_GODEF], [test x$GODEF_PATH != x])
 AM_CONDITIONAL([HAVE_GOPLS], [test x$GOPLS_PATH != x])
 AM_CONDITIONAL([HAVE_LIBGCRYPT], [test x$have_libgcrypt = xyes])
+AM_CONDITIONAL([HAVE_MONO], [test x$MONO_PATH != x])
 AM_CONDITIONAL([HAVE_NETTLE], [test x$have_nettle = xyes])
 AM_CONDITIONAL([HAVE_NINJA], [test x$NINJA_PATH != x])
 AM_CONDITIONAL([HAVE_OMNISHARP], [test x$OMNISHARP_PATH != x])
@@ -502,6 +538,7 @@ AM_CONDITIONAL([HAVE_RACERD], [test x$RACERD_PATH != x])
 AM_CONDITIONAL([HAVE_RLS], [test x$RLS_PATH != x])
 AM_CONDITIONAL([HAVE_RUST_SRC], [test  x$RUST_SRC_PATH != x])
 AM_CONDITIONAL([HAVE_RUSTC], [test x$RUSTC_PATH != x])
+AM_CONDITIONAL([HAVE_RUST_TOOLCHAIN], [test x$RUST_TOOLCHAIN_PATH != x])
 AM_CONDITIONAL([HAVE_TSSERVER], [test x$TSSERVER_PATH != x])
 AM_CONDITIONAL([HAVE_YCMD], [test x$have_ycmd = xyes])
 AM_CONDITIONAL([HAVE_YCMD_PYTHON], [test x$YCMD_PYTHON_PATH != x])

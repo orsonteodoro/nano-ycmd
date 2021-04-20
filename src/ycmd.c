@@ -80,7 +80,7 @@
 #include "config.h"
 #include <unistd.h>
 
-#include "proto.h"
+#include "prototypes.h"
 #include "ycmd.h"
 #ifdef DEBUG
 #include <time.h>
@@ -125,6 +125,7 @@ void init_file_ready_to_parse_results(FILE_READY_TO_PARSE_RESULTS *frtpr);
 char *_ne_read_response_body_full(ne_request *request);
 char *ycmd_compute_request(char *method, char *path, char *body);
 char *ycmd_compute_response(char *response_body);
+char *ycmd_create_default_json_core_version_44();
 char *ycmd_create_default_json_core_version_43();
 char *ycmd_create_default_json_core_version_39();
 void ycmd_start_server();
@@ -1076,7 +1077,8 @@ int bear_generate(char *project_path)
 
 		snprintf(command, PATH_MAX*2, "cd \"%s\"; bear make > /dev/null", project_path);
 		ret = system(command);
-		total_refresh();
+		full_refresh();
+		draw_all_subwindows();
 
 		if (ret == 0)
 		{
@@ -1157,7 +1159,8 @@ int ninja_compdb_generate(char *project_path)
 
 		snprintf(command,PATH_MAX*2, "cd \"%s\";\"%s\" -t compdb %s > %s/compile_commands.json", ninja_build_path, NINJA_PATH, ninja_build_targets, project_path);
 		ret = system(command);
-		total_refresh();
+		full_refresh();
+		draw_all_subwindows();
 		if (ret == 0)
 		{
 #ifdef DEBUG
@@ -1336,11 +1339,69 @@ char *ycmd_create_default_json()
 		return ycmd_create_default_json_core_version_39();
 	else if (ycmd_globals.core_version == 43)
 		return ycmd_create_default_json_core_version_43();
+	else if (ycmd_globals.core_version == 44 || ycmd_globals.core_version == 45) // up to CORE_VERSION 45_p20210408 only
+		return ycmd_create_default_json_core_version_44();
+}
+
+//needs to be freed
+char *ycmd_create_default_json_core_version_44()
+{
+	// Structure same as https://github.com/ycm-core/ycmd/blob/8bed6c14bf560abb0a1d60da1d811dc7f751c29a/ycmd/default_settings.json
+	char *_json = "{"
+		"  \"filepath_completion_use_working_dir\": 0,"
+		"  \"auto_trigger\": 1,"
+		"  \"min_num_of_chars_for_completion\": 2,"
+		"  \"min_num_identifier_candidate_chars\": 0,"
+		"  \"semantic_triggers\": {},"
+		"  \"filetype_specific_completion_to_disable\": {"
+		"    \"gitcommit\": 1"
+		"  },"
+		"  \"collect_identifiers_from_comments_and_strings\": 0,"
+		"  \"max_num_identifier_candidates\": 10,"
+		"  \"max_num_candidates\": 50,"
+		"  \"max_num_candidates_to_detail\": -1,"
+		"  \"extra_conf_globlist\": [],"
+		"  \"global_ycm_extra_conf\": \"\","
+		"  \"confirm_extra_conf\": 1,"
+		"  \"max_diagnostics_to_display\": 30,"
+		"  \"filepath_blacklist\": {"
+		"    \"html\": 1,"
+		"    \"jsx\": 1,"
+		"    \"xml\": 1"
+		"  },"
+		"  \"auto_start_csharp_server\": 1,"
+		"  \"auto_stop_csharp_server\": 1,"
+		"  \"use_ultisnips_completer\": 1,"
+		"  \"csharp_server_port\": 0,"
+		"  \"hmac_secret\": \"HMAC_SECRET\","
+		"  \"server_keep_logfiles\": 0,"
+		"  \"python_binary_path\": \"YCMD_PYTHON_PATH\","
+		"  \"language_server\": [],"
+		"  \"java_jdtls_use_clean_workspace\": 1,"
+		"  \"java_jdtls_workspace_root_path\": \"\","
+		"  \"java_jdtls_extension_path\": [],"
+		"  \"use_clangd\": 1,"
+		"  \"clangd_binary_path\": \"CLANGD_PATH\","
+		"  \"clangd_args\": [],"
+		"  \"clangd_uses_ycmd_caching\": 1,"
+		"  \"disable_signature_help\": 0,"
+		"  \"gopls_binary_path\": \"GOPLS_PATH\","
+		"  \"gopls_args\": [],"
+		"  \"rust_toolchain_root\": \"RUST_TOOLCHAIN_PATH\","
+		"  \"tsserver_binary_path\": \"TSSERVER_PATH\","
+		"  \"roslyn_binary_path\": \"OMNISHARP_PATH\","
+		"  \"mono_binary_path\": \"MONO_PATH\""
+		"}";
+
+	static char *json;
+	json = strdup(_json);
+	return json;
 }
 
 //needs to be freed
 char *ycmd_create_default_json_core_version_43()
 {
+	// Structure same as https://github.com/ycm-core/ycmd/blob/ef48cfe1b63bcc07b88e537fb5b6d17b513e319c/ycmd/default_settings.json
 	char *_json = "{"
 		"  \"filepath_completion_use_working_dir\": 0,"
 		"  \"auto_trigger\": 1,"
@@ -1383,7 +1444,8 @@ char *ycmd_create_default_json_core_version_43()
 		"  \"rls_binary_path\": \"RLS_PATH\","
 		"  \"rustc_binary_path\": \"RUSTC_PATH\","
 		"  \"tsserver_binary_path\": \"TSSERVER_PATH\","
-		"  \"roslyn_binary_path\": \"OMNISHARP_PATH\""
+		"  \"roslyn_binary_path\": \"OMNISHARP_PATH\","
+		"  \"mono_binary_path\": \"MONO_PATH\""
 		"}";
 
 	static char *json;
@@ -1394,6 +1456,7 @@ char *ycmd_create_default_json_core_version_43()
 //needs to be freed
 char *ycmd_create_default_json_core_version_39()
 {
+	// Structure same as https://github.com/ycm-core/ycmd/blob/813de203f3d04ed789a5616b8d4df872d8bb2b45/ycmd/default_settings.json
 	char *_json = "{"
 		"  \"filepath_completion_use_working_dir\": 0,"
 		"  \"auto_trigger\": 1,"
@@ -2566,7 +2629,7 @@ void do_completer_command_refactorrename(void)
 
 	char *cc_command = strdup("\"RefactorRename\",\"NEW_IDENTIFIER\"");
 
-	int ret = do_prompt(FALSE, FALSE, MREFACTORRENAME, NULL,
+	int ret = do_prompt(MREFACTORRENAME, NULL,
 #ifndef DISABLE_HISTORIES
 		NULL,
 #endif
@@ -3554,10 +3617,18 @@ void ycmd_start_server()
 	} else if (ycmd_globals.core_version == 43) {
 		string_replace_w(&ycmd_globals.json, "CLANGD_PATH", CLANGD_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "GOPLS_PATH", GOPLS_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "MONO_PATH_PATH", MONO_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "RLS_PATH", RLS_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "RUSTC_PATH", RUSTC_PATH, 0);
-		string_replace_w(&ycmd_globals.json, "TSSERVER_PATH", TSSERVER_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "OMNISHARP_PATH", OMNISHARP_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "TSSERVER_PATH", TSSERVER_PATH, 0);
+	} else if (ycmd_globals.core_version == 44) {
+		string_replace_w(&ycmd_globals.json, "CLANGD_PATH", CLANGD_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "GOPLS_PATH", GOPLS_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "MONO_PATH_PATH", MONO_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "RUST_TOOLCHAIN_PATH", RUST_TOOLCHAIN_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "OMNISHARP_PATH", OMNISHARP_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "TSSERVER_PATH", TSSERVER_PATH, 0);
 	}
 	string_replace_w(&ycmd_globals.json, "YCMD_PYTHON_PATH", YCMD_PYTHON_PATH, 0);
 
@@ -3749,19 +3820,20 @@ void ycmd_generate_secret_raw(char *secret)
 	blank_statusbar();
 
 	//this section is credited to marchelzo and twkm from freenode ##C channel for flushing stdin excessive characters after user adds entropy.
-	total_refresh();
+	full_refresh();
 	statusline(HUSH, "Please stop typing.  Clearing input buffer...");
 	nodelay(stdscr, TRUE);  while (getch() != ERR); nodelay(stdscr, FALSE);
-	total_refresh();
+	full_refresh();
 	statusline(HUSH, "Please stop typing.  Clearing input buffer...");
 
 	usleep(1000000);
 	fflush(stdin);
 
-	total_refresh();
+	full_refresh();
 	statusline(HUSH, "Please stop typing.  Clearing input buffer...");
 	nodelay(stdscr, TRUE); while (getch() != ERR); nodelay(stdscr, FALSE);
-	total_refresh();
+	full_refresh();
+	draw_all_subwindows();
 
 	statusline(HUSH, "Input buffer cleared.");
 }
