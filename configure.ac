@@ -370,15 +370,17 @@ AC_DEFUN([AC_CHECK_YCMD_CORE_VERSION],[
 	ycmd_core_version=$(cat "$core_version_path")
 	ycmd_core_found=0
 	AC_MSG_CHECKING([for ycmd CORE_VERSION])
-	test $ycmd_core_version -eq 45 && ycmd_core_found=45
-	test $ycmd_core_version -eq 44 && ycmd_core_found=44
-	test $ycmd_core_version -eq 43 && ycmd_core_found=43
 	test $ycmd_core_version -eq 39 && ycmd_core_found=39
+	test $ycmd_core_version -eq 43 && ycmd_core_found=43
+	test $ycmd_core_version -eq 44 && ycmd_core_found=44
+	test $ycmd_core_version -eq 45 && ycmd_core_found=45
+	test $ycmd_core_version -eq 46 && ycmd_core_found=46
+	test $ycmd_core_version -eq 47 && ycmd_core_found=47
 	if test $ycmd_core_found -gt 0; then
 		AC_MSG_RESULT([$ycmd_core_version])
 		AC_DEFINE_UNQUOTED([YCMD_CORE_VERSION], $ycmd_core_version, [Define this to set the ycmd server core version and to match the protocol version.])
 	else
-		AC_MSG_ERROR([Your CORE_VERSION ($ycmd_core_version) for ycmd is incompatible.  The CORE_VERSION needs to be either 39, 43, 44, 45.])
+		AC_MSG_ERROR([Your CORE_VERSION ($ycmd_core_version) for ycmd is incompatible.  The CORE_VERSION needs to be either 39, 43, 44, 45, 46, 47.])
 	fi
 ])
 
