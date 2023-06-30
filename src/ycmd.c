@@ -1339,14 +1339,17 @@ char *ycmd_create_default_json()
 		return ycmd_create_default_json_core_version_39();
 	else if (ycmd_globals.core_version == 43)
 		return ycmd_create_default_json_core_version_43();
-	else if (ycmd_globals.core_version == 44 || ycmd_globals.core_version == 45) // up to CORE_VERSION 45_p20210408 only
+	else if (ycmd_globals.core_version == 45 || ycmd_globals.core_version == 46 || ycmd_globals.core_version == 47)
 		return ycmd_create_default_json_core_version_44();
 }
 
 //needs to be freed
 char *ycmd_create_default_json_core_version_44()
 {
-	// Structure same as https://github.com/ycm-core/ycmd/blob/8bed6c14bf560abb0a1d60da1d811dc7f751c29a/ycmd/default_settings.json
+	// Structure same as 44 https://github.com/ycm-core/ycmd/blob/6f2f818364bb5c52f60e720741ff583bf77b4cd5/ycmd/default_settings.json
+	// Structure same as 45 https://github.com/ycm-core/ycmd/blob/2ee41000a28fb6b2ae00985c231896b6d072af86/ycmd/default_settings.json
+	// Structure same as 46 https://github.com/ycm-core/ycmd/blob/5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c/ycmd/default_settings.json
+	// Structure same as 47 (20230611 [live snapshot]) https://github.com/ycm-core/ycmd/blob/33922510b354bae0561b5de886d0d0767ed8822a/ycmd/default_settings.json
 	char *_json = "{"
 		"  \"filepath_completion_use_working_dir\": 0,"
 		"  \"auto_trigger\": 1,"
@@ -1390,7 +1393,8 @@ char *ycmd_create_default_json_core_version_44()
 		"  \"rust_toolchain_root\": \"RUST_TOOLCHAIN_PATH\","
 		"  \"tsserver_binary_path\": \"TSSERVER_PATH\","
 		"  \"roslyn_binary_path\": \"OMNISHARP_PATH\","
-		"  \"mono_binary_path\": \"MONO_PATH\""
+		"  \"mono_binary_path\": \"MONO_PATH\","
+		"  \"java_binary_path\": \"JAVA_PATH\""
 		"}";
 
 	static char *json;
@@ -1414,6 +1418,7 @@ char *ycmd_create_default_json_core_version_43()
 		"  \"collect_identifiers_from_comments_and_strings\": 0,"
 		"  \"max_num_identifier_candidates\": 10,"
 		"  \"max_num_candidates\": 50,"
+		"  \"max_num_candidates_to_detail\": -1,"
 		"  \"extra_conf_globlist\": [],"
 		"  \"global_ycm_extra_conf\": \"\","
 		"  \"confirm_extra_conf\": 1,"
@@ -3617,15 +3622,16 @@ void ycmd_start_server()
 	} else if (ycmd_globals.core_version == 43) {
 		string_replace_w(&ycmd_globals.json, "CLANGD_PATH", CLANGD_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "GOPLS_PATH", GOPLS_PATH, 0);
-		string_replace_w(&ycmd_globals.json, "MONO_PATH_PATH", MONO_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "MONO_PATH", MONO_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "RLS_PATH", RLS_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "RUSTC_PATH", RUSTC_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "OMNISHARP_PATH", OMNISHARP_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "TSSERVER_PATH", TSSERVER_PATH, 0);
-	} else if (ycmd_globals.core_version == 44) {
+	} else if (ycmd_globals.core_version == 44 || ycmd_globals.core_version == 45 || ycmd_globals.core_version == 46 || ycmd_globals.core_version == 47) {
 		string_replace_w(&ycmd_globals.json, "CLANGD_PATH", CLANGD_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "GOPLS_PATH", GOPLS_PATH, 0);
-		string_replace_w(&ycmd_globals.json, "MONO_PATH_PATH", MONO_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "JAVA_PATH", JAVA_PATH, 0);
+		string_replace_w(&ycmd_globals.json, "MONO_PATH", MONO_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "RUST_TOOLCHAIN_PATH", RUST_TOOLCHAIN_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "OMNISHARP_PATH", OMNISHARP_PATH, 0);
 		string_replace_w(&ycmd_globals.json, "TSSERVER_PATH", TSSERVER_PATH, 0);
