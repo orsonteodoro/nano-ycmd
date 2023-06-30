@@ -38,6 +38,12 @@ AM_CPPFLAGS += -DUSE_LIBGCRYPT
 LIBGCRYPT_LIBS = $(shell $(host)-libgcrypt-config --libs)
 endif
 
+if HAVE_JAVA
+AM_CPPFLAGS += -DJAVA_PATH=\"@JAVA_PATH@\"
+else
+AM_CPPFLAGS += -DJAVA_PATH=\"\"
+endif
+
 if HAVE_MONO
 AM_CPPFLAGS += -DMONO_PATH=\"@MONO_PATH@\"
 else
