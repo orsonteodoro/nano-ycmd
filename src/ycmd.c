@@ -2596,7 +2596,7 @@ void _do_completer_command_getdoc(char *command)
 #endif
 
 		//do_output doesn't handle \n properly and displays it as ^@ so we do it this way
-		open_buffer(doc_filename, FALSE);
+		open_buffer(doc_filename, TRUE);
 		prepare_for_display();
 
 		unlink(doc_filename);
