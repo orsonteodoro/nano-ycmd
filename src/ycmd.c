@@ -1129,7 +1129,7 @@ int ninja_compdb_generate(char *project_path)
 #ifdef DEBUG
 	fprintf(stderr,"ninja find\n");
 #endif
-	snprintf(command, PATH_MAX*2, "find \"%s\" -maxdepth 1 -name \"*.ninja\" | egrep \"*\" > /dev/null", ninja_build_path);
+	snprintf(command, PATH_MAX*2, "find \"%s\" -maxdepth 1 -name \"*.ninja\" | grep -E \"*\" > /dev/null", ninja_build_path);
         int ret = system(command);
 
 	if (ret != 0)
@@ -1526,7 +1526,7 @@ void ycmd_gen_extra_conf(char *filepath, char *content)
 #ifdef DEBUG
 	fprintf(stderr,"ycmd_gen_extra_conf find\n");
 #endif
-	sprintf(command, "find \"%s\" -name \"*.mm\" -o -name \"*.m\" -o -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.c\" -o -name \"*.hpp\" -o -name \"*.h\" -o -name \"*.cc\" -o -name \"*.hh\" | egrep \"*\" > /dev/null", cwd);
+	sprintf(command, "find \"%s\" -name \"*.mm\" -o -name \"*.m\" -o -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.c\" -o -name \"*.hpp\" -o -name \"*.h\" -o -name \"*.cc\" -o -name \"*.hh\" | grep -E \"*\" > /dev/null", cwd);
 	int ret = system(command);
 
 	if (ret == 0)
