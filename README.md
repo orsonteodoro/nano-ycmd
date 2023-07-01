@@ -114,11 +114,11 @@ features for the developer.
 
 The features below are still in development.  Some may be feature complete.
 
-Do Alt-\` to bring up the completer commands menu
+Do Alt-\` to bring up the completer commands menu.
 
-To execute a completer command do Ctrl-letter
+Do Ctrl-letter to execute a completer command.
 
-To exit the completer commands do Ctrl-space
+Do Ctrl-space to exit the completer commands.
 
 Some completer commands may not work or not made available for the particular
 language that you working with.
