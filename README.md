@@ -187,7 +187,7 @@ files to work.
 * (3) C, C++, Objective-C, Objective-C++ requires either a *.pro, configure,
 CMakeList.txt, GNUmakefile, Makefile, or makefile to work.  An optional *.ninja
 file may be supplied in your project and would require additional steps to
-handle.
+handle.  build.meson is supported through the YCM-Generator's develop branch.
 
 #### Why does the autocompleter not work with C, C++, Objective C, Objective C++ with a single hello world file?
 
