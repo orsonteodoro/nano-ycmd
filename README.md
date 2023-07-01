@@ -123,35 +123,38 @@ Do Ctrl-space to exit the completer commands.
 Some completer commands may not work or not made available for the particular
 language that you working with.
 
-| Hotkey after Ctrl-` | Tested and passed | Feature Complete? | Working? | Feature                           | Description
-|---------------------|-------------------|-------------------|----------|-----------------------------------|-----------------------------------------------------------------------------------------------------------------
-| Ctrl-i              | Yes               | Yes               | Yes      | GoToInclude                       | Loads the include file in buffer
-| Ctrl-c              | Yes               | Yes               | Yes      | GoToDeclaration                   | Puts the cursor at the variable declaration
-| Ctrl-d              | Yes               | Yes               | Yes      | GoToDefinition                    | Puts the cursor at the function definition
-| Alt-d               | No                | No                | No       | GoToDefinitionElseDeclaration     | Puts the cursor at the definition first, or it puts it on the declaration if it can't find the definition.
-| Ctrl-g              | No                | No                | Yes      | GoTo                              | Should display description in the status bar.  Goes definition or declaration whatever makes sense.
-| Alt-g               | Yes               | Maybe             | Yes      | GoToImprecise                     | Faster but less accurate version of GoTo but should put the cursor.
-| Alt-z               | No                | Yes               | Yes      | ReloadSolution                    | Reloads a C# solution
-| Ctrl-e              | No                | No                | No       | GoToReferences                    | Lists references
-| Ctrl-l              | No                | Yes               | Yes      | GoToImplementation                | Goes to abstract class
-| Alt-l               | No                | No                | No       | GoToImplementationElseDeclaration | Goes to the implemention first then if it can't find it goes to the declaration
-| Ctrl-f              | Yes (1)           | Maybe (2)         | Yes      | FixIt                             | Displays trivial changes and fixes chosen ones automatically
-| Ctrl-o              | Yes               | Yes               | Yes      | GetDoc                            | Displays documentation in new buffer
-| Alt-o               | No                | Yes               | Yes      | GetDocImprecise                   | Faster version but less accurate version of GetDoc.
-| Ctrl-r              | No                | Yes               | No (3)   | RefactorRename                    | Renames a symbol in every file in the project
-| Ctrl-t              | Yes               | Yes               | Yes      | GetType                           | Returns the type of a variable or return the function signature.
-| Alt-t               | Yes               | Yes               | Yes      | GetTypeImprecise                  | Faster but less accurate version of GetType
-| Ctrl-z              | No                | Yes               | Yes      | RestartServer                     | Reloads the subserver
-| Ctrl-y              | No                | Yes               | Yes      | GoToType                          | Goes to a type
-| Ctrl-x              | No                | Yes               | Yes      | ClearCompilationFlagCache         | Clears and updates FlagsForFile from .ycm_extra_conf.py
-| Ctrl-p              | Yes               | Yes               | Yes      | GetParent                         | Gets parent class or method
-| Ctrl-s              | No                | No                | No       | SolutionFile                      | Gets the path to the solution file
+| Hotkey after Ctrl-` | Tested and passed (4) | Feature Complete? | Working? (5) | Feature                           | Description
+|---------------------|-----------------------|-------------------|--------------|-----------------------------------|-----------------------------------------------------------------------------------------------------------------
+| Ctrl-i              | Yes                   | Yes               | Yes          | GoToInclude                       | Loads the include file in buffer
+| Ctrl-c              | Yes                   | Yes               | Yes          | GoToDeclaration                   | Puts the cursor at the variable declaration
+| Ctrl-d              | Yes                   | Yes               | Yes          | GoToDefinition                    | Puts the cursor at the function definition
+| Alt-d               | No                    | No                | No           | GoToDefinitionElseDeclaration     | Puts the cursor at the definition first, or it puts it on the declaration if it can't find the definition.
+| Ctrl-g              | No                    | No                | Yes          | GoTo                              | Should display description in the status bar.  Goes definition or declaration whatever makes sense.
+| Alt-g               | Yes                   | Maybe             | Yes          | GoToImprecise                     | Faster but less accurate version of GoTo but should put the cursor.
+| Alt-z               | No                    | Yes               | Yes          | ReloadSolution                    | Reloads a C# solution
+| Ctrl-e              | No                    | No                | No           | GoToReferences                    | Lists references
+| Ctrl-l              | No                    | Yes               | Yes          | GoToImplementation                | Goes to abstract class
+| Alt-l               | No                    | No                | No           | GoToImplementationElseDeclaration | Goes to the implemention first then if it can't find it goes to the declaration
+| Ctrl-f              | Yes (1)               | Maybe (2)         | Yes          | FixIt                             | Displays trivial changes and fixes chosen ones automatically
+| Ctrl-o              | Yes                   | Yes               | Yes          | GetDoc                            | Displays documentation in new buffer
+| Alt-o               | No                    | Yes               | Yes          | GetDocImprecise                   | Faster version but less accurate version of GetDoc.
+| Ctrl-r              | No                    | Yes               | No (3)       | RefactorRename                    | Renames a symbol in every file in the project
+| Ctrl-t              | Yes                   | Yes               | Yes          | GetType                           | Returns the type of a variable or return the function signature.
+| Alt-t               | Yes                   | Yes               | Yes          | GetTypeImprecise                  | Faster but less accurate version of GetType
+| Ctrl-z              | No                    | Yes               | Yes          | RestartServer                     | Reloads the subserver
+| Ctrl-y              | No                    | Yes               | Yes          | GoToType                          | Goes to a type
+| Ctrl-x              | No                    | Yes               | Yes          | ClearCompilationFlagCache         | Clears and updates FlagsForFile from .ycm_extra_conf.py
+| Ctrl-p              | Yes                   | Yes               | Yes          | GetParent                         | Gets parent class or method
+| Ctrl-s              | No                    | No                | No           | SolutionFile                      | Gets the path to the solution file
 
 * (1) It triggers randomly (in a not deterministic way).  It works for %d->%s
 format specifier, missing semicolon, identifier spelling errors.  It was tested
 only with the C language.
 * (2) It needs more test cases.
 * (3) Subserver problems were encountered.
+* (4) Interactive testing is performed.
+* (5) The results currently shown are from an older evaluated version.  Breakage
+may be encountered for newer versions.
 
 #### Why use ycmd backend over the builtin WORDCOMPLETION?
 
