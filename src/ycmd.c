@@ -1709,8 +1709,9 @@ char *_ne_read_response_body_full(ne_request *request)
 #ifdef DEBUG
 		fprintf(stderr, "looping\n");
 #endif
-		if (ne_get_status(request)->klass == 2)
+		if (ne_get_status(request)->klass == 2 || ne_get_status(request)->klass == 5)
 		{
+			// When confirm_extra_conf=1, klass == 5
 			readlen = ne_read_response_block(request, response_body+nread, chunksize);
 		}
 		else
