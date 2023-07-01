@@ -49,15 +49,14 @@ in progress.  This image may be later be adapted for automated testing.
 
 * ycmd, confirmed working for 20180210 (commit
 1a83224202c4381d6d791c245a893ce25db7a974)
-* <code>>=</code>jedi 0.10, for python support and for completer commands to work.
-* Latest jedihttp, for python completion commands support.
+* <code>>=</code>jedi 0.10, for Python support and for completer commands to work.
+* Latest jedihttp, for Python completion commands support.
 * Either nettle, openssl, or "libgcrypt with glib" cryptographic library, to
 mitigate MITM attack between ycmd and nano text editor
 * neon, for http interprocess communication between nano editor and ycmd server
 * YCM-Generator (https://github.com/rdnetto/YCM-Generator), for
 C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py.  It
-requires Python 2 and tested working on Python 2.7.  To use YCM-Generator with
-Python 3, YCM-Generator requires a patch.
+requires YCM-Generator to be patched for Python 3 support.
 * Bear (https://github.com/rizsotto/Bear), for C/C++/Objective-C/Objective-C++
 support to generate a compile_commands.json.
 * Clang, for C/C++/Objective-C/Objective-C++ code completion.
@@ -241,27 +240,32 @@ thirdparty folder.
 
 (IMPORTANT) The python version must be the same as the compiled ycmd scripts.
 
-YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd"
-PYTHON_PATH="/usr/bin/python3.4" 
+```
+YCMD_PATH="/usr/lib64/python3.10/site-packages/ycmd"
+PYTHON_PATH="/usr/bin/python3.10" 
+```
 
-#### The following are optional environmental variables to pass to the configure
-script pass empty "" if you don't want support:
+#### The following are optional environmental variables to pass to the configure script pass empty "" if you don't want support:
 
 #### for rust language:
 
+```
 RACERD_PATH="/usr/bin/racerd" 
-
 RUST_SRC_PATH="/usr/share/rust/src" 
+```
 
 #### for go language:
 
+```
 GODEF_PATH="/usr/bin/godef" 
-
 GOCODE_PATH="/usr/bin/gocode" 
+```
 
 #### for C / C++ / Objective-C / Objective-C++ language:
 
+```
 YCMG_PATH="/usr/bin/config_gen.py"
+```
 
 #### What would the resulting string look like to configure ycmd for the autotools build system?
 
@@ -269,13 +273,13 @@ YCMG_PATH="/usr/bin/config_gen.py"
 ./autogen.sh
 CFLAGS="-g" \
 YCMG_PATH="/usr/bin/config_gen.py" \
-YCMG_PYTHON_PATH="/usr/bin/python2" \
+YCMG_PYTHON_PATH="/usr/bin/python3" \
 YCMD_PYTHON_PATH="/usr/bin/python3" \
 RACERD_PATH="/usr/bin/racerd" \
 RUST_SRC_PATH="/usr/share/rust/src" \
 GODEF_PATH="/usr/bin/godef" \
 GOCODE_PATH="/usr/bin/gocode" \
-YCMD_PATH="/usr/lib64/python3.4/site-packages/ycmd" \
+YCMD_PATH="/usr/lib64/python3.10/site-packages/ycmd" \
 ./configure --enable-ycmd --with-openssl
 make
 ```
