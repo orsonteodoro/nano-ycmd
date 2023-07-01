@@ -46,6 +46,7 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd .  It is still a work
 in progress.  This image may be later be adapted for automated testing.
 
 #### Dependencies
+
 * ycmd, confirmed working for 20180210 (commit
 1a83224202c4381d6d791c245a893ce25db7a974)
 * <code>>=</code>jedi 0.10, for python support and for completer commands to work.
@@ -167,7 +168,6 @@ selections.
 
 #### What languages and dialects are supported?
 
-
 * JavaScript (1)
 * C# (2)
 * C (3)
@@ -190,8 +190,7 @@ CMakeList.txt, GNUmakefile, Makefile, or makefile to work.  An optional *.ninja
 file may be supplied in your project and would require additional steps to
 handle.
 
-#### Why does the autocompleter not work with C, C++, Objective C, Objective C++
-with a single hello world file?
+#### Why does the autocompleter not work with C, C++, Objective C, Objective C++ with a single hello world file?
 
 You may forgot to have a Makefile, makefile GNUmakefile for make, *.pro for
 qmake, configure for autotools, CMakeLists.txt for cmake or forgot to set the
@@ -264,8 +263,7 @@ GOCODE_PATH="/usr/bin/gocode"
 
 YCMG_PATH="/usr/bin/config_gen.py"
 
-#### What would the resulting string look like to configure ycmd for the
-autotools build system?
+#### What would the resulting string look like to configure ycmd for the autotools build system?
 
 ```
 ./autogen.sh
@@ -389,9 +387,11 @@ folder and is autodetected by YCM-Generator.  A build.ninja file is located in
 folder.
 
 #### Why does the user experience suck?
+
 We are working on that.  Feel free to merge your changes.
 
 #### Why does it do only word matching within a single source code?
+
 The example reference script used it that way.
 
 #### Quality?  Is it finished or complete?
@@ -415,8 +415,7 @@ Add better user interface or user interaction.  Emacs-ycmd is a good example.
 Fix bugs or improve the speed.  Solve why clang/llvm 3.9.1 doesn't show FixIts
 100% of the time as expected.
 
-#### When will it be considered ready for review to be included in the official
-GNU nano?
+#### When will it be considered ready for review to be included in the official GNU nano?
 
 After the UX has been polished and all the features are feature complete.  If
 they do not want to include this patchset, we will fork nano.  I want this
@@ -436,7 +435,10 @@ to a file to inspect it later.  You should use --disable-debug if you are not a
 developer.
 
 For example:
+
+```
 nano 2>/tmp/out.txt
+```
 
 #### Special thanks goes to...
 
