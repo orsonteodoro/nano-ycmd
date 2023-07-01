@@ -24,7 +24,7 @@ You can use the following which have been tested:
 
 Recognized ycmd core versions:
 
-| Commit                                                                                                                     | Core version       | Clang/LLVM version | End of Life status (EOL)          |
+| Commit                                                                                                                     | Core version       | Clang/LLVM version | End of Life (EOL) status          |
 |----------------------------------------------------------------------------------------------------------------------------|--------------------|--------------------|-----------------------------------|
 | [33922510b354bae0561b5de886d0d0767ed8822a](https://github.com/ycm-core/ycmd/tree/33922510b354bae0561b5de886d0d0767ed8822a) | 47 (Live snapshot) | 16.0.1             | Supported dev build               |
 | [5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c](https://github.com/ycm-core/ycmd/tree/5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c) | 46                 | 14                 | Supported feature complete build  |
