@@ -241,7 +241,7 @@ thirdparty folder.
 (IMPORTANT) The python version must be the same as the compiled ycmd scripts.
 
 ```
-YCMD_PATH="/usr/lib64/python3.10/site-packages/ycmd"
+YCMD_PATH="/usr/lib/python3.10/site-packages/ycmd"
 PYTHON_PATH="/usr/bin/python3.10" 
 ```
 
@@ -279,7 +279,7 @@ RACERD_PATH="/usr/bin/racerd" \
 RUST_SRC_PATH="/usr/share/rust/src" \
 GODEF_PATH="/usr/bin/godef" \
 GOCODE_PATH="/usr/bin/gocode" \
-YCMD_PATH="/usr/lib64/python3.10/site-packages/ycmd" \
+YCMD_PATH="/usr/lib/python3.10/site-packages/ycmd" \
 ./configure --enable-ycmd --with-openssl
 make
 ```
