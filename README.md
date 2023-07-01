@@ -165,19 +165,27 @@ syntax checking (currently not supported in nano-ycmd).
 Just type and press Ctrl-letter.  Use Ctrl-space to exit the code completion
 selections.
 
-#### What languages supported?
+#### What languages and dialects are supported?
 
-python, javascript*, typescript, rust, go, C*, C++*, Objective-C*,
-Objective-C++*, C#*
+
+* JavaScript (1)
+* C# (2)
+* C (3)
+* C++ (3)
+* CUDA
+* Go
+* Python
+* Objective-C (3)
+* Objective-C++ (3)
+* Rust
+* TypeScript
 
 Working with some of these languages require additional requirements:
 
-* JavaScript support requires both .tern-project and .tern-config project file
-to work.
-
-* C# support requires a .sln project file to work.
-
-* C, C++, Objective-C, Objective-C++ requires either a *.pro, configure,
+* (1) JavaScript support requires both .tern-project and .tern-config project
+files to work.
+* (2) C# support requires a .sln project file to work.
+* (3) C, C++, Objective-C, Objective-C++ requires either a *.pro, configure,
 CMakeList.txt, GNUmakefile, Makefile, or makefile to work.  An optional *.ninja
 file may be supplied in your project and would require additional steps to
 handle.
@@ -218,17 +226,11 @@ Your setup may vary depending on if your distro patched ycmd.  In my case, I
 modified ycmd to use absolute paths.  The vanilla ycmd uses relative path to the
 thirdparty folder.
 
-#### You need a crypto library.  Choose one of either:
+#### You need a crypto library.  Choose ONE of either:
 
---with-openssl
-
-or
-
---with-nettle
-
-or
-
---with-libgcrypt
+* --with-libgcrypt
+* --with-nettle
+* --with-openssl
 
 * For license compatibility reasons, do not use older than OpenSSL 3.x.
 
