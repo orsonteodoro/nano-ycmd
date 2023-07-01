@@ -305,7 +305,11 @@ is optional but recommended be in use in certain situations.
 So to use it in combination of nano-ycmd (ynano) without Ninja, it would look
 like:
 
-`YCMG_FLAGS="-b make" YCMG_PROJECT_PATH="/var/tmp/portage/app-editors/nano-ycmd-9999.20170201/work/nano-ycmd-7611e4eb827980da1057f6768d00bd322fa1c58f" ynano ycmd.c`
+```
+YCMG_FLAGS="-b make" \
+YCMG_PROJECT_PATH="/var/tmp/portage/app-editors/nano-ycmd-9999.20170201/work/nano-ycmd-7611e4eb827980da1057f6768d00bd322fa1c58f" \
+ynano ycmd.c
+```
 
 Also, if you add new libraries or files, you should delete both the
 .ycm_extra_conf.py and compile_commands.json so that nano-ycmd can regenerate
