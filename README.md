@@ -144,10 +144,10 @@ Some completer commands may not work for the particular language that you workin
 | Ctrl-s              | No                | No                | No       | SolutionFile                      | Gets the path to the solution file
 
 
-(1) Procs Randomly/Not deterministic; works for %d->%s format specifier, missing
+* (1) Procs Randomly/Not deterministic; works for %d->%s format specifier, missing
 semicolon, identifier spelling errors; tested only in the C language
-(2) Needs more test cases
-(3) Subserver problems
+* (2) Needs more test cases
+* (3) Subserver problems
 
 #### Why use ycmd backend over the builtin WORDCOMPLETION?
 
