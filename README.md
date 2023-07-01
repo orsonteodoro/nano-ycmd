@@ -165,6 +165,8 @@ or
 
 --with-libgcrypt
 
+* For license compatibility reasons, do not use older than OpenSSL 3.x.
+
 #### You need to enable ycmd support
 
 --enable-ycmd
