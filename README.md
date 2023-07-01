@@ -20,9 +20,9 @@ You can use the following which have been tested:
 * [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) (works, recently tested but old; non-simd non-multicore. A Feb 11, 2017 build.) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip) [tar.gz source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.tar.gz)
 
 Recognized ycmd core versions:
-* [33922510b354bae0561b5de886d0d0767ed8822a](https://github.com/ycm-core/ycmd/tree/33922510b354bae0561b5de886d0d0767ed8822a) CORE_VERSION=47 (live) with Clang 16.0.1 (supported)
-* [5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c](https://github.com/ycm-core/ycmd/tree/5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c) CORE_VERSION=46 with Clang 14 (supported)
-* [2ee41000a28fb6b2ae00985c231896b6d072af86](https://github.com/ycm-core/ycmd/tree/2ee41000a28fb6b2ae00985c231896b6d072af86) CORE_VERSION=45 with Clang 14 (EOL, supported)
+* [33922510b354bae0561b5de886d0d0767ed8822a](https://github.com/ycm-core/ycmd/tree/33922510b354bae0561b5de886d0d0767ed8822a) CORE_VERSION=47 (Live snapshot) with Clang 16.0.1 (Supported dev build)
+* [5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c](https://github.com/ycm-core/ycmd/tree/5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c) CORE_VERSION=46 with Clang 14 (Supported feature complete build)
+* [2ee41000a28fb6b2ae00985c231896b6d072af86](https://github.com/ycm-core/ycmd/tree/2ee41000a28fb6b2ae00985c231896b6d072af86) CORE_VERSION=45 with Clang 14 (Deprecated, Supported)
 * [6f2f818364bb5c52f60e720741ff583bf77b4cd5](https://github.com/ycm-core/ycmd/tree/6f2f818364bb5c52f60e720741ff583bf77b4cd5) CORE_VERSION=44 with Clang 11 (EOL)
 * [ef48cfe1b63bcc07b88e537fb5b6d17b513e319c](https://github.com/ycm-core/ycmd/tree/ef48cfe1b63bcc07b88e537fb5b6d17b513e319c) CORE_VERSION=43 with Clang 10 (EOL)
 
