@@ -32,7 +32,7 @@ Recognized ycmd core versions:
 | [6f2f818364bb5c52f60e720741ff583bf77b4cd5](https://github.com/ycm-core/ycmd/tree/6f2f818364bb5c52f60e720741ff583bf77b4cd5) | 44                 | 11                 | EOL                               |
 | [ef48cfe1b63bcc07b88e537fb5b6d17b513e319c](https://github.com/ycm-core/ycmd/tree/ef48cfe1b63bcc07b88e537fb5b6d17b513e319c) | 43                 | 10                 | EOL                               |
 
-* Support for a particular ycmd core version based on availability of Python and Clang dependencies.
+* Support for a particular ycmd core version based on version availability of Python and Clang dependencies of the distro.
 * The End of Life (EOL) column is interpreted from the last tested commit snapshot of nano-ycmd.
 
 #### Docker
