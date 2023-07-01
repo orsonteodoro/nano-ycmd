@@ -13,10 +13,20 @@ The ycmd code completion support for nano is found in the ymcd-code-completion b
 The latest may be broken.
 
 You can use the following which have been tested:
+* [8b35ad5481a02ce92bc0b9bd23140aed26cd9652](https://github.com/orsonteodoro/nano-ycmd/tree/8b35ad5481a02ce92bc0b9bd23140aed26cd9652) (Tested working for ycmd CORE_VERSION 45, 46, 47 on Jun 30, 2023.)
 * [60b3cbb67c92a3d6068e386dc3b605a6543717a2](https://github.com/orsonteodoro/nano-ycmd/tree/60b3cbb67c92a3d6068e386dc3b605a6543717a2) (Tested working for ycmd CORE_VERSION 43 and 44 on Apr 19, 2021.)
 * [0a4cdc53bf38bb6cb2827ce4f5c236ba23b41495](https://github.com/orsonteodoro/nano-ycmd/tree/d69e83799eab5a69f8e24e60d0b7c8690eb024f2) (In testing, quick test working on May 24, 2020, for ycmd core version 43) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/d69e83799eab5a69f8e24e60d0b7c8690eb024f2.zip) [tar.gz source](https://github.com/orsonteodoro/nano-ycmd/archive/d69e83799eab5a69f8e24e60d0b7c8690eb024f2.tar.gz)
 * [14e4255c52c9f64cabaa2af28354e9752d27ae65](https://github.com/orsonteodoro/nano-ycmd/tree/14e4255c52c9f64cabaa2af28354e9752d27ae65) (RECOMMENDED, tested working on Feb 11, 2018, for ycmd core version 39 (commit date circa Aug 21, 2018)) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.zip) [tar.gz source](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.tar.gz)
 * [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) (works, recently tested but old; non-simd non-multicore. A Feb 11, 2017 build.) [zipped source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip) [tar.gz source](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.tar.gz)
+
+Recognized ycmd core versions:
+* [33922510b354bae0561b5de886d0d0767ed8822a](https://github.com/ycm-core/ycmd/tree/33922510b354bae0561b5de886d0d0767ed8822a) CORE_VERSION=47 (live) with Clang 16.0.1 (supported)
+* [5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c](https://github.com/ycm-core/ycmd/tree/5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c) CORE_VERSION=46 with Clang 14 (supported)
+* [2ee41000a28fb6b2ae00985c231896b6d072af86](https://github.com/ycm-core/ycmd/tree/2ee41000a28fb6b2ae00985c231896b6d072af86) CORE_VERSION=45 with Clang 14 (EOL, supported)
+* [6f2f818364bb5c52f60e720741ff583bf77b4cd5](https://github.com/ycm-core/ycmd/tree/6f2f818364bb5c52f60e720741ff583bf77b4cd5) CORE_VERSION=44 with Clang 11 (EOL)
+* [ef48cfe1b63bcc07b88e537fb5b6d17b513e319c](https://github.com/ycm-core/ycmd/tree/ef48cfe1b63bcc07b88e537fb5b6d17b513e319c) CORE_VERSION=43 with Clang 10 (EOL)
+
+Support for a particular YCMD core version based on availability of Python and Clang dependencies.
 
 #### Docker
 
