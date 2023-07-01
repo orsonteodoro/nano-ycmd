@@ -51,8 +51,8 @@ in progress.  This image may be later be adapted for automated testing.
 1a83224202c4381d6d791c245a893ce25db7a974)
 * <code>>=</code>jedi 0.10, for Python support and for completer commands to work.
 * Latest jedihttp, for Python completion commands support.
-* Either nettle, openssl, or "libgcrypt with glib" cryptographic library, to
-mitigate MITM attack between ycmd and nano text editor
+* One cryptographic library of either Nettle, OpenSSL, or libgcrypt, to mitigate
+MITM attack between ycmd and nano text editor.
 * neon, for http interprocess communication between nano editor and ycmd server
 * YCM-Generator (https://github.com/rdnetto/YCM-Generator), for
 C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py.  It
