@@ -91,7 +91,10 @@ You can look at my gentoo package overlay
 https://github.com/orsonteodoro/oiledmachine-overlay to see how to properly
 compile them or you can research them to build packages for your distribution.
 
-#### What are the new hot keys to use this functionality?
+#### What are the new hotkeys to use this functionality?
+
+The hotkeys Ctrl-` brings up the completer commands menu.  The table below in
+the which completer commands work section lists additional hotkeys that follow.
 
 See https://github.com/orsonteodoro/nano-ycmd/blob/ymcd-code-completion/src/global.c#L1389 .
 
