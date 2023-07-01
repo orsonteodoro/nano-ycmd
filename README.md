@@ -147,7 +147,7 @@ language that you working with.
 | Ctrl-p              | Yes               | Yes               | Yes      | GetParent                         | Gets parent class or method
 | Ctrl-s              | No                | No                | No       | SolutionFile                      | Gets the path to the solution file
 
-* (1) It triggers randomly (in a not deterministic way).  Works for %d->%s
+* (1) It triggers randomly (in a not deterministic way).  It works for %d->%s
 format specifier, missing semicolon, identifier spelling errors.  It was tested
 only with the C language.
 * (2) It needs more test cases.
