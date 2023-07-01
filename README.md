@@ -147,11 +147,11 @@ language that you working with.
 | Ctrl-p              | Yes               | Yes               | Yes      | GetParent                         | Gets parent class or method
 | Ctrl-s              | No                | No                | No       | SolutionFile                      | Gets the path to the solution file
 
-
-* (1) Procs Randomly/Not deterministic; works for %d->%s format specifier, missing
-semicolon, identifier spelling errors; tested only in the C language
-* (2) Needs more test cases
-* (3) Subserver problems
+* (1) It triggers randomly (in a not deterministic way).  Works for %d->%s
+format specifier, missing semicolon, identifier spelling errors; tested only in
+the C language.
+* (2) It needs more test cases.
+* (3) Subserver problems were encountered.
 
 #### Why use ycmd backend over the builtin WORDCOMPLETION?
 
