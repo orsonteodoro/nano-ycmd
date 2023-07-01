@@ -120,7 +120,8 @@ To execute a completer command do Ctrl-letter
 
 To exit the completer commands do Ctrl-space
 
-Some completer commands may not work for the particular language that you working with.
+Some completer commands may not work or made available for the particular
+language that you working with.
 
 | Hotkey after Ctrl-` | Tested and passed | Feature Complete? | Working? | Feature                           | Description
 |---------------------|-------------------|-------------------|----------|-----------------------------------|-----------------------------------------------------------------------------------------------------------------
