@@ -2521,8 +2521,8 @@ void do_completer_command_fixit(void)
 				int fl_line_num = nx_json_get(location, "line_num")->int_value;
 
 				//show prompt
-				int ret = do_yesno_prompt(FALSE, prompt_msg);
-				if (ret)
+				int ret = ask_user(YESORNO, prompt_msg);
+				if (ret == YES)
 				{
 					if (replacement_text && strlen(replacement_text))
 					{
