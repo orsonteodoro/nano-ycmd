@@ -649,7 +649,11 @@ typedef struct keystruct {
 typedef struct funcstruct {
 	void (*func)(void);
 		/* The actual function to call. */
+#ifdef ENABLE_YCMD
+	char *tag;
+#else
 	const char *tag;
+#endif
 		/* The function's help-line label, for example "Where Is". */
 #ifdef ENABLE_HELP
 	const char *phrase;

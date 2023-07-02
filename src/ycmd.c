@@ -1880,9 +1880,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 						const nx_json *candidate = nx_json_item(completions, i);
 						const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
 						if (insertion_text != NX_JSON_NULL) {
-							if (func->desc != NULL)
-								free((void *)func->desc);
-							func->desc = strdup(insertion_text->text_value);
+							if (func->tag != NULL)
+								free((void *)func->tag);
+							func->tag = strdup(insertion_text->text_value);
 #ifdef DEBUG
 							fprintf(stderr,">Added completion entry to nano toolbar: %s\n", insertion_text->text_value);
 #endif
@@ -1892,9 +1892,9 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 					}
 					for (i = j; i < completions->length && i < maximum && i < 26 && func; i++, func = func->next)
 					{
-						if (func->desc != NULL)
-							free((void *)func->desc);
-						func->desc = strdup("");
+						if (func->tag != NULL)
+							free((void *)func->tag);
+						func->tag = strdup("");
 #ifdef DEBUG
 						fprintf(stderr,">Deleting unused entry: %d\n", i);
 #endif
@@ -5844,13 +5844,13 @@ void do_code_completion(char letter)
 #ifdef DEBUG
 			fprintf(stderr,">Chosen %c.\n", i);
 #endif
-			if (strcmp(func->desc,"") == 0)
+			if (strcmp(func->tag,"") == 0)
 				break;
 
-			if (func->desc != NULL)
+			if (func->tag != NULL)
 			{
 #ifdef DEBUG
-				fprintf(stderr,"Choosing %s for replacing text\n",func->desc);
+				fprintf(stderr,"Choosing %s for replacing text\n",func->tag);
 #endif
 
 				while(nbackspaces)
@@ -5861,10 +5861,10 @@ void do_code_completion(char letter)
 
 				openfile->current_x = ycmd_globals.apply_column-1;
 
-				inject(func->desc,strlen(func->desc));
+				inject(func->tag,strlen(func->tag));
 
-				free((void *)func->desc);
-				func->desc = strdup("");
+				free((void *)func->tag);
+				func->tag = strdup("");
 				blank_statusbar();
 			}
 
