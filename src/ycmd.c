@@ -2068,7 +2068,7 @@ void _do_goto(COMPLETER_COMMAND_RESULTS *ccr)
 		fprintf(stderr, "using same buffer: %s line_num:%d column_num:%d\n", ccr->filepath, ccr->line_num, ccr->column_num);
 #endif
 		//ycm treats tabs as one column.  nano treats a tab as many column.
-		do_gotolinecolumn(ccr->line_num, 1, FALSE, FALSE);
+		goto_line_and_column(ccr->line_num, 1, FALSE, FALSE);
 		openfile->current_x = ccr->column_num-1;
 	}
 	else
@@ -2083,7 +2083,7 @@ void _do_goto(COMPLETER_COMMAND_RESULTS *ccr)
 #endif
 		open_buffer(ccr->filepath, FALSE);
 		prepare_for_display();
-		do_gotolinecolumn(ccr->line_num, 1, FALSE, FALSE);
+		goto_line_and_column(ccr->line_num, 1, FALSE, FALSE);
 		openfile->current_x = ccr->column_num-1;
 	}
 	refresh_needed = TRUE;
@@ -2527,14 +2527,14 @@ void do_completer_command_fixit(void)
 					if (replacement_text && strlen(replacement_text))
 					{
 						//openfile->mark_set = 1; //assume flag was previously set
-						do_gotolinecolumn(fcrs_line_num, 1, FALSE, FALSE); //nano column num means distance within a tab character.  ycmd column num means treat tabs as indivisible.
+						goto_line_and_column(fcrs_line_num, 1, FALSE, FALSE); //nano column num means distance within a tab character.  ycmd column num means treat tabs as indivisible.
 						openfile->current_x = fcrs_column_num-1; //nano treats current_x as 0 based and linenum as 1 based
 #ifdef DEBUG
 						fprintf(stderr, "start cursor: y=%d x=%d\n", fcrs_line_num, fcrs_column_num);
 #endif
 						do_mark(); //flip flag and unsets marker
 						do_mark(); //flip flag and sets marker
-						do_gotolinecolumn(fcre_line_num, 1, FALSE, FALSE);
+						goto_line_and_column(fcre_line_num, 1, FALSE, FALSE);
 						openfile->current_x = fcre_column_num-1;
 #ifdef DEBUG
 						fprintf(stderr, "end cursor: y=%d x=%d\n", fcrs_line_num, fcrs_column_num);
