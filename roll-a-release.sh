@@ -1,6 +1,6 @@
 #!/bin/bash
 
-VERSION="5.6.1"
+VERSION="7.2"
 
 ./configure -C --enable-tiny &&  make &&  ./configure -C &&
 
@@ -12,7 +12,7 @@ po/update_linguas.sh &&
 
 make distcheck &&  make dist-xz &&
 
-git add po/*.po po/nano.pot &&
+git add po/*.po po/nano.pot po/LINGUAS &&
 git commit -m "$(git log -1 --grep 'po: up' | grep o: | sed 's/^    //')" &&
 
 gpg -a -b nano-$VERSION.tar.gz &&
@@ -20,7 +20,7 @@ gpg -a -b nano-$VERSION.tar.xz &&
 gpg --verify nano-$VERSION.tar.gz.asc &&
 gpg --verify nano-$VERSION.tar.xz.asc &&
 
-git tag -u A0ACE884 -a v$VERSION -m "the nano $VERSION release" &&
+git tag -u B8E1961F -a v$VERSION -m "the nano $VERSION release" &&
 
 make pdf &&  rm -rf doc/nano.t2p &&
 scp doc/nano.pdf bens@wh0rd.org:nano.pdf &&

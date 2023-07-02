@@ -17,13 +17,13 @@ color cyan "\<[[:upper:]_[:digit:]]+\>"
 color red "\<[-_.0-9]+\>"
 
 # Strings:
-color red ""[^"]*""  "'[^']*'"
+color red ""[^"]*"|'[^']*'"
 
 # Backticks:
 color green "`[^`]*`"
 
 # Error lines:
-color brightred "^[[:space:]]*\*\*\*.*"
+color brightred "^[[:blank:]]*\*\*\*.*"
 
 # Brackets:
 color magenta "\[|\]|\(|\)"
