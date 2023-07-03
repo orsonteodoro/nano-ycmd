@@ -42,9 +42,8 @@ snapshot of nano-ycmd.
 
 #### Docker
 
-You can use nano-ycmd fairly quickly with docker.  More information can be found
-at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd .  It is still a work
-in progress.  This image may be later be adapted for automated testing.
+You can use nano-ycmd fairly quickly with Docker.  More information can be found
+at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
 
 #### Dependencies
 
