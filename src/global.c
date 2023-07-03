@@ -1289,8 +1289,8 @@ void shortcut_init(void)
 
 	/* Link key combos to functions in certain menus. */
 #ifdef ENABLE_YCMD
-	add_to_sclist(MMOST|MREFACTORRENAME, "^M", '\r', do_enter, 0);
-	add_to_sclist(MMOST|MCODECOMPLETION|MREFACTORRENAME, "Enter", KEY_ENTER, do_enter, 0);
+	add_to_sclist(MMOST|MBROWSER|MREFACTORRENAME, "^M", '\r', do_enter, 0);
+	add_to_sclist(MMOST|MBROWSER|MCODECOMPLETION|MREFACTORRENAME, "Enter", KEY_ENTER, do_enter, 0);
 #else
 	add_to_sclist(MMOST|MBROWSER, "^M", '\r', do_enter, 0);
 	add_to_sclist(MMOST|MBROWSER, "Enter", KEY_ENTER, do_enter, 0);
