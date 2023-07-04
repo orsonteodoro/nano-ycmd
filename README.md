@@ -221,7 +221,7 @@ I don't have an update bot yet.
 
 I don't see any plugin support in nano.
 
-#### What do i need to pass to configure?
+#### What do I need to pass to configure?
 
 Your setup may vary depending on if your distro patched ycmd.  In my case, I
 modified ycmd to use absolute paths.  The vanilla ycmd uses relative path to the
