@@ -20,7 +20,9 @@
  **************************************************************************/
 
 #include "prototypes.h"
+#ifdef ENABLE_YCMD
 #include "ycmd.h"
+#endif
 
 #include <errno.h>
 #include <fcntl.h>
