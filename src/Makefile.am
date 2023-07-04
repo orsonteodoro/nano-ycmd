@@ -170,13 +170,19 @@ nano_SOURCES = \
 		search.c \
 		text.c \
 		utils.c \
-		ycmd.c \
 		winio.c
+
+if USE_YCMD
+nano_SOURCES += \
+		ycmd.c
+endif
 
 nano_LDADD = @LIBINTL@ $(top_builddir)/lib/libgnu.a \
 		$(LIB_CLOCK_GETTIME) $(LIBTHREAD)
 
+if USE_YCMD
 nano_LDADD += @NEON_LIBS@
+endif
 
 if HAVE_NETTLE
 nano_LDADD += @NETTLE_LIBS@

@@ -602,6 +602,7 @@ AM_CONDITIONAL([HAVE_YCMG_PYTHON], [test x$YCMG_PYTHON_PATH != x])
 AM_CONDITIONAL([USE_BEAR], [test x$with_bear == xyes])
 AM_CONDITIONAL([USE_NINJA], [test x$with_ninja == xyes])
 AM_CONDITIONAL([USE_YCM_GENERATOR], [test x$with_ycm_generator = xyes])
+AM_CONDITIONAL([USE_YCMD], [test x$enable_ycmd = xyes])
 
 AC_ARG_ENABLE(tiny,
 AS_HELP_STRING([--enable-tiny], [Disable features for the sake of size]))
