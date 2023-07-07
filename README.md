@@ -454,8 +454,8 @@ against exfiltrating sensitive data to an unauthorized actor.  Before accepting
 it, you should inspect the contents carefully from top to bottom for suspicious
 code.
 
-ycmd will run this file after it has been confirmed safe to use in order for
-ycmd to work on this kind of projects or this type of programming language.
+ycmd will run this file after it has been confirmed safe to use by you in order
+for ycmd to work on this kind of project or this type of programming language.
 
 #### Special thanks goes to...
 
