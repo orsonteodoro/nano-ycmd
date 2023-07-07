@@ -887,6 +887,14 @@ void ycmd_init()
 	ycmd_globals.child_pid=-1;
 	ycmd_globals.secret_key_base64 = NULL;
 	ycmd_globals.json = NULL;
+
+	if (COLS <= 40)
+		ycmd_globals.max_entries = 2;
+	else if (COLS <= 80)
+		ycmd_globals.max_entries = 4;
+	else
+		ycmd_globals.max_entries = 6;
+
 	init_file_ready_to_parse_results(&ycmd_globals.file_ready_to_parse_results);
 
 	signal(SIGALRM, send_to_server);
@@ -1928,7 +1936,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 					int j = 0;
 					size_t maximum = (((COLS + 40) / 20) * 2);
 
-					for (i = 0; i < completions->length && j < maximum && j < 26 && func; i++, j++) //26 for 26 letters A-Z
+					for (i = 0; i < completions->length && j < maximum && j < 6 && func; i++, j++) //6 for letters A-F
 					{
 						const nx_json *candidate = nx_json_item(completions, i);
 						const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
@@ -1943,7 +1951,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 						}
 						func = func->next;
 					}
-					for (i = j; i < completions->length && i < maximum && i < 26 && func; i++, func = func->next)
+					for (i = j; i < completions->length && i < maximum && i < 6 && func; i++, func = func->next)
 					{
 						if (func->tag != NULL)
 							free((void *)func->tag);
@@ -1963,7 +1971,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 					fprintf(stderr,"Showing completion bar.\n");
 #endif
 					bottombars(MCODECOMPLETION);
-					statusline(HUSH, "Code completion triggered");
+					statusline(HUSH, "Code completion triggered, ^X to cancel");
 				}
 			}
 
@@ -5868,7 +5876,7 @@ void do_code_completion(char letter)
 	int j;
 	size_t maximum = (((COLS + 40) / 20) * 2);
 
-	for (i = 'A', j = 0; j < maximum && i <= 'Z' && func; i++, j++, func = func->next)
+	for (i = 'A', j = 0; j < maximum && i <= 'F' && func; i++, j++, func = func->next)
 	{
 #ifdef DEBUG
 		fprintf(stderr,">Scanning %c.\n", i);
@@ -5937,106 +5945,6 @@ void do_code_completion_e(void)
 void do_code_completion_f(void)
 {
 	do_code_completion('F');
-}
-
-void do_code_completion_g(void)
-{
-	do_code_completion('G');
-}
-
-void do_code_completion_h(void)
-{
-	do_code_completion('H');
-}
-
-void do_code_completion_i(void)
-{
-	do_code_completion('I');
-}
-
-void do_code_completion_j(void)
-{
-	do_code_completion('J');
-}
-
-void do_code_completion_k(void)
-{
-	do_code_completion('K');
-}
-
-void do_code_completion_l(void)
-{
-	do_code_completion('L');
-}
-
-void do_code_completion_m(void)
-{
-	do_code_completion('M');
-}
-
-void do_code_completion_n(void)
-{
-	do_code_completion('N');
-}
-
-void do_code_completion_o(void)
-{
-	do_code_completion('O');
-}
-
-void do_code_completion_p(void)
-{
-	do_code_completion('P');
-}
-
-void do_code_completion_q(void)
-{
-	do_code_completion('Q');
-}
-
-void do_code_completion_r(void)
-{
-	do_code_completion('R');
-}
-
-void do_code_completion_s(void)
-{
-	do_code_completion('S');
-}
-
-void do_code_completion_t(void)
-{
-	do_code_completion('T');
-}
-
-void do_code_completion_u(void)
-{
-	do_code_completion('U');
-}
-
-void do_code_completion_v(void)
-{
-	do_code_completion('V');
-}
-
-void do_code_completion_w(void)
-{
-	do_code_completion('W');
-}
-
-void do_code_completion_x(void)
-{
-	do_code_completion('X');
-}
-
-void do_code_completion_y(void)
-{
-	do_code_completion('Y');
-}
-
-void do_code_completion_z(void)
-{
-	do_code_completion('Z');
 }
 
 void do_end_code_completion(void)
@@ -6174,6 +6082,7 @@ void do_completer_command_show(void)
 			else if (s->func == do_completer_command_solutionfile && strstr(dsr.json_blob,"\"SolutionFile\""))						s->visibility = 1;
 
 			if (s->func == ycmd_display_parse_results) s->visibility = 1;
+			if (s->func == do_n_entries) s->visibility = 1;
 		}
 	}
 	else
@@ -6194,6 +6103,11 @@ void do_completer_refactorrename_apply(void)
 }
 
 void do_completer_refactorrename_cancel(void)
+{
+	bottombars(MMAIN);
+}
+
+void do_end_ycm_extra_conf(void)
 {
 	bottombars(MMAIN);
 }
@@ -6304,4 +6218,36 @@ void do_ycm_extra_conf_generate(void)
 	edit_refresh();
 	bottombars(MMAIN);
 	full_refresh();
+}
+
+void n_entries_refresh(void)
+{
+	refresh_needed = TRUE;
+}
+
+void do_n_entries()
+{
+	int max;
+	if (COLS <= 40)
+		max = 2;
+	else if (COLS <= 80)
+		max = 4;
+	else
+		max = 6;
+	char max_str[2];
+	snprintf(max_str, 2, "%d", max);
+	int ret = do_prompt(MNUMSUGGEST, max_str,
+#ifndef DISABLE_HISTORIES
+		NULL,
+#endif
+		n_entries_refresh, _("Max number of suggestions"));
+	if (ret == 0)
+	{
+		ycmd_globals.max_entries = atoi(answer);
+
+		if (ycmd_globals.max_entries > max)
+			ycmd_globals.max_entries = max;
+		if (ycmd_globals.max_entries < 1)
+			ycmd_globals.max_entries = 1;
+	}
 }

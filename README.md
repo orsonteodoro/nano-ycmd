@@ -107,6 +107,13 @@ Your distribution has not packaged the xml files properly.  Compile nano-ycmd in
 debug mode and inspect the logs (ynano.txt, jedihttp_*.log, omnisharp_*.log) in
 the /tmp folder to see which xml documentation files are required.
 
+#### How do I use this code completion feature?
+
+Just type and press Ctrl-letter.  Use Ctrl-space to exit the code completion
+selections.
+
+Do Ctrl-X to exit the suggestions lists.
+
 #### Which completer commands work and how do I access them and what is the expected behavior?
 
 Completer commands add beyond code completion.  It is optional but powerful
@@ -146,6 +153,8 @@ language that you working with.
 | Ctrl-x              | No                    | Yes               | Yes          | ClearCompilationFlagCache         | Clears and updates FlagsForFile from .ycm_extra_conf.py
 | Ctrl-p              | Yes                   | Yes               | Yes          | GetParent                         | Gets parent class or method
 | Ctrl-s              | No                    | No                | No           | SolutionFile                      | Gets the path to the solution file
+| Ctrl-n              | Yes                   | Yes               | Yes          | -                                 | Sets the number of suggestions to show.  Max 2, 4, 6 depending on characters per line.
+| Ctrl-space          | Yes                   | Yes               | Yes          | -                                 | Exits the completer commands menu
 
 * (1) It triggers randomly (in a not deterministic way).  It works for %d->%s
 format specifier, missing semicolon, identifier spelling errors.  It was tested
@@ -162,11 +171,6 @@ ycmd allows to you use IntelliSense for C# sources using
 omnisharp-server/omnisharp-roslyn that the big IDE editors have.  It goes beyond
 word completion providing documentation about method signatures and real time
 syntax checking (currently not supported in nano-ycmd).
-
-#### How do I use this code completion feature?
-
-Just type and press Ctrl-letter.  Use Ctrl-space to exit the code completion
-selections.
 
 #### What languages and dialects are supported?
 

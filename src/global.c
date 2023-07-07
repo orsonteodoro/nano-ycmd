@@ -1176,46 +1176,6 @@ void shortcut_init(void)
 			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
 	add_to_funcs(do_code_completion_f, MCODECOMPLETION,
 			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_g, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_h, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_i, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_j, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_k, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_l, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_m, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_n, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_o, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_p, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_q, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_r, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_s, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_t, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_u, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_v, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_w, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_x, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_y, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
-	add_to_funcs(do_code_completion_z, MCODECOMPLETION,
-			strdup(""), WHENHELP(nano_ycmd_choice_msg), TOGETHER);
 
 	add_to_funcs(do_completer_command_gotodeclaration, MCOMPLETERCOMMANDS,
 			N_("Go To Declaration"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
@@ -1273,9 +1233,15 @@ void shortcut_init(void)
 	add_to_funcs(do_ycm_extra_conf_reject, MYCMEXTRACONF,
 			N_("Reject"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
 #ifdef ENABLE_YCM_GENERATOR
-	add_to_funcs(do_ycm_extra_conf_generate, MYCMEXTRACONF,
+	add_to_funcs(do_ycm_extra_conf_generate, MCOMPLETERCOMMANDS,
 			N_("Generate"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
 #endif
+
+	add_to_funcs(do_n_entries, MCOMPLETERCOMMANDS,
+			N_("Set max suggestions"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
+
+	add_to_funcs(do_end_ycm_extra_conf, MYCMEXTRACONF,
+			N_("Cancel"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
 #endif
 
 
@@ -1312,34 +1278,16 @@ void shortcut_init(void)
 #endif
 	add_to_sclist(MMOST, "Sh-Del", SHIFT_DELETE, do_backspace, 0);
 #ifdef ENABLE_YCMD
+	// Use the rule of 7 (Miller's Law) in UI design, but round down to the nearest even.
+	// Symmetrical faces are more attractive.
 	add_to_sclist(MCODECOMPLETION, "^A", 0, do_code_completion_a, 0);
 	add_to_sclist(MCODECOMPLETION, "^B", 0, do_code_completion_b, 0);
 	add_to_sclist(MCODECOMPLETION, "^C", 0, do_code_completion_c, 0);
 	add_to_sclist(MCODECOMPLETION, "^D", 0, do_code_completion_d, 0);
 	add_to_sclist(MCODECOMPLETION, "^E", 0, do_code_completion_e, 0);
 	add_to_sclist(MCODECOMPLETION, "^F", 0, do_code_completion_f, 0);
-	add_to_sclist(MCODECOMPLETION, "^G", 0, do_code_completion_g, 0);
-	add_to_sclist(MCODECOMPLETION, "^H", 0, do_code_completion_h, 0);
-	add_to_sclist(MCODECOMPLETION, "^I", 0, do_code_completion_i, 0);
-	add_to_sclist(MCODECOMPLETION, "^J", 0, do_code_completion_j, 0);
-	add_to_sclist(MCODECOMPLETION, "^K", 0, do_code_completion_k, 0);
-	add_to_sclist(MCODECOMPLETION, "^L", 0, do_code_completion_l, 0);
-	add_to_sclist(MCODECOMPLETION, "^M", 0, do_code_completion_m, 0);
-	add_to_sclist(MCODECOMPLETION, "^N", 0, do_code_completion_n, 0);
-	add_to_sclist(MCODECOMPLETION, "^O", 0, do_code_completion_o, 0);
-	add_to_sclist(MCODECOMPLETION, "^P", 0, do_code_completion_p, 0);
-	add_to_sclist(MCODECOMPLETION, "^Q", 0, do_code_completion_q, 0);
-	add_to_sclist(MCODECOMPLETION, "^R", 0, do_code_completion_r, 0);
-	add_to_sclist(MCODECOMPLETION, "^S", 0, do_code_completion_s, 0);
-	add_to_sclist(MCODECOMPLETION, "^T", 0, do_code_completion_t, 0);
-	add_to_sclist(MCODECOMPLETION, "^U", 0, do_code_completion_u, 0);
-	add_to_sclist(MCODECOMPLETION, "^V", 0, do_code_completion_v, 0);
-	add_to_sclist(MCODECOMPLETION, "^W", 0, do_code_completion_w, 0);
-	add_to_sclist(MCODECOMPLETION, "^X", 0, do_code_completion_x, 0);
-	add_to_sclist(MCODECOMPLETION, "^Y", 0, do_code_completion_y, 0);
-	add_to_sclist(MCODECOMPLETION, "^Z", 0, do_code_completion_z, 0);
 
-	add_to_sclist(MCODECOMPLETION, "^Space", 0, do_end_code_completion, 0);
+	add_to_sclist(MCODECOMPLETION, "^X", 0, do_end_code_completion, 0);
 
 	add_to_sclist(MCOMPLETERCOMMANDS, "^C", 0, do_completer_command_gotodeclaration, 0);
 	add_to_sclist(MCOMPLETERCOMMANDS, "^D", 0, do_completer_command_gotodefinition, 0);
@@ -1373,6 +1321,7 @@ void shortcut_init(void)
 	add_to_sclist(MYCMEXTRACONF, "^N", 0, do_ycm_extra_conf_reject, 0);
 #ifdef ENABLE_YCM_GENERATOR
 	add_to_sclist(MYCMEXTRACONF, "^G", 0, do_ycm_extra_conf_generate, 0);
+	add_to_sclist(MCOMPLETERCOMMANDS, "^N", 0, do_n_entries, 0);
 #endif
 #endif
 	add_to_sclist(MMOST, "^D", 0, do_delete, 0);
@@ -1388,7 +1337,7 @@ void shortcut_init(void)
 	add_to_sclist(MMOST, "Tab", '\t', do_tab, 0);
 #endif
 #ifdef ENABLE_YCMD
-	add_to_sclist((MMOST|MBROWSER) & ~MFINDINHELP & ~MYCMEXTRACONF & ~MCOMPLETERCOMMANDS, "^G", 0, do_help, 0);
+	add_to_sclist((MMOST|MBROWSER) & ~MFINDINHELP & ~MYCMEXTRACONF & ~MCOMPLETERCOMMANDS & ~MCODECOMPLETION, "^G", 0, do_help, 0);
 #else
 	add_to_sclist((MMOST|MBROWSER) & ~MFINDINHELP, "^G", 0, do_help, 0);
 #endif
@@ -1645,6 +1594,7 @@ void shortcut_init(void)
 
 #ifdef ENABLE_YCMD
 	add_to_sclist((((MMOST|MREFACTORRENAME) & ~MMAIN & ~MYCMEXTRACONF & ~MCODECOMPLETION) | MYESNO), "^C", 0, do_cancel, 0);
+	add_to_sclist(MYCMEXTRACONF, "^X", 0, do_end_ycm_extra_conf, 0);
 #else
 	add_to_sclist(((MMOST & ~MMAIN) | MYESNO), "^C", 0, do_cancel, 0);
 #endif
@@ -1731,7 +1681,7 @@ void shortcut_init(void)
 	add_to_sclist(MLINTER, "^X", 0, do_cancel, 0);
 #endif
 #ifdef ENABLE_YCMD
-	add_to_sclist(MMOST & ~MFINDINHELP & ~MYCMEXTRACONF & ~MCOMPLETERCOMMANDS, "F1", KEY_F(1), do_help, 0);
+	add_to_sclist(MMOST & ~MFINDINHELP & ~MYCMEXTRACONF & ~MCOMPLETERCOMMANDS & ~MCODECOMPLETION, "F1", KEY_F(1), do_help, 0);
 #else
 	add_to_sclist(MMOST & ~MFINDINHELP, "F1", KEY_F(1), do_help, 0);
 #endif

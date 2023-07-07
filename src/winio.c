@@ -21,6 +21,9 @@
 
 #include "prototypes.h"
 #include "revision.h"
+#ifdef ENABLE_YCMD
+#include "ycmd.h"
+#endif
 
 #include <ctype.h>
 #ifdef __linux__
@@ -2433,6 +2436,11 @@ void bottombars(int menu)
 	/* Determine how many shortcuts must be shown. */
 	number = shown_entries_for(menu);
 
+#ifdef ENABLE_YCMD
+	if (menu & MCODECOMPLETION)
+		number = ycmd_globals.max_entries;
+#endif
+
 	/* Compute the width of each keyname-plus-explanation pair. */
 	itemwidth = COLS / ((number + 1) / 2);
 
@@ -2456,6 +2464,9 @@ void bottombars(int menu)
 			continue;
 
 #ifdef ENABLE_YCMD
+		if ((menu & MCODECOMPLETION) && f->tag[0] == 0) //skip unused
+			continue;
+
 		if ((menu & MCOMPLETERCOMMANDS) && !s->visibility) //skip hidden
 			continue;
 #endif

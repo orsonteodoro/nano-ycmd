@@ -78,6 +78,7 @@ typedef struct _ycmd_globals {
 	int have_cmov;
 
 	int core_version ; // can only be 39 or 43
+	int max_entries;
 } YCMD_GLOBALS;
 
 extern void ycmd_init();
@@ -96,26 +97,6 @@ extern void do_code_completion_c(void);
 extern void do_code_completion_d(void);
 extern void do_code_completion_e(void);
 extern void do_code_completion_f(void);
-extern void do_code_completion_g(void);
-extern void do_code_completion_h(void);
-extern void do_code_completion_i(void);
-extern void do_code_completion_j(void);
-extern void do_code_completion_k(void);
-extern void do_code_completion_l(void);
-extern void do_code_completion_m(void);
-extern void do_code_completion_n(void);
-extern void do_code_completion_o(void);
-extern void do_code_completion_p(void);
-extern void do_code_completion_q(void);
-extern void do_code_completion_r(void);
-extern void do_code_completion_s(void);
-extern void do_code_completion_t(void);
-extern void do_code_completion_u(void);
-extern void do_code_completion_v(void);
-extern void do_code_completion_w(void);
-extern void do_code_completion_x(void);
-extern void do_code_completion_y(void);
-extern void do_code_completion_z(void);
 extern void do_end_code_completion(void);
 
 extern void do_completer_command_gotoinclude(void);
@@ -145,9 +126,11 @@ extern void do_end_completer_commands(void);
 
 extern void do_completer_refactorrename_apply(void);
 extern void do_completer_refactorrename_cancel(void);
+extern void do_end_ycm_extra_conf(void);
 
 extern void ycmd_display_parse_results(void);
 extern void do_ycm_extra_conf_accept(void);
 extern void do_ycm_extra_conf_reject(void);
 extern void do_ycm_extra_conf_generate(void);
+extern void do_n_entries(void);
 #endif

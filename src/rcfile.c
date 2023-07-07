@@ -493,7 +493,7 @@ char *menunames[NUMBER_OF_MENUS] = { "main", "search", "replace", "replacewith",
 									"execute", "help", "spell", "linter",
 									"browser", "whereisfile", "gotodir",
 #ifdef ENABLE_YCMD
-									"codecompletion", "completercommands", "refactorrename", "ycmextraconf",
+									"codecompletion", "completercommands", "refactorrename", "ycmextraconf", "numsuggest",
 #endif
 									"all" };
 int menusymbols[NUMBER_OF_MENUS] = { MMAIN, MWHEREIS, MREPLACE, MREPLACEWITH,
@@ -501,7 +501,7 @@ int menusymbols[NUMBER_OF_MENUS] = { MMAIN, MWHEREIS, MREPLACE, MREPLACEWITH,
 									MEXECUTE, MHELP, MSPELL, MLINTER,
 									MBROWSER, MWHEREISFILE, MGOTODIR,
 #ifdef ENABLE_YCMD
-									MCODECOMPLETION, MCOMPLETERCOMMANDS, MREFACTORRENAME, MYCMEXTRACONF,
+									MCODECOMPLETION, MCOMPLETERCOMMANDS, MREFACTORRENAME, MYCMEXTRACONF, MNUMSUGGEST,
 #endif
 									MMOST|MBROWSER|MHELP|MYESNO };
 
