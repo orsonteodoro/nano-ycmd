@@ -449,10 +449,10 @@ nano 2>/tmp/out.txt
 
 #### Why does it keep asking for .ycm_extra_conf.py on startup?
 
-This is a security precaution against running a malicious compromised script or
-against exfiltrating sensitive data to an unauthorized actor.  Before accepting
-it, you should inspect the contents carefully from top to bottom for suspicious
-code.
+This is a security precaution against automatically running a malicious
+compromised script or against exfiltrating sensitive data to an unauthorized
+threat actor.  Before accepting it, you should inspect the contents carefully
+from top to bottom for suspicious code.
 
 ycmd will run this file after it has been confirmed safe to use by you in order
 for ycmd to work on this kind of project or this type of programming language.
