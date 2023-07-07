@@ -3780,8 +3780,8 @@ void ycmd_start_server()
 			open_buffer(path_extra_conf, TRUE);
 			edit_refresh();
 			bottombars(MYCMEXTRACONF);
-			char display_text[80]; //should be number of columns
-			sprintf(display_text, "SECURITY:  Load and execute this file for ycmd support?  Does it look clean and uncompromised?");
+			char display_text[100]; //should be number of columns
+			snprintf(display_text, 100, "SECURITY:  Load and execute this file for ycmd support?  Does it look clean and uncompromised?");
 			statusline(HUSH, display_text);
 			full_refresh();
 			bottombars(MYCMEXTRACONF);
