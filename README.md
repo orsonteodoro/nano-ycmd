@@ -110,10 +110,9 @@ the /tmp folder to see which xml documentation files are required.
 
 #### How do I use this code completion feature?
 
-Just type and press Ctrl-letter.  Use Ctrl-space to exit the code completion
-selections.
+Just type and press Ctrl-letter when suggestions show.
 
-Do Ctrl-X to exit the suggestions lists.
+Do Ctrl-X to exit the code completion suggestions list.
 
 #### Which completer commands work and how do I access them and what is the expected behavior?
 
