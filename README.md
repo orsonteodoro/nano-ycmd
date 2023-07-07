@@ -452,7 +452,9 @@ nano 2>/tmp/out.txt
 This is a security precaution against automatically running a malicious
 compromised script or against exfiltrating sensitive data to an unauthorized
 threat actor.  Before accepting it, you should inspect the contents carefully
-from top to bottom for suspicious code.
+from top to bottom for suspicious code.  Do not accept if it contains
+unauthorized domains, obfuscated strings, attempts to touch sensitive
+data, accesses the network, etc.
 
 ycmd will run this file after it has been confirmed safe to use by you in order
 for ycmd to work on this kind of project or this type of programming language.
