@@ -1267,6 +1267,15 @@ void shortcut_init(void)
 
 	add_to_funcs(do_completer_command_show, MMAIN,
 			N_("Show Completer Commands"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
+
+	add_to_funcs(do_ycm_extra_conf_accept, MYCMEXTRACONF,
+			N_("Accept"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
+	add_to_funcs(do_ycm_extra_conf_reject, MYCMEXTRACONF,
+			N_("Reject"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
+#ifndef USE_YCM_GENERATOR
+	add_to_funcs(do_ycm_extra_conf_generate, MYCMEXTRACONF,
+			N_("Generate"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
+#endif
 #endif
 
 
@@ -1359,6 +1368,12 @@ void shortcut_init(void)
 	add_to_sclist(MCOMPLETERCOMMANDS, "^Space", 0, do_end_completer_commands, 0);
 
 	add_to_sclist(MMAIN, "M-`", 0, do_completer_command_show, 0);
+
+	add_to_sclist(MYCMEXTRACONF, "^Y", 0, do_ycm_extra_conf_accept, 0);
+	add_to_sclist(MYCMEXTRACONF, "^N", 0, do_ycm_extra_conf_reject, 0);
+#ifndef USE_YCM_GENERATOR
+	add_to_sclist(MYCMEXTRACONF, "^G", 0, do_ycm_extra_conf_generate, 0);
+#endif
 #endif
 	add_to_sclist(MMOST, "^D", 0, do_delete, 0);
 #ifdef ENABLE_YCMD
@@ -1372,7 +1387,11 @@ void shortcut_init(void)
 #else
 	add_to_sclist(MMOST, "Tab", '\t', do_tab, 0);
 #endif
+#ifdef ENABLE_YCMD
+	add_to_sclist((MMOST|MBROWSER) & ~MFINDINHELP & ~MYCMEXTRACONF & ~MCOMPLETERCOMMANDS, "^G", 0, do_help, 0);
+#else
 	add_to_sclist((MMOST|MBROWSER) & ~MFINDINHELP, "^G", 0, do_help, 0);
+#endif
 	add_to_sclist(MMAIN|MBROWSER|MHELP, "^X", 0, do_exit, 0);
 	if (!ISSET(PRESERVE))
 		add_to_sclist(MMAIN, "^S", 0, do_savefile, 0);
@@ -1415,9 +1434,17 @@ void shortcut_init(void)
 	add_to_sclist(MMAIN, "M-G", 0, do_gotolinecolumn, 0);
 	add_to_sclist(MMAIN, "^_", 0, do_gotolinecolumn, 0);
 	add_to_sclist(MMAIN|MBROWSER|MHELP|MLINTER, "^Y", 0, do_page_up, 0);
+#ifdef ENABLE_YCMD
+	add_to_sclist(MMAIN|MBROWSER|MHELP|MLINTER|MYCMEXTRACONF, "PgUp", KEY_PPAGE, do_page_up, 0);
+#else
 	add_to_sclist(MMAIN|MBROWSER|MHELP|MLINTER, "PgUp", KEY_PPAGE, do_page_up, 0);
+#endif
 	add_to_sclist(MMAIN|MBROWSER|MHELP|MLINTER, "^V", 0, do_page_down, 0);
+#ifdef ENABLE_YCMD
+	add_to_sclist(MMAIN|MBROWSER|MHELP|MLINTER|MYCMEXTRACONF, "PgDn", KEY_NPAGE, do_page_down, 0);
+#else
 	add_to_sclist(MMAIN|MBROWSER|MHELP|MLINTER, "PgDn", KEY_NPAGE, do_page_down, 0);
+#endif
 	add_to_sclist(MBROWSER|MHELP, "Bsp", KEY_BACKSPACE, do_page_up, 0);
 	add_to_sclist(MBROWSER|MHELP, "Sh-Del", SHIFT_DELETE, do_page_up, 0);
 	add_to_sclist(MBROWSER|MHELP, "Space", 0x20, do_page_down, 0);
@@ -1524,8 +1551,8 @@ void shortcut_init(void)
 #endif
 	{
 #ifdef ENABLE_YCMD
-		add_to_sclist(MMAIN|MBROWSER|MHELP|MCODECOMPLETION, "Up", KEY_UP, do_up, 0);
-		add_to_sclist(MMAIN|MBROWSER|MHELP|MCODECOMPLETION, "Down", KEY_DOWN, do_down, 0);
+		add_to_sclist(MMAIN|MBROWSER|MHELP|MCODECOMPLETION|MYCMEXTRACONF, "Up", KEY_UP, do_up, 0);
+		add_to_sclist(MMAIN|MBROWSER|MHELP|MCODECOMPLETION|MYCMEXTRACONF, "Down", KEY_DOWN, do_down, 0);
 #else
 		add_to_sclist(MMAIN|MBROWSER|MHELP, "Up", KEY_UP, do_up, 0);
 		add_to_sclist(MMAIN|MBROWSER|MHELP, "Down", KEY_DOWN, do_down, 0);
@@ -1617,7 +1644,7 @@ void shortcut_init(void)
 #endif /* !NANO_TINY */
 
 #ifdef ENABLE_YCMD
-	add_to_sclist((((MMOST|MREFACTORRENAME) & ~MMAIN) | MYESNO), "^C", 0, do_cancel, 0);
+	add_to_sclist((((MMOST|MREFACTORRENAME) & ~MMAIN & ~MYCMEXTRACONF) | MYESNO), "^C", 0, do_cancel, 0);
 #else
 	add_to_sclist(((MMOST & ~MMAIN) | MYESNO), "^C", 0, do_cancel, 0);
 #endif
@@ -1703,7 +1730,11 @@ void shortcut_init(void)
 #ifdef ENABLE_LINTER
 	add_to_sclist(MLINTER, "^X", 0, do_cancel, 0);
 #endif
+#ifdef ENABLE_YCMD
+	add_to_sclist(MMOST & ~MFINDINHELP & ~MYCMEXTRACONF & ~MCOMPLETERCOMMANDS, "F1", KEY_F(1), do_help, 0);
+#else
 	add_to_sclist(MMOST & ~MFINDINHELP, "F1", KEY_F(1), do_help, 0);
+#endif
 	add_to_sclist(MMAIN|MBROWSER|MHELP, "F2", KEY_F(2), do_exit, 0);
 	add_to_sclist(MMAIN, "F3", KEY_F(3), do_writeout, 0);
 #ifdef ENABLE_JUSTIFY

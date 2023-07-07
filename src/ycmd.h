@@ -147,4 +147,7 @@ extern void do_completer_refactorrename_apply(void);
 extern void do_completer_refactorrename_cancel(void);
 
 extern void ycmd_display_parse_results(void);
+extern void do_ycm_extra_conf_accept(void);
+extern void do_ycm_extra_conf_reject(void);
+extern void do_ycm_extra_conf_generate(void);
 #endif

@@ -1204,14 +1204,25 @@ void get_extra_conf_path(char *path_project, char *path_extra_conf)
 
 //generates a .ycm_extra_conf.py for the c family completer
 //language must be: c, c++, objective-c, objective-c++
-void ycm_generate(char *filepath, char *content)
+int ycm_generate(void)
 {
 	char path_project[PATH_MAX];
 	char path_extra_conf[PATH_MAX];
 	char command[PATH_MAX*2];
 	char flags[PATH_MAX];
+	int ret = -1;
 
 	get_project_path(path_project);
+	if (strcmp(path_project, "(null)") != 0 && access(path_project, F_OK) == 0)
+	{
+		;
+	}
+	else
+	{
+		return ret;
+	}
+
+	get_extra_conf_path(path_project, path_extra_conf);
 
 #ifdef ENABLE_YCM_GENERATOR
 	char *ycmg_flags = getenv("YCMG_FLAGS");
@@ -1230,8 +1241,6 @@ void ycm_generate(char *filepath, char *content)
 		snprintf(flags, PATH_MAX, "%s",ycmg_flags);
 	}
 #endif
-
-	get_extra_conf_path(path_project, path_extra_conf);
 
 	//generate bear's json first because ycm-generator deletes the Makefiles
 #ifdef ENABLE_BEAR
@@ -1286,16 +1295,6 @@ void ycm_generate(char *filepath, char *content)
 				sprintf(language, "c++");
 			else if (strstr(filepath,".c"))
 				sprintf(language, "c");
-			else if (strstr(filepath,".hpp") || strstr(filepath,".hh"))
-				sprintf(language, "c++");
-			else if (strstr(filepath,".h"))
-			{
-				if (strstr(content, "using namespace") || strstr(content, "iostream") || strstr(content, "\tclass ") || strstr(content, " class ")
-					|| strstr(content, "private:") || strstr(content, "public:") || strstr(content, "protected:"))
-					sprintf(language, "c++");
-				else
-					sprintf(language, "c");
-			}
 
 			//inject clang includes to find stdio.h and others
 			//caching disabled because of problems
@@ -1314,14 +1313,19 @@ sed -e "s|'do_cache': True|'do_cache': False|g" -e "s|'-I.'|'-isystem','$(echo $
 			ret2 = system(command);
 			if (ret2 == 0)
 			{
+#ifdef DEBUG
 				statusline(HUSH, "Patching .ycm_extra_conf.py file with clang includes was a success.");
+#endif
 				//usleep(3000000);
 			}
 			else
 			{
+#ifdef DEBUG
 				statusline(HUSH, "Failed patching .ycm_extra_conf.py with clang includes.");
+#endif
 				//usleep(3000000);
 			}
+			ret = 0;
 		}
 		else
 		{
@@ -1331,6 +1335,7 @@ sed -e "s|'do_cache': True|'do_cache': False|g" -e "s|'-I.'|'-isystem','$(echo $
 #endif
 	}
 	blank_statusbar();
+	return ret;
 }
 
 char *ycmd_create_default_json()
@@ -1365,7 +1370,7 @@ char *ycmd_create_default_json_core_version_44()
 		"  \"max_num_candidates_to_detail\": -1,"
 		"  \"extra_conf_globlist\": [],"
 		"  \"global_ycm_extra_conf\": \"\","
-		"  \"confirm_extra_conf\": 0,"
+		"  \"confirm_extra_conf\": 1,"
 		"  \"max_diagnostics_to_display\": 30,"
 		"  \"filepath_blacklist\": {"
 		"    \"html\": 1,"
@@ -1421,7 +1426,7 @@ char *ycmd_create_default_json_core_version_43()
 		"  \"max_num_candidates_to_detail\": -1,"
 		"  \"extra_conf_globlist\": [],"
 		"  \"global_ycm_extra_conf\": \"\","
-		"  \"confirm_extra_conf\": 0,"
+		"  \"confirm_extra_conf\": 1,"
 		"  \"max_diagnostics_to_display\": 30,"
 		"  \"filepath_blacklist\": {"
 		"    \"html\": 1,"
@@ -1478,7 +1483,7 @@ char *ycmd_create_default_json_core_version_39()
 		"  \"max_num_candidates\": 50,"
 		"  \"extra_conf_globlist\": [],"
 		"  \"global_ycm_extra_conf\": \"\","
-		"  \"confirm_extra_conf\": 0,"
+		"  \"confirm_extra_conf\": 1,"
 		"  \"complete_in_comments\": 0,"
 		"  \"complete_in_strings\": 1,"
 		"  \"max_diagnostics_to_display\": 30,"
@@ -1522,25 +1527,41 @@ char *ycmd_create_default_json_core_version_39()
 	return json;
 }
 
-void ycmd_gen_extra_conf(char *filepath, char *content)
+void ycmd_gen_extra_conf()
 {
 	char command[PATH_MAX*2];
-	char cwd[PATH_MAX];
+	char path_project[PATH_MAX];
+	get_project_path(path_project);
 
-	getcwd(cwd, PATH_MAX);
+	if (strcmp(path_project, "(null)") != 0 && access(path_project, F_OK) == 0)
+	{
+		;
+	}
+	else
+	{
+		return;
+	}
+
 #ifdef DEBUG
 	fprintf(stderr,"ycmd_gen_extra_conf find\n");
 #endif
-	sprintf(command, "find \"%s\" -name \"*.mm\" -o -name \"*.m\" -o -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.c\" -o -name \"*.hpp\" -o -name \"*.h\" -o -name \"*.cc\" -o -name \"*.hh\" > /dev/null", cwd);
+	sprintf(command, "find \"%s\" -name \"*.mm\" -o -name \"*.m\" -o -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.c\" -o -name \"*.hpp\" -o -name \"*.h\" -o -name \"*.cc\" -o -name \"*.hh\" > /dev/null", path_project);
 	int ret = system(command);
 
 	if (ret == 0)
 	{
+		int ret = ycm_generate();
+		if (!ret)
+		{
 #ifdef DEBUG
-		fprintf(stderr, "Detected c family\n");
+			fprintf(stderr, "Detected c family\n");
 #endif
-		ycm_generate(filepath, content);
-		ycmd_globals.clang_completer = 1;
+			ycmd_globals.clang_completer = 1;
+		}
+		else
+		{
+			ycmd_globals.clang_completer = 0;
+		}
 	}
 	else
 	{
@@ -1960,15 +1981,6 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 		char path_extra_conf[PATH_MAX];
 
 		//loading required by the c family languages
-		if (is_c_family(ft2))
-		{
-			ycmd_gen_extra_conf(openfile->filename, content);
-#ifdef USE_YCM_GENERATOR
-			get_project_path(path_project);
-			get_extra_conf_path(path_project, path_extra_conf);
-			ycmd_req_load_extra_conf_file(path_extra_conf);
-#endif
-		}
 
 		int ret = ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand, ccr);
 		if (ret == 0)
@@ -1983,9 +1995,6 @@ void _do_completer_command(char *completercommand, COMPLETER_COMMAND_RESULTS *cc
 			statusline(HUSH, "Completer command success.");
 #endif
 		}
-
-		if (is_c_family(ft2))
-			ycmd_req_ignore_extra_conf_file(path_extra_conf);
 	}
 
 	free(content);
@@ -2772,22 +2781,10 @@ void do_completer_command_restartserver(void)
 		char path_extra_conf[PATH_MAX];
 
 		//loading required by the c family languages
-		if (is_c_family(ft))
-		{
-			ycmd_gen_extra_conf(openfile->filename, content);
-#ifdef USE_YCM_GENERATOR
-			get_project_path(path_project);
-			get_extra_conf_path(path_project, path_extra_conf);
-			ycmd_req_load_extra_conf_file(path_extra_conf);
-#endif
-		}
 
 		COMPLETER_COMMAND_RESULTS ccr;
 		init_completer_command_results(&ccr);
 		ycmd_req_run_completer_command((long)openfile->current->lineno, openfile->current_x, openfile->filename, content, ft, completercommand, &ccr);
-
-		if (is_c_family(ft))
-			ycmd_req_ignore_extra_conf_file(path_extra_conf);
 
 		parse_completer_command_results(&ccr);
 
@@ -3771,7 +3768,26 @@ void ycmd_start_server()
 		}
 	}
 
-	//load conf
+	//omt
+	char path_project[PATH_MAX];
+	char path_extra_conf[PATH_MAX];
+	get_project_path(path_project);
+	if (strcmp(path_project, "(null)") != 0 && access(path_project, F_OK) == 0)
+	{
+		if (access(path_project, F_OK) == 0)
+		{
+			get_extra_conf_path(path_project, path_extra_conf);
+			open_buffer(path_extra_conf, TRUE);
+			edit_refresh();
+			bottombars(MYCMEXTRACONF);
+			char display_text[80]; //should be number of columns
+			sprintf(display_text, "SECURITY:  Load and execute this file for ycmd support?  Does it look clean and uncompromised?");
+			statusline(HUSH, display_text);
+			full_refresh();
+			bottombars(MYCMEXTRACONF);
+			full_refresh();
+		}
+	}
 }
 
 void ycmd_stop_server()
@@ -5728,22 +5744,9 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 
 	if (ycmd_globals.running && ready)
 	{
-		char path_project[PATH_MAX];
-		char path_extra_conf[PATH_MAX];
 
-		if (is_c_family(ft))
-		{
-			ycmd_gen_extra_conf(filepath, content);
-#ifdef USE_YCM_GENERATOR
-			get_project_path(path_project);
-			get_extra_conf_path(path_project, path_extra_conf);
-			ycmd_req_load_extra_conf_file(path_extra_conf);
-#endif
-		}
 		ycmd_json_event_notification(columnnum, linenum, filepath, "FileReadyToParse", content);
 		ycmd_req_completions_suggestions(linenum, columnnum, filepath, content, "filetype_default");
-		if (is_c_family(ft))
-			ycmd_req_ignore_extra_conf_file(path_extra_conf);
 	}
 	free(content);
 }
@@ -6199,4 +6202,75 @@ void ycmd_display_parse_results()
 	prepare_for_display();
 
 	unlink(doc_filename);
+}
+
+void do_ycm_extra_conf_accept(void)
+{
+	char path_project[PATH_MAX];
+	char path_extra_conf[PATH_MAX];
+	get_project_path(path_project);
+	if (strcmp(path_project, "(null)") != 0 && access(path_project, F_OK) == 0)
+	{
+		get_extra_conf_path(path_project, path_extra_conf);
+
+		if (access(path_extra_conf, F_OK) == 0)
+		{
+			char display_text[80]; //should be number of columns
+			snprintf(display_text, 80, "Accepted %s", path_extra_conf);
+			statusline(HUSH, "%s", display_text);
+			ycmd_req_load_extra_conf_file(path_extra_conf);
+		}
+	}
+	close_buffer();
+	edit_refresh();
+	bottombars(MMAIN);
+	full_refresh();
+}
+
+void do_ycm_extra_conf_reject(void)
+{
+	char path_project[PATH_MAX];
+	char path_extra_conf[PATH_MAX];
+	get_project_path(path_project);
+	if (strcmp(path_project, "(null)") != 0 && access(path_project, F_OK) == 0)
+	{
+		get_extra_conf_path(path_project, path_extra_conf);
+
+		if (access(path_extra_conf, F_OK) == 0)
+		{
+			char display_text[80]; //should be number of columns
+			snprintf(display_text, 80, "Rejected %s", path_extra_conf);
+			statusline(HUSH, "%s", display_text);
+			ycmd_req_load_extra_conf_file(path_extra_conf);
+		}
+	}
+	close_buffer();
+	edit_refresh();
+	bottombars(MMAIN);
+	full_refresh();
+}
+
+void do_ycm_extra_conf_generate(void)
+{
+#ifndef USE_YCM_GENERATOR
+	return;
+#endif
+	char path_project[PATH_MAX];
+	char path_extra_conf[PATH_MAX];
+	get_project_path(path_project);
+	if (strcmp(path_project, "(null)") != 0 && access(path_project, F_OK) == 0)
+	{
+		get_extra_conf_path(path_project, path_extra_conf);
+#ifdef USE_YCM_GENERATOR
+		char display_text[80]; //should be number of columns
+		snprintf(display_text, 80, "Generated and accepted %s", path_extra_conf);
+		statusline(HUSH, "%s", display_text);
+		ycmd_gen_extra_conf();
+#endif
+		ycmd_req_load_extra_conf_file(path_extra_conf);
+	}
+	close_buffer();
+	edit_refresh();
+	bottombars(MMAIN);
+	full_refresh();
 }

@@ -2730,7 +2730,7 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ENABLE_YCMD
-		if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS)
+		if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS && currmenu != MYCMEXTRACONF)
 #else
 		if (currmenu != MMAIN)
 #endif

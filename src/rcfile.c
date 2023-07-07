@@ -484,7 +484,7 @@ keystruct *strtosc(const char *input)
 }
 
 #ifdef ENABLE_YCMD
-#define NUMBER_OF_MENUS  19
+#define NUMBER_OF_MENUS  20
 #else
 #define NUMBER_OF_MENUS  16
 #endif
@@ -493,7 +493,7 @@ char *menunames[NUMBER_OF_MENUS] = { "main", "search", "replace", "replacewith",
 									"execute", "help", "spell", "linter",
 									"browser", "whereisfile", "gotodir",
 #ifdef ENABLE_YCMD
-									"codecompletion", "completercommands", "refactorrename",
+									"codecompletion", "completercommands", "refactorrename", "ycmextraconf",
 #endif
 									"all" };
 int menusymbols[NUMBER_OF_MENUS] = { MMAIN, MWHEREIS, MREPLACE, MREPLACEWITH,
@@ -501,7 +501,7 @@ int menusymbols[NUMBER_OF_MENUS] = { MMAIN, MWHEREIS, MREPLACE, MREPLACEWITH,
 									MEXECUTE, MHELP, MSPELL, MLINTER,
 									MBROWSER, MWHEREISFILE, MGOTODIR,
 #ifdef ENABLE_YCMD
-									MCODECOMPLETION, MCOMPLETERCOMMANDS, MREFACTORRENAME,
+									MCODECOMPLETION, MCOMPLETERCOMMANDS, MREFACTORRENAME, MYCMEXTRACONF,
 #endif
 									MMOST|MBROWSER|MHELP|MYESNO };
 
