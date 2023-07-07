@@ -1262,6 +1262,7 @@ int ycm_generate(void)
 #ifdef ENABLE_YCM_GENERATOR
 		statusline(HUSH, "Please wait.  Generating a .ycm_extra_conf.py file.");
 		snprintf(command, PATH_MAX*2, "\"%s\" \"%s\" -f %s \"%s\" >/dev/null", YCMG_PYTHON_PATH, YCMG_PATH, flags, path_project);
+		fprintf(stderr, command);
 #ifdef DEBUG
 		fprintf(stderr, command);
 #endif
@@ -1286,15 +1287,46 @@ int ycm_generate(void)
 			}
 #endif
 
+			int has_objcxx = -1;
+			int has_objc = -1;
+			int has_cxx = -1;
+			int has_c = -1;
+			int has_h = -1;
+			int has_cxx_code = -1;
+
+#ifdef ENABLE_YCM_GENERATOR
+			fprintf(stderr, path_project);
+			snprintf(command, PATH_MAX*2, "find \"%s\" -name \"*.mm\"", path_project);
+			has_objcxx = system(command);
+			snprintf(command, PATH_MAX*2, "find \"%s\" -name \"*.m\"", path_project);
+			has_objc = system(command);
+			snprintf(command, PATH_MAX*2, "find \"%s\" -name \"*.cpp\" -o -name \"*.C\" -o -name \"*.cxx\" -o -name \"*.cc\"", path_project);
+			has_cxx = system(command);
+			snprintf(command, PATH_MAX*2, "find \"%s\" -name \"*.c\"", path_project);
+			has_c = system(command);
+			snprintf(command, PATH_MAX*2, "find \"%s\" -name \"*.c\"", path_project);
+			has_h = system(command);
+			snprintf(command, PATH_MAX*2, "grep -r -e \"using namespace\" -e \"iostream\" -e \"\tclass \" -e \" class \" -e \"private:\" -e \"public:\" -e \"protected:\" \"%s\"", path_project);
+			has_cxx_code = system(command);
+#endif
+
 			char language[10];
-			if (strstr(filepath,".mm"))
+			if (has_objcxx == 0)
 				sprintf(language, "objective-c++");
-			else if (strstr(filepath,".m"))
+			else if (has_objc == 0)
 				sprintf(language, "objective-c");
-			else if (strstr(filepath,".cpp") || strstr(filepath,".C") || strstr(filepath,".cxx") || strstr(filepath,".cc"))
+			else if (has_cxx == 0)
 				sprintf(language, "c++");
-			else if (strstr(filepath,".c"))
+			else if (has_c == 0)
 				sprintf(language, "c");
+			else if (has_h == 0)
+			{
+				if (has_cxx_code = 0)
+					sprintf(language, "c++");
+				else
+					sprintf(language, "c");
+			}
+			// handle header only projects
 
 			//inject clang includes to find stdio.h and others
 			//caching disabled because of problems
@@ -3768,7 +3800,6 @@ void ycmd_start_server()
 		}
 	}
 
-	//omt
 	char path_project[PATH_MAX];
 	char path_extra_conf[PATH_MAX];
 	get_project_path(path_project);
@@ -6252,7 +6283,7 @@ void do_ycm_extra_conf_reject(void)
 
 void do_ycm_extra_conf_generate(void)
 {
-#ifndef USE_YCM_GENERATOR
+#ifndef ENABLE_YCM_GENERATOR
 	return;
 #endif
 	char path_project[PATH_MAX];
@@ -6261,7 +6292,7 @@ void do_ycm_extra_conf_generate(void)
 	if (strcmp(path_project, "(null)") != 0 && access(path_project, F_OK) == 0)
 	{
 		get_extra_conf_path(path_project, path_extra_conf);
-#ifdef USE_YCM_GENERATOR
+#ifdef ENABLE_YCM_GENERATOR
 		char display_text[PATH_MAX]; //should be number of columns
 		snprintf(display_text, PATH_MAX, "Generated and accepted %s", path_extra_conf);
 		statusline(HUSH, display_text);

@@ -1272,7 +1272,7 @@ void shortcut_init(void)
 			N_("Accept"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
 	add_to_funcs(do_ycm_extra_conf_reject, MYCMEXTRACONF,
 			N_("Reject"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
-#ifndef USE_YCM_GENERATOR
+#ifdef ENABLE_YCM_GENERATOR
 	add_to_funcs(do_ycm_extra_conf_generate, MYCMEXTRACONF,
 			N_("Generate"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
 #endif
@@ -1371,7 +1371,7 @@ void shortcut_init(void)
 
 	add_to_sclist(MYCMEXTRACONF, "^Y", 0, do_ycm_extra_conf_accept, 0);
 	add_to_sclist(MYCMEXTRACONF, "^N", 0, do_ycm_extra_conf_reject, 0);
-#ifndef USE_YCM_GENERATOR
+#ifdef ENABLE_YCM_GENERATOR
 	add_to_sclist(MYCMEXTRACONF, "^G", 0, do_ycm_extra_conf_generate, 0);
 #endif
 #endif
