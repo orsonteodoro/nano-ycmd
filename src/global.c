@@ -1644,7 +1644,7 @@ void shortcut_init(void)
 #endif /* !NANO_TINY */
 
 #ifdef ENABLE_YCMD
-	add_to_sclist((((MMOST|MREFACTORRENAME) & ~MMAIN & ~MYCMEXTRACONF) | MYESNO), "^C", 0, do_cancel, 0);
+	add_to_sclist((((MMOST|MREFACTORRENAME) & ~MMAIN & ~MYCMEXTRACONF & ~MCODECOMPLETION) | MYESNO), "^C", 0, do_cancel, 0);
 #else
 	add_to_sclist(((MMOST & ~MMAIN) | MYESNO), "^C", 0, do_cancel, 0);
 #endif
