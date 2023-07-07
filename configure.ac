@@ -493,7 +493,7 @@ if test "x$enable_ycmd" = xyes; then
 	fi
 
 	if test "x$with_openssl" = xyes; then
-		PKG_CHECK_MODULES([OPENSSL], [openssl], [
+		PKG_CHECK_MODULES([OPENSSL], [openssl >= 3], [
 			OPENSSL_LIB=$OPENSSL_LIBS
 			CPPFLAGS="$OPENSSL_CFLAGS $CPPFLAGS"
 			OPENSSL_LIB_NAME=openssl

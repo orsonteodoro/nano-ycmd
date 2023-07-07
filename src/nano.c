@@ -771,8 +771,8 @@ void version(void)
 	printf(_("\n"));
 #ifdef USE_OPENSSL
 	printf(_("\n  OpenSSL:"));
-	printf(_("\n   (C) 1998-2016 The OpenSSL Project"));
-	printf(_("\n   License: OpenSSL"));
+	printf(_("\n   (C) 1995-2021 The OpenSSL Project Authors. All Rights Reserved."));
+	printf(_("\n   License: Apache License 2.0"));
 	printf(_("\n   Web: https://www.openssl.org/"));
 	printf(_("\n"));
 #endif
