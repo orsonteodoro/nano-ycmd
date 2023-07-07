@@ -447,6 +447,16 @@ For example:
 nano 2>/tmp/out.txt
 ```
 
+#### Why does it keep asking for .ycm_extra_conf.py on startup?
+
+This is a security precaution against running a malicious compromised script or
+against exfiltrating sensitive data to an unauthorized actor.  Before accepting
+it, you should inspect the contents carefully from top to bottom for suspicious
+code.
+
+ycmd will run this file after it has been confirmed safe to use in order for
+ycmd to work on this kind of projects or this type of programming language.
+
 #### Special thanks goes to...
 
 marchelzo and twkm from freenode ##C channel for the clear excess stdin fix.

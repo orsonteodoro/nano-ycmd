@@ -6215,9 +6215,9 @@ void do_ycm_extra_conf_accept(void)
 
 		if (access(path_extra_conf, F_OK) == 0)
 		{
-			char display_text[80]; //should be number of columns
-			snprintf(display_text, 80, "Accepted %s", path_extra_conf);
-			statusline(HUSH, "%s", display_text);
+			char display_text[PATH_MAX]; //should be number of columns
+			snprintf(display_text, PATH_MAX, "Accepted %s", path_extra_conf);
+			statusline(HUSH, display_text);
 			ycmd_req_load_extra_conf_file(path_extra_conf);
 		}
 	}
@@ -6238,9 +6238,9 @@ void do_ycm_extra_conf_reject(void)
 
 		if (access(path_extra_conf, F_OK) == 0)
 		{
-			char display_text[80]; //should be number of columns
-			snprintf(display_text, 80, "Rejected %s", path_extra_conf);
-			statusline(HUSH, "%s", display_text);
+			char display_text[PATH_MAX]; //should be number of columns
+			snprintf(display_text, PATH_MAX, "Rejected %s", path_extra_conf);
+			statusline(HUSH, display_text);
 			ycmd_req_load_extra_conf_file(path_extra_conf);
 		}
 	}
@@ -6262,9 +6262,9 @@ void do_ycm_extra_conf_generate(void)
 	{
 		get_extra_conf_path(path_project, path_extra_conf);
 #ifdef USE_YCM_GENERATOR
-		char display_text[80]; //should be number of columns
-		snprintf(display_text, 80, "Generated and accepted %s", path_extra_conf);
-		statusline(HUSH, "%s", display_text);
+		char display_text[PATH_MAX]; //should be number of columns
+		snprintf(display_text, PATH_MAX, "Generated and accepted %s", path_extra_conf);
+		statusline(HUSH, display_text);
 		ycmd_gen_extra_conf();
 #endif
 		ycmd_req_load_extra_conf_file(path_extra_conf);
