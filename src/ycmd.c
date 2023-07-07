@@ -1321,12 +1321,12 @@ int ycm_generate(void)
 				sprintf(language, "c");
 			else if (has_h == 0)
 			{
+				// handle header only projects
 				if (has_cxx_code = 0)
 					sprintf(language, "c++");
 				else
 					sprintf(language, "c");
 			}
-			// handle header only projects
 
 			//inject clang includes to find stdio.h and others
 			//caching disabled because of problems
