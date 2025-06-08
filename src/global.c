@@ -1377,6 +1377,7 @@ void shortcut_init(void)
 	add_to_sclist(MMOST|MCODECOMPLETION, "Tab", '\t', do_tab, 0);
 #else
 	add_to_sclist(MMOST, "Tab", '\t', do_tab, 0);
+#endif
 	add_to_sclist(MMAIN|MBROWSER|MHELP, "^B", 0, do_search_backward, 0);
 	add_to_sclist(MMAIN|MBROWSER|MHELP, "^F", 0, do_search_forward, 0);
 	if (ISSET(MODERN_BINDINGS)) {
