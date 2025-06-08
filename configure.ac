@@ -420,17 +420,39 @@ AC_DEFUN([AC_CHECK_YCMD_CORE_VERSION],[
 	ycmd_core_version=$(cat "$core_version_path")
 	ycmd_core_found=0
 	AC_MSG_CHECKING([for ycmd CORE_VERSION])
+
+# 48 https://github.com/ycm-core/ycmd/blob/99c068120c14257c236e1dcfbf55838e33ae141e/ycmd/default_settings.json # no change
+
+# 47 https://github.com/ycm-core/ycmd/blob/671fee16bbaa5da3858108b3717b76bc833b3953/ycmd/default_settings.json # no change
+
+# 46 https://github.com/ycm-core/ycmd/blob/18808eae493548f37c50e1e3e0b5607b5f94093d/ycmd/default_settings.json # no change
+
+# adds max_num_candidates_to_detail, java_binary_path, rust_toolchain_root; removes rls_binary_path, rustc_binary_path
+# 45 https://github.com/ycm-core/ycmd/blob/a9f616e24f4bc71cd0e7f227a41e8bc2640193fd/ycmd/default_settings.json
+
+# adds mono_binary_path
+# 44 https://github.com/ycm-core/ycmd/blob/ff428c9976c93e217cd3f502d92ea68ca2ac5210/ycmd/default_settings.json
+
+# adds language_server, java_jdtls_workspace_root_path, java_jdtls_extension_path, use_clangd, clangd_binary_path, clangd_args, clangd_uses_ycmd_caching, disable_signature_help, gopls_binary_path, gopls_args, rls_binary_path, rustc_binary_path, tsserver_binary_path, roslyn_binary_path
+# removes gocode_binary_path, godef_binary_path, rust_src_path, racerd_binary_path
+# adds in filepath_blacklist { html, jsx, xml }
+# removes in filepath_blacklist { tagbar, qf, notes, markdown, netrw, unite, text, vimwiki, pandoc, infolog, mail }
+# 43 https://github.com/ycm-core/ycmd/blob/228adf91f5ea15cca837f3ccc85f4e55edfa1b4f/ycmd/default_settings.json
+
+# 39 https://github.com/ycm-core/ycmd/blob/683cb5e51d9e2379903189d7be6b16cf7fe80e7e/ycmd/default_settings.json
+
 	test $ycmd_core_version -eq 39 && ycmd_core_found=39
 	test $ycmd_core_version -eq 43 && ycmd_core_found=43
 	test $ycmd_core_version -eq 44 && ycmd_core_found=44
 	test $ycmd_core_version -eq 45 && ycmd_core_found=45
 	test $ycmd_core_version -eq 46 && ycmd_core_found=46
 	test $ycmd_core_version -eq 47 && ycmd_core_found=47
+	test $ycmd_core_version -eq 48 && ycmd_core_found=48
 	if test $ycmd_core_found -gt 0; then
 		AC_MSG_RESULT([$ycmd_core_version])
 		AC_DEFINE_UNQUOTED([YCMD_CORE_VERSION], $ycmd_core_version, [Define this to set the ycmd server core version and to match the protocol version.])
 	else
-		AC_MSG_ERROR([Your CORE_VERSION ($ycmd_core_version) for ycmd is incompatible.  The CORE_VERSION needs to be either 39, 43, 44, 45, 46, 47.])
+		AC_MSG_ERROR([Your CORE_VERSION ($ycmd_core_version) for ycmd is incompatible.  The CORE_VERSION needs to be either 39, 43, 44, 45, 46, 47, 48.])
 	fi
 ])
 
