@@ -21,6 +21,7 @@
  *                                                                        *
  **************************************************************************/
 
+#include "config.h"
 
 #ifdef USE_NETTLE
 #include <nettle/base64.h>
@@ -77,7 +78,6 @@
 #include <nxjson.h>
 #include <string.h>
 #include <sys/wait.h>
-#include "config.h"
 #include <unistd.h>
 
 #include "prototypes.h"
