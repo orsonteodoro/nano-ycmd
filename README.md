@@ -47,7 +47,7 @@ Compatible ycmd core versions:
 * For 2025, the commits supported for compatible ycmd core version has changed
   and is based on the version bump of CORE_VERSION.  The version bump is assumed
   to be the final version and is based on other Python projects that bump the
-  version variable in setup.py or __init__.py while simultaneously tagging the
+  version variable in `setup.py` or `__init__.py` while simultaneously tagging the
   release on the repo.  For ycmd, it is unclear and ambiguous which version is
   the official final release because there are no repo tags.  The core version
   bump can be interpreted as either the final version or the beginning of
