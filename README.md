@@ -12,8 +12,6 @@ branch.
 
 #### Which commits are working?  Which one should I clone?
 
-The latest may be broken.
-
 You can use the following which have been tested:
 
 | Commit / Tree snapshot                                                                             | Source code download                                                                                                                                                                                                  | Notes                                                                                                                                                                                                                                                      |
