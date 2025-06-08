@@ -1372,9 +1372,6 @@ void shortcut_init(void)
 	add_to_sclist(MCOMPLETERCOMMANDS, "^N", 0, do_n_entries, 0);
 #endif
 #endif
-#ifdef ENABLE_YCMD
-	add_to_sclist(MMOST|MCODECOMPLETION|MREFACTORRENAME, "Del", KEY_DC, do_delete, 0);
-#else
 	add_to_sclist(MMOST, "^I", '\t', do_tab, 0);
 #ifdef ENABLE_YCMD
 	add_to_sclist(MMOST|MCODECOMPLETION, "Tab", '\t', do_tab, 0);
