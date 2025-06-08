@@ -2,9 +2,10 @@
 # Generate configure & friends for GIT users.
 
 gnulib_url="git://git.sv.gnu.org/gnulib.git"
-gnulib_hash="2cf7f442f52f70b3df6eb396eb93ea08e54883c5"
+gnulib_hash="d9083a4cc638cf9c7dfc3cc534a7c6b4debf50ab"
 
 modules="
+	canonicalize-lgpl
 	futimens
 	getdelim
 	getline
@@ -31,7 +32,7 @@ modules="
 
 # Make sure the local gnulib git repo is up-to-date.
 if [ ! -d "gnulib" ]; then
-	git clone --depth=1111 ${gnulib_url}
+	git clone --depth=2222 ${gnulib_url}
 fi
 cd gnulib >/dev/null || exit 1
 curr_hash=$(git log -1 --format=%H)
@@ -42,20 +43,11 @@ if [ "${gnulib_hash}" != "${curr_hash}" ]; then
 fi
 cd .. >/dev/null || exit 1
 
-echo "Autopoint..."
-autopoint --force
-
 rm -rf lib
 echo "Gnulib-tool..."
 ./gnulib/gnulib-tool --import ${modules}
 echo
 
-echo "Aclocal..."
-aclocal -I m4
-echo "Autoconf..."
-autoconf
-echo "Autoheader..."
-autoheader
-echo "Automake..."
-automake --add-missing
+echo "Autoreconf..."
+autoreconf --install --symlink --force
 echo "Done."

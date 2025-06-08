@@ -1,7 +1,7 @@
 /**************************************************************************
  *   prompt.c  --  This file is part of GNU nano.                         *
  *                                                                        *
- *   Copyright (C) 1999-2011, 2013-2023 Free Software Foundation, Inc.    *
+ *   Copyright (C) 1999-2011, 2013-2025 Free Software Foundation, Inc.    *
  *   Copyright (C) 2016, 2018, 2020, 2022 Benno Schulenberg               *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
@@ -15,7 +15,7 @@
  *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
+ *   along with this program.  If not, see https://gnu.org/licenses/.     *
  *                                                                        *
  **************************************************************************/
 
@@ -261,7 +261,7 @@ void absorb_character(int input, functionptrtype function)
 	 * Apart from that, only accept input when not in restricted mode, or when
 	 * not at the "Write File" prompt, or when there is no filename yet. */
 	if (!function) {
-		if (input < 0x20 || input > 0xFF || meta_key)
+		if ((input < 0x20 && input != '\t') || meta_key || input > 0xFF)
 			beep();
 		else if (!ISSET(RESTRICTED) || currmenu != MWRITEFILE ||
 						openfile->filename[0] == '\0') {
@@ -392,6 +392,7 @@ void draw_the_promptbar(void)
 
 	/* Place the cursor at the right spot. */
 	wmove(footwin, 0, column - the_page);
+
 	wnoutrefresh(footwin);
 }
 
@@ -426,6 +427,9 @@ functionptrtype acquire_an_answer(int *actual, bool *listed,
 		/* The length of the fragment that the user tries to tab complete. */
 #endif
 #endif
+#ifndef NANO_TINY
+	bool bracketed_paste = FALSE;
+#endif
 	const keystruct *shortcut;
 	functionptrtype function;
 	int input;
@@ -441,14 +445,16 @@ functionptrtype acquire_an_answer(int *actual, bool *listed,
 
 #ifndef NANO_TINY
 		/* If the window size changed, go reformat the prompt string. */
-		if (input == KEY_WINCH) {
+		if (input == THE_WINDOW_RESIZED) {
 			refresh_func();  /* Only needed when in file browser. */
-			*actual = KEY_WINCH;
+			*actual = THE_WINDOW_RESIZED;
 #ifdef ENABLE_HISTORIES
 			free(stored_string);
 #endif
 			return NULL;
 		}
+		if (input == START_OF_PASTE || input == END_OF_PASTE)
+			bracketed_paste = (input == START_OF_PASTE);
 #endif
 #ifdef ENABLE_MOUSE
 		/* For a click on a shortcut, read in the resulting keycode. */
@@ -461,9 +467,22 @@ functionptrtype acquire_an_answer(int *actual, bool *listed,
 		/* Check for a shortcut in the current list. */
 		shortcut = get_shortcut(input);
 		function = (shortcut ? shortcut->func : NULL);
-
+#ifndef NANO_TINY
+		/* Tabs in an external paste are not commands. */
+		if (input == '\t' && bracketed_paste)
+			function = NULL;
+#endif
 		/* When it's a normal character, add it to the answer. */
 		absorb_character(input, function);
+
+#ifndef NANO_TINY
+		/* Ignore any commands inside an external paste. */
+		if (bracketed_paste) {
+			if (function && function != do_nothing)
+				beep();
+			continue;
+		}
+#endif
 
 		if (function == do_cancel || function == do_enter)
 			break;
@@ -537,6 +556,11 @@ functionptrtype acquire_an_answer(int *actual, bool *listed,
 		else if (function && !handle_editing(function)) {
 			/* When it's a permissible shortcut, run it and done. */
 			if (!ISSET(VIEW_MODE) || !changes_something(function)) {
+#ifndef NANO_TINY
+				/* When invoking a tool at the Execute prompt, stash an "answer". */
+				if (currmenu == MEXECUTE)
+					foretext = mallocstrcpy(foretext, answer);
+#endif
 				function();
 				break;
 			} else
@@ -548,6 +572,11 @@ functionptrtype acquire_an_answer(int *actual, bool *listed,
 #endif
 	}
 
+#ifndef NANO_TINY
+	/* When an external command was run, clear a possibly stashed answer. */
+	if (currmenu == MEXECUTE && function == do_enter)
+		*foretext = '\0';
+#endif
 #ifdef ENABLE_HISTORIES
 	/* If the history pointer was moved, point it at the bottom again. */
 	if (stored_string != NULL) {
@@ -597,13 +626,17 @@ int do_prompt(int menu, const char *provided, linestruct **history_list,
 	free(prompt);
 
 #ifndef NANO_TINY
-	if (retval == KEY_WINCH)
+	if (retval == THE_WINDOW_RESIZED)
 		goto redo_theprompt;
 #endif
 
 	/* Restore a possible previous prompt and maybe the typing position. */
 	prompt = saved_prompt;
-	if (function == do_cancel || function == do_enter)
+	if (function == do_cancel || function == do_enter ||
+#ifdef ENABLE_BROWSER
+				function == to_first_file || function == to_last_file ||
+#endif
+				function == to_first_line || function == to_last_line)
 		typing_x = was_typing_x;
 
 	/* Set the proper return value for Cancel and Enter. */
@@ -692,14 +725,15 @@ int ask_user(bool withall, const char *question)
 		kbinput = get_kbinput(footwin, !withall);
 
 #ifndef NANO_TINY
-		if (kbinput == KEY_WINCH)
+		if (kbinput == THE_WINDOW_RESIZED)
 			continue;
 
 		/* Accept first character of an external paste and ignore the rest. */
-		if (bracketed_paste)
+		if (kbinput == START_OF_PASTE) {
 			kbinput = get_kbinput(footwin, BLIND);
-		while (bracketed_paste)
-			get_kbinput(footwin, BLIND);
+			while (get_kbinput(footwin, BLIND) != END_OF_PASTE)
+				;
+		}
 #endif
 
 #ifdef ENABLE_NLS
@@ -707,7 +741,7 @@ int ask_user(bool withall, const char *question)
 #ifdef ENABLE_UTF8
 		/* If the received code is a UTF-8 starter byte, get also the
 		 * continuation bytes and assemble them into one letter. */
-		if (using_utf8() && 0xC0 <= kbinput && kbinput <= 0xF7) {
+		if (0xC0 <= kbinput && kbinput <= 0xF7 && using_utf8) {
 			int extras = (kbinput / 16) % 4 + (kbinput <= 0xCF ? 1 : 0);
 
 			while (extras <= waiting_keycodes() && extras-- > 0)
@@ -752,12 +786,17 @@ int ask_user(bool withall, const char *question)
 			focusing = TRUE;
 		}
 #endif
-		/* Interpret ^N and ^Q as "No", to allow exiting in anger. */
-		else if (kbinput == '\x0E' || kbinput == '\x11')
+		/* Interpret ^N as "No", to allow exiting in anger, and ^Q or ^X too. */
+		else if (kbinput == '\x0E' || (kbinput == '\x11' && !ISSET(MODERN_BINDINGS)) ||
+									  (kbinput == '\x18' && ISSET(MODERN_BINDINGS))) {
 			choice = NO;
-		/* And interpret ^Y as "Yes". */
-		else if (kbinput == '\x19')
+			if (kbinput != '\x0E')  /* ^X^Q makes nano exit with an error. */
+				final_status = 2;
+		/* Also, interpret ^Y as "Yes, and  ^A as "All". */
+		} else if (kbinput == '\x19')
 			choice = YES;
+		else if (kbinput == '\x01' && withall)
+			choice = ALL;
 #ifdef ENABLE_MOUSE
 		else if (kbinput == KEY_MOUSE) {
 			int mouse_x, mouse_y;

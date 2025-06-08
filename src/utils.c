@@ -1,7 +1,7 @@
 /**************************************************************************
  *   utils.c  --  This file is part of GNU nano.                          *
  *                                                                        *
- *   Copyright (C) 1999-2011, 2013-2023 Free Software Foundation, Inc.    *
+ *   Copyright (C) 1999-2011, 2013-2025 Free Software Foundation, Inc.    *
  *   Copyright (C) 2016, 2017, 2019 Benno Schulenberg                     *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
@@ -15,7 +15,7 @@
  *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
+ *   along with this program.  If not, see https://gnu.org/licenses/.     *
  *                                                                        *
  **************************************************************************/
 
@@ -126,29 +126,30 @@ bool parse_num(const char *string, ssize_t *result)
 	return TRUE;
 }
 
-/* Read two numbers, separated by a comma, from str, and store them in
- * *line and *column.  Return FALSE on error, and TRUE otherwise. */
-bool parse_line_column(const char *str, ssize_t *line, ssize_t *column)
+/* Read one number (or two numbers separated by comma, period, or colon)
+ * from the given string and store the number(s) in *line (and *column).
+ * Return FALSE on a failed parsing, and TRUE otherwise. */
+bool parse_line_column(const char *string, ssize_t *line, ssize_t *column)
 {
 	const char *comma;
 	char *firstpart;
 	bool retval;
 
-	while (*str == ' ')
-		str++;
+	while (*string == ' ')
+		string++;
 
-	comma = strpbrk(str, ",.:");
+	comma = strpbrk(string, ",.:");
 
 	if (comma == NULL)
-		return parse_num(str, line);
+		return parse_num(string, line);
 
 	retval = parse_num(comma + 1, column);
 
-	if (comma == str)
+	if (comma == string)
 		return retval;
 
-	firstpart = copy_of(str);
-	firstpart[comma - str] = '\0';
+	firstpart = copy_of(string);
+	firstpart[comma - string] = '\0';
 
 	retval = parse_num(firstpart, line) && retval;
 
@@ -436,6 +437,8 @@ void remove_magicline(void)
 {
 	if (openfile->filebot->data[0] == '\0' &&
 				openfile->filebot != openfile->filetop) {
+		if (openfile->current == openfile->filebot)
+			openfile->current = openfile->current->prev;
 		openfile->filebot = openfile->filebot->prev;
 		delete_node(openfile->filebot->next);
 		openfile->filebot->next = NULL;

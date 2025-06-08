@@ -1,7 +1,7 @@
 /**************************************************************************
  *   chars.c  --  This file is part of GNU nano.                          *
  *                                                                        *
- *   Copyright (C) 2001-2011, 2013-2023 Free Software Foundation, Inc.    *
+ *   Copyright (C) 2001-2011, 2013-2025 Free Software Foundation, Inc.    *
  *   Copyright (C) 2016-2021 Benno Schulenberg                            *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
@@ -15,7 +15,7 @@
  *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
+ *   along with this program.  If not, see https://gnu.org/licenses/.     *
  *                                                                        *
  **************************************************************************/
 
@@ -23,26 +23,10 @@
 
 #include <ctype.h>
 #include <string.h>
-
 #ifdef ENABLE_UTF8
 #include <wchar.h>
 #include <wctype.h>
-
-static bool use_utf8 = FALSE;
-		/* Whether we've enabled UTF-8 support. */
-
-/* Enable UTF-8 support. */
-void utf8_init(void)
-{
-	use_utf8 = TRUE;
-}
-
-/* Is UTF-8 support enabled? */
-bool using_utf8(void)
-{
-	return use_utf8;
-}
-#endif /* ENABLE_UTF8 */
+#endif
 
 #ifdef ENABLE_SPELLER
 /* Return TRUE when the given character is some kind of letter. */
@@ -98,10 +82,10 @@ bool is_blank_char(const char *c)
 bool is_cntrl_char(const char *c)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
+	if (using_utf8)
 		return ((c[0] & 0xE0) == 0 || c[0] == DEL_CODE ||
 				((signed char)c[0] == -62 && (signed char)c[1] < -96));
-	} else
+	else
 #endif
 		return ((*c & 0x60) == 0 || *c == DEL_CODE);
 }
@@ -165,7 +149,7 @@ char control_mbrep(const char *c, bool isdata)
 		return '@';
 
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
+	if (using_utf8) {
 		if ((unsigned char)c[0] < 128)
 			return control_rep(c[0]);
 		else
@@ -180,9 +164,9 @@ char control_mbrep(const char *c, bool isdata)
  * the number of bytes in the sequence, or -1 for an invalid sequence. */
 int mbtowide(wchar_t *wc, const char *c)
 {
-	if ((signed char)*c < 0 && use_utf8) {
-		unsigned char v1 = (unsigned char)c[0];
-		unsigned char v2 = (unsigned char)c[1] ^ 0x80;
+	if ((signed char)*c < 0 && using_utf8) {
+		unsigned char v1 = c[0];
+		unsigned char v2 = c[1] ^ 0x80;
 
 		if (v2 > 0x3F || v1 < 0xC2)
 			return -1;
@@ -192,7 +176,7 @@ int mbtowide(wchar_t *wc, const char *c)
 			return 2;
 		}
 
-		unsigned char v3 = (unsigned char)c[2] ^ 0x80;
+		unsigned char v3 = c[2] ^ 0x80;
 
 		if (v3 > 0x3F)
 			return -1;
@@ -206,7 +190,7 @@ int mbtowide(wchar_t *wc, const char *c)
 				return -1;
 		}
 
-		unsigned char v4 = (unsigned char)c[3] ^ 0x80;
+		unsigned char v4 = c[3] ^ 0x80;
 
 		if (v4 > 0x3F || v1 > 0xF4)
 			return -1;
@@ -229,7 +213,7 @@ bool is_doublewidth(const char *ch)
 	wchar_t wc;
 
 	/* Only from U+1100 can code points have double width. */
-	if ((unsigned char)*ch < 0xE1 || !use_utf8)
+	if ((unsigned char)*ch < 0xE1 || !using_utf8)
 		return FALSE;
 
 	if (mbtowide(&wc, ch) < 0)
@@ -244,7 +228,7 @@ bool is_zerowidth(const char *ch)
 	wchar_t wc;
 
 	/* Only from U+0300 can code points have zero width. */
-	if ((unsigned char)*ch < 0xCC || !use_utf8)
+	if ((unsigned char)*ch < 0xCC || !using_utf8)
 		return FALSE;
 
 	if (mbtowide(&wc, ch) < 0)
@@ -264,9 +248,9 @@ bool is_zerowidth(const char *ch)
 int char_length(const char *pointer)
 {
 #ifdef ENABLE_UTF8
-	if ((unsigned char)*pointer > 0xC1 && use_utf8) {
-		unsigned char c1 = (unsigned char)pointer[0];
-		unsigned char c2 = (unsigned char)pointer[1];
+	if ((unsigned char)*pointer > 0xC1 && using_utf8) {
+		unsigned char c1 = pointer[0];
+		unsigned char c2 = pointer[1];
 
 		if ((c2 ^ 0x80) > 0x3F)
 			return 1;
@@ -327,7 +311,7 @@ int collect_char(const char *string, char *thechar)
 int advance_over(const char *string, size_t *column)
 {
 #ifdef ENABLE_UTF8
-	if ((signed char)*string < 0 && use_utf8) {
+	if ((signed char)*string < 0 && using_utf8) {
 		/* A UTF-8 upper control code has two bytes and takes two columns. */
 		if (((unsigned char)string[0] == 0xC2 && (signed char)string[1] < -96)) {
 			*column += 2;
@@ -371,7 +355,7 @@ int advance_over(const char *string, size_t *column)
 size_t step_left(const char *buf, size_t pos)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
+	if (using_utf8) {
 		size_t before, charlen = 0;
 
 		if (pos < 4)
@@ -422,7 +406,7 @@ int mbstrcasecmp(const char *s1, const char *s2)
 int mbstrncasecmp(const char *s1, const char *s2, size_t n)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
+	if (using_utf8) {
 		wchar_t wc1, wc2;
 
 		while (*s1 != '\0' && *s2 != '\0' && n > 0) {
@@ -473,7 +457,7 @@ int mbstrncasecmp(const char *s1, const char *s2, size_t n)
 char *mbstrcasestr(const char *haystack, const char *needle)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
+	if (using_utf8) {
 		size_t needle_len = mbstrlen(needle);
 
 		while (*haystack != '\0') {
@@ -535,7 +519,7 @@ char *mbrevstrcasestr(const char *haystack, const char *needle,
 		const char *pointer)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
+	if (using_utf8) {
 		size_t needle_len = mbstrlen(needle);
 		size_t tail_len = mbstrlen(pointer);
 
@@ -564,7 +548,7 @@ char *mbrevstrcasestr(const char *haystack, const char *needle,
 char *mbstrchr(const char *string, const char *chr)
 {
 #ifdef ENABLE_UTF8
-	if (use_utf8) {
+	if (using_utf8) {
 		bool bad_s = FALSE, bad_c = FALSE;
 		wchar_t ws, wc;
 
@@ -654,3 +638,12 @@ bool white_string(const char *string)
 
 	return !*string;
 }
+
+#if defined(ENABLE_SPELLER) || defined(ENABLE_COLOR)
+/* Remove leading whitespace from the given string. */
+void strip_leading_blanks_from(char *string)
+{
+	while (string && (*string == ' ' || *string == '\t'))
+		memmove(string, string + 1, strlen(string));
+}
+#endif

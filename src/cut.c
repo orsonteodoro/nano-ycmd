@@ -1,7 +1,7 @@
 /**************************************************************************
  *   cut.c  --  This file is part of GNU nano.                            *
  *                                                                        *
- *   Copyright (C) 1999-2011, 2013-2023 Free Software Foundation, Inc.    *
+ *   Copyright (C) 1999-2011, 2013-2025 Free Software Foundation, Inc.    *
  *   Copyright (C) 2014 Mark Majeres                                      *
  *   Copyright (C) 2016, 2018-2020 Benno Schulenberg                      *
  *                                                                        *
@@ -16,7 +16,7 @@
  *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
+ *   along with this program.  If not, see https://gnu.org/licenses/.     *
  *                                                                        *
  **************************************************************************/
 
@@ -28,8 +28,9 @@
 #include "ycmd.h"
 #endif
 
-/* Delete the character under the cursor. */
-void do_deletion(undo_type action)
+/* Delete the character at the current position, and
+ * add or update an undo item for the given action. */
+void expunge(undo_type action)
 {
 	openfile->placewewant = xplustabs();
 
@@ -116,7 +117,8 @@ void do_deletion(undo_type action)
 	set_modified();
 }
 
-/* Delete the character under the cursor. */
+/* Delete the character under the cursor plus any succeeding zero-widths,
+ * or, when the mark is on and --zap is active, delete the marked region. */
 void do_delete(void)
 {
 #ifndef NANO_TINY
@@ -125,11 +127,11 @@ void do_delete(void)
 	else
 #endif
 	{
-		do_deletion(DEL);
+		expunge(DEL);
 #ifdef ENABLE_UTF8
 		while (openfile->current->data[openfile->current_x] != '\0' &&
 				is_zerowidth(openfile->current->data + openfile->current_x))
-			do_deletion(DEL);
+			expunge(DEL);
 #endif
 	}
 #ifdef ENABLE_YCMD
@@ -138,7 +140,8 @@ void do_delete(void)
 }
 
 /* Backspace over one character.  That is, move the cursor left one
- * character, and then delete the character under the cursor. */
+ * character, and then delete the character under the cursor.  Or,
+ * when mark is on and --zap is active, delete the marked region. */
 void do_backspace(void)
 {
 #ifndef NANO_TINY
@@ -148,10 +151,10 @@ void do_backspace(void)
 #endif
 	if (openfile->current_x > 0) {
 		openfile->current_x = step_left(openfile->current->data, openfile->current_x);
-		do_deletion(BACK);
+		expunge(BACK);
 	} else if (openfile->current != openfile->filetop) {
 		do_left();
-		do_deletion(BACK);
+		expunge(BACK);
 	}
 #ifdef ENABLE_YCMD
 	ualarm(SEND_TO_SERVER_DELAY,0);
@@ -644,6 +647,7 @@ void copy_marked_region(void)
 	botline->data[bot_x] = saved_byte;
 	botline->next = afterline;
 }
+#endif /* !NANO_TINY */
 
 /* Copy text from the current buffer into the cutbuffer.  The text is either
  * the marked region, the whole line, the text from cursor to end-of-line,
@@ -656,17 +660,24 @@ void copy_text(void)
 	linestruct *was_current = openfile->current;
 	linestruct *addition;
 
-	if (openfile->mark || openfile->last_action != COPY || !keep_cutbuffer) {
+#ifndef NANO_TINY
+	if (openfile->mark || openfile->last_action != COPY)
+		keep_cutbuffer = FALSE;
+#endif
+
+	if (!keep_cutbuffer) {
 		free_lines(cutbuffer);
 		cutbuffer = NULL;
 	}
 
 	wipe_statusbar();
 
+#ifndef NANO_TINY
 	if (openfile->mark) {
 		copy_marked_region();
 		return;
 	}
+#endif
 
 	/* When at the very end of the buffer, there is nothing to do. */
 	if (openfile->current->next == NULL && at_eol && (ISSET(CUT_FROM_CURSOR) ||
@@ -716,10 +727,11 @@ void copy_text(void)
 
 	edit_redraw(was_current, FLOWING);
 
+#ifndef NANO_TINY
 	openfile->last_action = COPY;
+#endif
 	keep_cutbuffer = TRUE;
 }
-#endif /* !NANO_TINY */
 
 /* Copy text from the cutbuffer into the current buffer. */
 void paste_text(void)

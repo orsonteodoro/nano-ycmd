@@ -1,7 +1,7 @@
 /**************************************************************************
  *   browser.c  --  This file is part of GNU nano.                        *
  *                                                                        *
- *   Copyright (C) 2001-2011, 2013-2023 Free Software Foundation, Inc.    *
+ *   Copyright (C) 2001-2011, 2013-2025 Free Software Foundation, Inc.    *
  *   Copyright (C) 2015-2016, 2020, 2022 Benno Schulenberg                *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
@@ -15,7 +15,7 @@
  *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
+ *   along with this program.  If not, see https://gnu.org/licenses/.     *
  *                                                                        *
  **************************************************************************/
 
@@ -182,11 +182,11 @@ void browser_refresh(void)
 			if (stat(filelist[index], &state) == -1 || !S_ISDIR(state.st_mode))
 				info = copy_of("--");
 			else
-				/* TRANSLATORS: Try to keep this at most 7 characters. */
+				/* TRANSLATORS: Anything more than 7 cells gets clipped. */
 				info = copy_of(_("(dir)"));
 		} else if (S_ISDIR(state.st_mode)) {
 			if (strcmp(thename, "..") == 0) {
-				/* TRANSLATORS: Try to keep this at most 12 characters. */
+				/* TRANSLATORS: Anything more than 12 cells gets clipped. */
 				info = copy_of(_("(parent dir)"));
 				infomaxlen = 12;
 			} else
@@ -215,7 +215,7 @@ void browser_refresh(void)
 			if (result < (1 << 10))
 				sprintf(info, "%4ju %cB", (intmax_t)result, modifier);
 			else
-				/* TRANSLATORS: Try to keep this at most 7 characters.
+				/* TRANSLATORS: Anything more than 7 cells gets clipped.
 				 * If necessary, you can leave out the parentheses. */
 				info = mallocstrcpy(info, _("(huge)"));
 		}
@@ -353,13 +353,13 @@ void research_filename(bool forwards)
 	}
 }
 
-/* Select the first file in the list -- called by ^W^Y. */
+/* Select the first file in the list -- called directly by ^W^Y. */
 void to_first_file(void)
 {
 	selected = 0;
 }
 
-/* Select the last file in the list -- called by ^W^V. */
+/* Select the last file in the list -- called directly by ^W^V. */
 void to_last_file(void)
 {
 	selected = list_length - 1;
@@ -436,7 +436,10 @@ char *browse(char *path)
 
 	titlebar(path);
 
-	while (TRUE) {
+	if (list_length == 0) {
+		statusline(ALERT, _("No entries"));
+		napms(1200);
+	} else while (TRUE) {
 		functionptrtype function;
 		int kbinput;
 
@@ -480,26 +483,19 @@ char *browse(char *path)
 				continue;
 		}
 #endif /* ENABLE_MOUSE */
-#ifndef NANO_TINY
-		while (bracketed_paste)
-			kbinput = get_kbinput(midwin, BLIND);
-		if (kbinput == BRACKETED_PASTE_MARKER) {
-			beep();
-			continue;
-		}
-#endif
+
 		function = interpret(kbinput);
 
-		if (function == full_refresh || function == do_help) {
+		if (function == do_help || function == full_refresh) {
 			function();
 #ifndef NANO_TINY
 			/* Simulate a terminal resize to force a directory reread,
 			 * or because the terminal dimensions might have changed. */
-			kbinput = KEY_WINCH;
+			kbinput = THE_WINDOW_RESIZED;
 		} else if (function == do_toggle && get_shortcut(kbinput)->toggle == NO_HELP) {
 			TOGGLE(NO_HELP);
 			window_init();
-			kbinput = KEY_WINCH;
+			kbinput = THE_WINDOW_RESIZED;
 #endif
 		} else if (function == do_search_backward) {
 			search_filename(BACKWARD);
@@ -552,10 +548,8 @@ char *browse(char *path)
 								list_length - piles;
 			else
 				selected += usable_rows * piles;
-		} else if (function == to_first_file) {
-			selected = 0;
-		} else if (function == to_last_file) {
-			selected = list_length - 1;
+		} else if (function == to_first_file || function == to_last_file) {
+			function();
 		} else if (function == goto_dir) {
 			/* Ask for the directory to go to. */
 			if (do_prompt(MGOTODIR, "", NULL,
@@ -569,8 +563,7 @@ char *browse(char *path)
 
 			/* If the given path is relative, join it with the current path. */
 			if (*path != '/') {
-				path = nrealloc(path, strlen(present_path) +
-												strlen(answer) + 1);
+				path = nrealloc(path, strlen(present_path) + strlen(answer) + 1);
 				sprintf(path, "%s%s", present_path, answer);
 			}
 
@@ -639,7 +632,11 @@ char *browse(char *path)
 			implant(first_sc_for(MBROWSER, function)->expansion);
 #endif
 #ifndef NANO_TINY
-		} else if (kbinput == KEY_WINCH) {
+		} else if (kbinput == START_OF_PASTE) {
+			while (get_kbinput(midwin, BLIND) != END_OF_PASTE)
+				;
+			statusline(AHEM, _("Paste is ignored"));
+		} else if (kbinput == THE_WINDOW_RESIZED) {
 			;  /* Gets handled below. */
 #endif
 		} else if (function == do_exit) {
@@ -649,7 +646,7 @@ char *browse(char *path)
 
 #ifndef NANO_TINY
 		/* If the terminal resized (or might have), refresh the file list. */
-		if (kbinput == KEY_WINCH) {
+		if (kbinput == THE_WINDOW_RESIZED) {
 			/* Remember the selected file, to be able to reselect it. */
 			present_name = copy_of(filelist[selected]);
 			goto read_directory_contents;

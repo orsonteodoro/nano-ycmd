@@ -12,9 +12,9 @@ The complete manual for the GNU nano text editor.
 @end documentdescription
 
 @smallbook
-@set EDITION 0.7
-@set VERSION 7.2
-@set UPDATED January 2023
+@set EDITION 0.8
+@set VERSION 8.4
+@set UPDATED April 2025
 
 @dircategory Editors
 @direntry
@@ -29,7 +29,7 @@ The complete manual for the GNU nano text editor.
 
 @title GNU @command{nano}
 @subtitle a small and friendly text editor
-@subtitle version 7.2
+@subtitle version 8.4
 
 @author Chris Allegretta
 
@@ -40,7 +40,7 @@ This manual documents the GNU @command{nano} text editor.
 The contents of this manual are part of the GNU @command{nano} distribution.
 
 @sp 5
-Copyright @copyright{} 1999-2009, 2014-2023 Free Software Foundation, Inc.
+Copyright @copyright{} 1999-2009, 2014-2025 Free Software Foundation, Inc.
 @sp 1
 This document is dual-licensed.  You may distribute and/or modify it
 under the terms of either of the following licenses:
@@ -79,7 +79,7 @@ For suggesting improvements: @email{nano-devel@@gnu.org}
 @node Top
 @top
 
-This manual documents GNU @command{nano}, version 7.2.
+This manual documents GNU @command{nano}, version 8.4.
 
 @menu
 * Introduction::
@@ -112,13 +112,21 @@ as is reasonable while offering a superset of Pico's functionality.
 @xref{Pico Compatibility} for more details on how @command{nano} and
 Pico differ.
 
-Starting with version 4.0, @command{nano} no longer hard-wraps an overlong
-line by default.  It further uses linewise scrolling by default, and by
-default includes the line below the title bar into the editing area.
-If you want the old, Pico behavior back, you can use the
+@blankline
+Since version 4.0, @command{nano} no longer hard-wraps overlong
+lines by default.  It also by default uses linewise scrolling, and by
+default includes the line below the title bar in the editing area.
+In case you want the old, Pico behavior back, you can use the
 following options: @option{--breaklonglines},
 @option{--jumpyscrolling}, and @option{--emptyline}
 (or @option{-bje}).
+
+@blankline
+Since version 8.0, @kbd{^F} starts a forward search, @kbd{^B} starts
+a backward search, @kbd{M-F} searches the next occurrence forward,
+and @kbd{M-B} searches the next occurrence backward.  If you want
+those keystrokes to do what they did before version 8.0, see the
+rebindings in the sample nanorc file.
 
 @blankline
 Please report bugs via @url{https://savannah.gnu.org/bugs/?group=nano}.
@@ -148,9 +156,6 @@ The cursor can be put on a specific line of a file by adding
 the line number with a plus sign before the filename, and even
 in a specific column by adding it with a comma.
 Negative numbers count from the end of the file or line.
-The line and column numbers may also be specified by gluing them with colons
-after the filename.  (When a filename contains a colon followed by digits,
-escape the colon by preceding it with a triple backslash.)
 
 The cursor can be put on the first or last occurrence of a specific string
 by specifying that string after @code{+/} or @code{+?} before the filename.
@@ -208,9 +213,9 @@ file has been modified since it was last saved or opened.
 
 The status bar is the third line from the bottom of the screen.  It
 shows important and informational messages.  Any error messages that
-occur from using the editor will appear on the status bar.  Any questions
-that are asked of the user will be asked on the status bar, and any user
-input (search strings, filenames, etc.) will be input on the status bar.
+occur from using the editor appear on the status bar.  Any questions
+that are asked of the user are asked on the status bar, and any user
+input (search strings, filenames, etc.) is input on the status bar.
 
 The two help lines at the bottom of the screen show some of the most
 essential functions of the editor.
@@ -228,21 +233,21 @@ Characters not present on the keyboard can be entered in two ways:
 @item
 For characters with a single-byte code,
 pressing the Esc key twice and then typing a three-digit decimal number
-(from @kbd{000} to @kbd{255}) will make @command{nano} behave as if you
+(from @kbd{000} to @kbd{255}) makes @command{nano} behave as if you
 typed the key with that value.
 
 @item
 For any possible character, pressing @kbd{M-V} (Alt+V) and then typing a
 series of hexadecimal digits (at most six, or concluded with @kbd{Enter} or
-@kbd{Space}) will enter the corresponding Unicode character into the buffer.
+@kbd{Space}) enters the corresponding Unicode character into the buffer.
 @end itemize
 
-For example, typing @kbd{Esc Esc 2 3 4} will enter the character "ê" ---
+For example, typing @kbd{Esc Esc 2 3 4} enters the character "ê" ---
 useful when writing about a French party.  Typing @kbd{M-V 0 0 2 2 c 4}
-will enter the symbol "⋄", a little diamond.
+enters the symbol "⋄", a little diamond.
 
 Typing @kbd{M-V} followed by anything other than a hexadecimal digit
-will enter this keystroke verbatim into the buffer, allowing the user
+enters this keystroke verbatim into the buffer, allowing the user
 to insert literal control codes (except @code{^J}) or escape sequences.
 
 @node Commands
@@ -272,8 +277,8 @@ and then pressing the desired key.
 
 Text can be cut from a file a whole line at a time with @kbd{^K}.
 The cut line is stored in the cutbuffer.  Consecutive strokes of @kbd{^K}
-will add each cut line to this buffer, but a @kbd{^K}
-after any other keystroke will overwrite the entire cutbuffer.
+add each cut line to this buffer, but a @kbd{^K}
+after any other keystroke overwrites the entire cutbuffer.
 
 The contents of the cutbuffer can be pasted at the current cursor position
 with @kbd{^U}.
@@ -286,14 +291,14 @@ with @kbd{M-6}.
 
 Text can be selected by first 'setting the Mark' with @kbd{^6}
 or @kbd{M-A} and then moving the cursor to the other end of the portion
-to be selected.  The selected portion of text will be highlighted.
+to be selected.  The selected portion of text is highlighted.
 This selection can now be cut or copied in its entirety with a single
 @kbd{^K} or @kbd{M-6}.  Or the selection can be used to limit the scope of
 a search-and-replace (@kbd{^\}) or spell-checking session (@kbd{^T^T}).
 
 On some terminals, text can be selected also by holding down @kbd{Shift}
 while using the cursor keys.  Holding down the @kbd{Ctrl} or @kbd{Alt}
-key too will increase the stride.  Such a selection is cancelled
+key too increases the stride.  Such a selection is cancelled
 upon any cursor movement where @kbd{Shift} isn't held.
 
 Cutting or copying selected text toggles off the mark automatically.
@@ -302,15 +307,32 @@ If needed, it can be toggled off manually with another @kbd{^6} or @kbd{M-A}.
 @node Search and Replace
 @section Search and Replace
 
-One can search the current buffer for the occurrence of any string
-with the Search command (default key binding: @kbd{^W}).  The default search
+With the Search command (@kbd{^F} or @kbd{^W}) one can search the
+current buffer for the occurrence of any string.  The default search
 mode is forward, case-insensitive, and for literal strings.  But one
-can search backwards by pressing @kbd{M-B}, search case sensitively with @kbd{M-C},
-and interpret regular expressions in the search string with @kbd{M-R}.
+can search backwards by toggling @kbd{M-B}, search case sensitively
+with @kbd{M-C}, and interpret regular expressions in the search string
+with @kbd{M-R}.
 
-A regular expression in a search string always covers just one line;
-it cannot span multiple lines.  And when replacing (with @kbd{^\} or @kbd{M-R})
-the replacement string cannot contain a newline (LF).
+With the Replacement command (@kbd{M-R} or @kbd{^\}) one can replace
+a given string (or regular expression) with another string.
+When a regular expression contains fragments between parentheses,
+the replacement string can refer back to these fragments via
+@code{\1} to @code{\9}.
+
+For each occurrence of the search string you are asked whether to
+replace it.  You can choose Yes (replace it), or No (skip this one),
+or All (replace all remaining occurrences without asking any more),
+or Cancel (stop with replacing, but replacements that have already
+been made will not be undone).
+
+If before a replacing session starts a region is marked, then
+only occurrences of the search string within the marked region
+will be replaced.
+
+A regular expression always covers just one line --- it cannot span
+multiple lines.  And neither a search string nor a replacement string
+can contain a newline (LF).
 
 @node Using the Mouse
 @section Using the Mouse
@@ -322,24 +344,28 @@ executes the selected shortcut.  To be able to select text with the
 left button, or paste text with the middle button, hold down the
 Shift key during those actions.
 
-The mouse will work in the X Window System, and on the console when gpm
+The mouse works in the X Window System, and on the console when gpm
 is running.
 
 @node Anchors
 @section Anchors
 
-With @kbd{M-Ins} you can place an anchor (a kind of temporary bookmark)
-at the current line.  With @kbd{M-PgUp} and @kbd{M-PgDn} you can jump
+With @kbd{M-Ins} you can place an anchor (a kind of bookmark) at
+the current line.  With @kbd{M-PgUp} and @kbd{M-PgDn} you can jump
 to an anchor in the backward/forward direction.  This jumping wraps
 around at the top and bottom.
 
-When a line with an anchor is removed, the line where the cursor ends up
-inherits the anchor.  After performing an operation on the entire buffer
-(like formatting it, piping it through a command, or doing an external
-spell check on it), any anchors that were present are gone.  And when
-you close the buffer, all its anchors simply disappear; they are not saved.
+When an operation removes a line with an anchor, the new line with the
+cursor inherits the anchor.  But after performing an operation on the
+entire buffer (like formatting it, piping it through a command, or
+doing an external spell check on it), any anchors that were present
+are gone.
 
-Anchors are visualized in the margin when line numbers are activated.
+When @option{--positionlog} or @code{set positionlog} is active, anchors
+are saved when the file is closed, and restored when the file is reopened.
+
+Anchors are visualized in the left margin if line numbers are active,
+and are always visualized (on the right-hand side) in the mini bar.
 
 @node Limitations
 @section Limitations
@@ -362,7 +388,7 @@ and @kbd{^V} (Page Down) keys.  @kbd{^X} exits from the help viewer.
 @chapter The File Browser
 
 When in the Read-File (@kbd{^R}) or Write-Out menu (@kbd{^O}),
-pressing @kbd{^T} will invoke the file browser.
+pressing @kbd{^T} invokes the file browser.
 Here, one can navigate directories in a graphical manner in order to
 find the desired file.
 
@@ -371,8 +397,8 @@ other cursor-movement keys.  More targeted movement is accomplished by
 searching, via @kbd{^W} or @kbd{w}, or by changing directory, via
 @kbd{^_} or @kbd{g}.  The behavior of the @kbd{Enter} key (or @kbd{s})
 varies by what is currently selected.
-If the currently selected object is a directory, the file browser will
-enter and display the contents of the directory.  If the object is a
+If the currently selected object is a directory, the file browser
+enters and displays the contents of the directory.  If the object is a
 file, this filename and path are copied to the status bar, and the file
 browser exits.
 
@@ -380,17 +406,16 @@ browser exits.
 @node Command-line Options
 @chapter Command-line Options
 
-@command{nano} takes the following options from the command line:
+@command{nano} accepts the following options from the command line:
 
 @table @option
 
 @item -A
 @itemx --smarthome
 Make the Home key smarter.  When Home is pressed anywhere but at the
-very beginning of non-whitespace characters on a line, the cursor will
-jump to that beginning (either forwards or backwards).  If the cursor is
-already at that position, it will jump to the true beginning of the
-line.
+very beginning of non-whitespace characters on a line, the cursor jumps
+to that beginning (either forwards or backwards).  If the cursor is
+already at that position, it jumps to the true beginning of the line.
 
 @item -B
 @itemx --backup
@@ -405,9 +430,11 @@ The uniquely numbered files are stored in the specified directory.
 
 @item -D
 @itemx --boldtext
-For the interface, use bold instead of reverse video.  This will be overridden
-by setting the options @code{titlecolor}, @code{statuscolor}, @code{keycolor},
-@code{functioncolor}, @code{numbercolor}, and/or @code{selectedcolor} in your
+For the interface, use bold instead of reverse video.
+This can be overridden for specific elements
+by setting the options @code{titlecolor}, @code{statuscolor},
+@code{promptcolor}, @code{minicolor}, @code{keycolor},
+@code{numbercolor}, and/or @code{selectedcolor} in your
 nanorc file.  @xref{@code{set keycolor}} for details.
 
 @item -E
@@ -471,6 +498,7 @@ beginning of a paragraph (unless auto-indenting is on).
 @itemx --positionlog
 For the 200 most recent files, log the last position of the cursor,
 and place it at that position again upon reopening such a file.
+Also save and restore the positions of any anchors.
 
 @item -Q "@var{regex}"
 @itemx --quotestr="@var{regex}"
@@ -495,7 +523,6 @@ any name beginning with @code{r} (e.g.@: @command{rnano}).
 Display over multiple screen rows lines that exceed the screen's width.
 (You can make this soft-wrapping occur at whitespace instead of rudely at
 the screen's edge, by using also @code{--atblanks}.)
-(The old short option, @code{-$}, is deprecated.)
 
 @item -T @var{number}
 @itemx --tabsize=@var{number}
@@ -548,7 +575,7 @@ the last one given takes effect.)
 
 @item -c
 @itemx --constantshow
-Constantly display the cursor position (line number, column number,
+Constantly report the cursor position (line number, column number,
 and character number) on the status bar.
 Note that this overrides option @option{-U} (@option{--quickblank}).
 
@@ -600,28 +627,29 @@ Display line numbers to the left of the text area.
 @item -m
 @itemx --mouse
 Enable mouse support, if available for your system.  When enabled, mouse
-clicks can be used to place the cursor, set the mark (with a double
-click), and execute shortcuts.  The mouse will work in the X Window
-System, and on the console when gpm is running.  Text can still be
-selected through dragging by holding down the Shift key.
+clicks can be used to place the cursor, set the mark (with two clicks),
+and execute shortcuts.  The mouse works in the X Window System, and on
+the console when gpm is running.  Text can still be selected through
+dragging by holding down the Shift key.
 
 @item -n
 @itemx --noread
 Treat any name given on the command line as a new file.  This allows
-@command{nano} to write to named pipes: it will start with a blank buffer,
-and will write to the pipe when the user saves the "file".  This way
+@command{nano} to write to named pipes: it starts with a blank buffer,
+and writes to the pipe when the user saves the "file".  This way
 @command{nano} can be used as an editor in combination with for instance
 @command{gpg} without having to write sensitive data to disk first.
 
 @item -o @var{directory}
 @itemx --operatingdir=@var{directory}
-Set the operating directory.  This makes @command{nano} set up something
-similar to a chroot.
+Change to the given @var{directory}, and allow reading and writing
+files only in this directory and its subdirectories.
 
 @item -p
 @itemx --preserve
-Preserve the @kbd{^Q} (XON) and @kbd{^S} (XOFF) sequences so data being
-sent to the editor can be stopped and started.
+Preserve the @kbd{^S} (XOFF) and @kbd{^Q} (XON) sequences so that
+data being sent to the terminal can be stopped and resumed.
+Note that option @option{-/} (@option{--modernbindings}) overrides this.
 
 @item -q
 @itemx --indicator
@@ -632,7 +660,7 @@ and how much of the buffer is covered by the viewport.
 @item -r @var{number}
 @itemx --fill=@var{number}
 Set the target width for justifying and automatic hard-wrapping at this
-@var{number} of columns.  If the value is 0 or less, wrapping will occur
+@var{number} of columns.  If the value is 0 or less, wrapping occurs
 at the width of the screen minus @var{number} columns, allowing the wrap
 point to vary along with the width of the screen if the screen is resized.
 The default value is @t{-8}.
@@ -688,10 +716,25 @@ disabled to display the help-system navigation keys.
 Make @kbd{Ctrl+Right} and @kbd{Ctrl+Delete} stop at word ends
 instead of beginnings.
 
+@item -z
+@itemx --listsyntaxes
+List the names of the available syntaxes and exit.
+
 @item -!
 @itemx --magic
 When neither the file's name nor its first line give a clue,
 try using libmagic to determine the applicable syntax.
+
+@item -@@
+@itemx --colonparsing
+When a filename given on the command line ends in a colon plus digits
+and this filename does not exist, then snip the colon plus digits and
+understand the digits as a line number.  If the trimmed filename does
+not exist either, then repeat the process and understand the obtained
+two numbers as line and column number.  But if the doubly trimmed
+filename does not exist either, then forget the trimming and accept
+the original filename as is.  To disable this colon parsing for some
+file, use @code{+1} or similar before the relevant filename.
 
 @item -%
 @itemx --stateflags
@@ -706,7 +749,7 @@ filename in the center of the title bar.
 @itemx --minibar
 Suppress the title bar and instead show information about
 the current buffer at the bottom of the screen, in the space
-for the status bar.  In this "minibar" the filename is shown
+for the status bar.  In this "mini bar" the filename is shown
 on the left, followed by an asterisk if the buffer has been modified.
 On the right are displayed the current line and column number, the
 code of the character under the cursor (in Unicode format: U+xxxx),
@@ -729,10 +772,23 @@ and disappears after 1.5 seconds or upon the next keystroke.
 With @kbd{M-Z} the title bar plus status bar can be toggled.
 With @kbd{M-X} the help lines.
 
+@item -/
+@itemx --modernbindings
+Use key bindings similar to the ones that most modern programs use:
+@kbd{^X} cuts, @kbd{^C} copies, @kbd{^V} pastes,
+@kbd{^Z} undoes, @kbd{^Y} redoes,
+@kbd{^F} searches forward, @kbd{^G} searches next,
+@kbd{^S} saves, @kbd{^O} opens a file, @kbd{^Q} quits,
+and (when the terminal permits) @kbd{^H} shows help.
+Furthermore, @kbd{^A} sets the mark,
+@kbd{^R} makes replacements, @kbd{^D} searches previous,
+@kbd{^P} shows the position, @kbd{^T} goes to a line,
+@kbd{^W} writes out a file, and @kbd{^E} executes a command.
+Note that this overrides option @option{-p} (@option{--preserve}).
+
 @end table
 
 @sp 1
-Option @code{-z} (@code{--suspendable}) has been removed.
 Suspension is enabled by default, reachable via @kbd{^T^Z}.
 (If you want a plain @kbd{^Z} to suspend nano, add
 @code{bind ^Z suspend main} to your nanorc.)
@@ -790,7 +846,7 @@ for more details).  The following global toggles are available:
 @item Hidden Interface
 @kbd{M-Z} toggles the @option{-0} (@option{--zero}) command-line option,
 but without the @option{-x} (@option{--nohelp}) part.  That is: it toggles
-just the title bar plus status bar (or the combined minibar plus status bar),
+just the title bar plus status bar (or the combined mini bar plus status bar),
 not the help lines.  The latter are toggled with @kbd{M-X}.
 
 @end table
@@ -800,13 +856,13 @@ not the help lines.  The latter are toggled with @kbd{M-X}.
 @chapter Nanorc Files
 
 Nanorc files can be used to configure @command{nano} to your liking
-without using command-line options.  During startup @command{nano} will
-normally read two files: first the system-wide file, @file{/etc/nanorc}
+without using command-line options.  During startup @command{nano}
+normally reads two files: first the system-wide file, @file{/etc/nanorc}
 (the exact path may be different on your system), and then the user-specific
 file, either @file{~/.nanorc} or @file{$XDG_CONFIG_HOME/nano/nanorc} or
 @file{.config/nano/nanorc}, whichever exists first.
-However, if @option{--rcfile} is given, @command{nano} will skip the
-above files and will read just the specified settings file.
+However, if @option{--rcfile} is given, @command{nano} skips the
+above files and reads just the specified settings file.
 
 A nanorc file can contain @command{set} and @command{unset} commands for
 various options (@pxref{Settings}).  It can also contain commands that
@@ -866,10 +922,11 @@ with @code{set backup} or @option{--backup} or @option{-B}.
 The uniquely numbered files are stored in the specified directory.
 
 @item set boldtext
-Use bold instead of reverse video for the title bar, status bar, key combos,
-function tags, line numbers, and selected text.  This is overridden by
-setting the options @code{titlecolor}, @code{statuscolor}, @code{keycolor},
-@code{functioncolor}, @code{numbercolor}, and/or @code{selectedcolor}.
+Use bold instead of reverse video for the title bar, status bar,
+prompt bar, mini bar, key combos, line numbers, and selected text.
+This can be overridden by setting the options @code{titlecolor},
+@code{statuscolor}, @code{promptcolor}, @code{minicolor},
+@code{keycolor}, @code{numbercolor}, and/or @code{selectedcolor}.
 
 @item set bookstyle
 When justifying, treat any line that starts with whitespace as the
@@ -888,8 +945,18 @@ Automatically hard-wrap the current line when it becomes overlong.
 @item set casesensitive
 Do case-sensitive searches by default.
 
+@item set colonparsing
+When a filename given on the command line ends in a colon plus digits
+and this filename does not exist, then snip the colon plus digits and
+understand the digits as a line number.  If the trimmed filename does
+not exist either, then repeat the process and understand the obtained
+two numbers as line and column number.  But if the doubly trimmed
+filename does not exist either, then forget the trimming and accept
+the original filename as is.  To disable this colon parsing for some
+file, use @code{+1} or similar before the relevant filename.
+
 @item set constantshow
-Constantly display the cursor position on the status bar.
+Constantly report the cursor position on the status bar.
 Note that this overrides @option{quickblank}.
 
 @item set cutfromcursor
@@ -905,7 +972,7 @@ The default value is @t{bold,white,red}.
 
 @item set fill @var{number}
 Set the target width for justifying and automatic hard-wrapping at this
-@var{number} of columns.  If the value is 0 or less, wrapping will occur
+@var{number} of columns.  If the value is 0 or less, wrapping occurs
 at the width of the screen minus @var{number} columns, allowing the wrap
 point to vary along with the width of the screen if the screen is resized.
 The default value is @t{-8}.
@@ -943,6 +1010,8 @@ Each of these eight names may be prefixed with the word
 @code{light} to get a brighter version of that color.
 The word @code{grey} or @code{gray} may be used
 as a synonym for @code{lightblack}.
+On a Linux console, @code{light} does not have
+any effect for a background color.
 
 On terminal emulators that can do at least 256 colors,
 other valid (but unprefixable) color names are:
@@ -987,7 +1056,7 @@ The default value is "@t{(<[@{)>]@}}".
 @item set minibar
 Suppress the title bar and instead show information about
 the current buffer at the bottom of the screen, in the space
-for the status bar.  In this "minibar" the filename is shown
+for the status bar.  In this "mini bar" the filename is shown
 on the left, followed by an asterisk if the buffer has been modified.
 On the right are displayed the current line and column number, the
 code of the character under the cursor (in Unicode format: U+xxxx),
@@ -1002,13 +1071,13 @@ The line plus column numbers and the character code are displayed only when
 The state flags are displayed only when @code{set stateflags} is used.
 
 @item set minicolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
-Use this color combination for the minibar.
+Use this color combination for the mini bar.
 (When this option is not specified, the colors of the title bar are used.)
 @xref{@code{set keycolor}} for valid color names.
 
 @item set mouse
 Enable mouse support, so that mouse clicks can be used to place the
-cursor, set the mark (with a double click), or execute shortcuts.
+cursor, set the mark (with two clicks), or execute shortcuts.
 
 @item set multibuffer
 When reading in a file with @kbd{^R}, insert it into a new buffer by default.
@@ -1032,17 +1101,16 @@ Use this color combination for line numbers.
 @xref{@code{set keycolor}} for valid color names.
 
 @item set operatingdir "@var{directory}"
-@command{nano} will only read and write files inside "directory" and its
-subdirectories.  Also, the current directory is changed to here, so
-files are inserted from this directory.  By default, the operating
-directory feature is turned off.
+At startup, make @command{nano} change to the given @var{directory}, and
+allow reading and writing files only in this directory and its subdirectories.
 
 @item set positionlog
-Save the cursor position of files between editing sessions.
-The cursor position is remembered for the 200 most-recently edited files.
+Save the positions of cursor and anchors between editing sessions.
+These positions are remembered for the 200 most-recently edited files.
 
 @item set preserve
-Preserve the XON and XOFF keys (@kbd{^Q} and @kbd{^S}).
+Preserve the XOFF and XON sequences (@kbd{^S} and @kbd{^Q}) so that
+they are caught by the terminal (stopping and resuming the output).
 
 @item set promptcolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
 Use this color combination for the prompt bar.
@@ -1092,8 +1160,6 @@ Save a changed buffer automatically on exit (@kbd{^X}); don't prompt.
 
 @item set scrollercolor @var{fgcolor},@var{bgcolor}
 Use this color combination for the indicator alias "scrollbar".
-(On terminal emulators that link to a libvte older than version 0.55,
-using a background color here does not work correctly.)
 @xref{@code{set keycolor}} for valid color names.
 
 @item set selectedcolor [bold,][italic,]@var{fgcolor},@var{bgcolor}
@@ -1107,10 +1173,9 @@ poor vision.
 
 @item set smarthome
 Make the Home key smarter.  When Home is pressed anywhere but at the
-very beginning of non-whitespace characters on a line, the cursor will
-jump to that beginning (either forwards or backwards).  If the cursor is
-already at that position, it will jump to the true beginning of the
-line.
+very beginning of non-whitespace characters on a line, the cursor jumps
+to that beginning (either forwards or backwards).  If the cursor is
+already at that position, it jumps to the true beginning of the line.
 
 @item set softwrap
 Display lines that exceed the screen's width over multiple screen lines.
@@ -1236,10 +1301,10 @@ via the following commands in a nanorc file:
 @item syntax @var{name} ["@var{fileregex}" @dots{}]
 Start the definition of a syntax with this @var{name}.
 All subsequent @code{color} and other such commands
-will be added to this syntax, until a new @code{syntax}
+are added to this syntax, until a new @code{syntax}
 command is encountered.
 
-When @command{nano} is run, this syntax will be automatically
+When @command{nano} is run, this syntax is automatically
 activated (for the relevant buffer) if the absolute filename
 matches the extended regular expression @var{fileregex}.
 Or the syntax can be explicitly activated (for all buffers)
@@ -1261,8 +1326,8 @@ If no @var{fileregex} matched and no @code{header} regex matched
 either, then compare this @var{regex} (or regexes) against the
 result of querying the @code{magic} database about the current
 file, to determine whether this syntax should be used for it.
-(This functionality only works when @code{libmagic} is installed
-on the system and will be silently ignored otherwise.)
+(This querying is done only when @code{libmagic} is actually installed
+on the system and @option{--magic} or @code{set magic} was given.)
 
 @item formatter @var{program} [@var{argument} @dots{}]
 Run the given @var{program} on the full contents of the current buffer.
@@ -1297,6 +1362,8 @@ Each of these eight names may be prefixed with the word
 @code{light} to get a brighter version of that color.
 The word @code{grey} or @code{gray} may be used
 as a synonym for @code{lightblack}.
+On a Linux console, @code{light} does not have
+any effect for a background color.
 
 On terminal emulators that can do at least 256 colors,
 other valid (but unprefixable) color names are:
@@ -1325,18 +1392,18 @@ Same as above, except that the matching is case insensitive.
 
 @item color [bold,][italic,]@var{fgcolor},@var{bgcolor} start="@var{fromrx}" end="@var{torx}"
 Paint all pieces of text whose start matches extended regular expression
-"fromrx" and whose end matches extended regular expression "torx" with
-the given foreground and background colors, at least one of
+@var{fromrx} and whose end matches extended regular expression @var{torx}
+with the given foreground and background colors, at least one of
 which must be specified.  This means that, after an initial instance of
-"fromrx", all text until the first instance of "torx" will be colored.
+@var{fromrx}, all text until the first instance of @var{torx} is colored.
 This allows syntax highlighting to span multiple lines.
 
 @item icolor [bold,][italic,]@var{fgcolor},@var{bgcolor} start="@var{fromrx}" end="@var{torx}"
 Same as above, except that the matching is case insensitive.
 
 @item include "@var{syntaxfile}"
-Read in self-contained color syntaxes from "syntaxfile".  Note that
-"syntaxfile" may contain only the above commands, from @code{syntax}
+Read in self-contained color syntaxes from @var{syntaxfile}.  Note that
+such a syntax file may contain only the above commands, from @code{syntax}
 to @code{icolor}.
 
 @item extendsyntax @var{name} @var{command} @var{argument} @dots{}
@@ -1365,7 +1432,7 @@ Rebinds @code{key} to @code{function} in the context of @code{menu}
 Makes @code{key} produce @code{string} in the context of @code{menu}
 (or in all menus where the key exists when @code{all} is used).
 Besides literal text and/or control codes, the  @code{string} may contain
-function names between braces.  These functions will be invoked when the
+function names between braces.  These functions are invoked when the
 key is typed. To include a literal opening brace, use @code{@{@{@}}.
 
 @item unbind key menu
@@ -1376,13 +1443,14 @@ Unbinds @code{key} from @code{menu}
 
 Note that @code{bind key "@{function@}" menu} is equivalent to
 @code{bind key function menu}, except that for the latter form
-@command{nano} will check the availability of the @code{function}
-in the given @code{menu} at startup time (and report an error if
+@command{nano} checks the availability of the @code{function}
+in the given @code{menu} at startup time (and reports an error if
 it does not exist there), whereas for the first form @command{nano}
-will check at execution time that the @code{function} exists but not
+checks at execution time that the @code{function} exists but not
 whether it makes any sense in the current menu. The user has to take
 care that a function name between braces (or any sequence of them)
-is appropriate.  Strange behavior can result when it is not.
+is appropriate.  Strange behavior or even a crash can result when
+the braced name is unfitting.
 
 @sp 1
 The format of @code{key} should be one of:
@@ -1524,7 +1592,7 @@ the contents of the buffer.)
 @item linter
 Invokes a syntax-checking program (if the active syntax defines one).
 If this program produces lines of the form "filename:linenum:charnum:
-some message", then the cursor will be put at the indicated position
+some message", then the cursor is put at the indicated position
 in the mentioned file while showing "some message" on the status bar.
 You can move from message to message with @kbd{PgUp} and @kbd{PgDn},
 and leave linting mode with @kbd{^C} or @kbd{Enter}.
@@ -1578,7 +1646,11 @@ while keeping the cursor in the same text position, if possible.
 (This function is bound by default to @kbd{Alt+Down}.)
 
 @item center
-Scrolls the line with the cursor to the middle of the screen.
+Scrolls the line with the cursor to the middle of the viewport.
+
+@item cycle
+Scrolls the line with the cursor first to the middle of the viewport,
+then to the top, then to the bottom.
 
 @item prevword
 Moves the cursor to the beginning of the previous word.
@@ -1604,6 +1676,12 @@ Moves the cursor to the beginning of the current or preceding block of text.
 
 @item nextblock
 Moves the cursor to the beginning of the next block of text.
+
+@item toprow
+Moves the cursor to the first row in the viewport.
+
+@item bottomrow
+Moves the cursor to the last row in the viewport.
 
 @item pageup
 Goes up one screenful.
@@ -1700,7 +1778,7 @@ Toggles between searching for something and replacing something.
 Toggles between searching for text and targeting a line number.
 
 @item flipexecute
-Toggles between inserting a file and executing a command.
+Switches from inserting a file to executing a command.
 
 @item flippipe
 When executing a command, toggles whether the current buffer (or marked
@@ -1757,7 +1835,8 @@ and the linter.  All further toggles are available in the main menu only.)
 Toggles the presence of title bar and status bar.
 
 @item constantshow
-Toggles the constant display of the current line, column, and character positions.
+Toggles the constant reporting (on the status bar)
+of the current line, column, and character positions.
 
 @item softwrap
 Toggles the displaying of overlong lines on multiple screen lines.
@@ -1780,15 +1859,14 @@ whitespace as the preceding line --- or as the next line if the preceding line
 is the beginning of a paragraph.
 
 @item cutfromcursor
-Toggles whether cutting text will cut the whole line or just from the current cursor
+Toggles whether cutting text cuts the whole line or just from the current cursor
 position to the end of the line.
 
 @item breaklonglines
-Toggles whether long lines will be hard-wrapped to the next line.
-(The old name of this function, 'nowrap', is deprecated.)
+Toggles whether the overlong part of a line is hard-wrapped to the next line.
 
 @item tabstospaces
-Toggles whether typed tabs will be converted to spaces.
+Toggles whether typed tabs are converted to spaces.
 
 @item mouse
 Toggles mouse support.
@@ -1873,7 +1951,7 @@ whereas Pico does it at screen width minus six columns. You can make
 @command{nano} do as Pico by using @option{--fill=-6}.
 
 @item Scrolling
-By default, @command{nano} will scroll just one line (instead of half
+By default, @command{nano} scrolls just one line (instead of half
 a screen) when the cursor is moved to a line that is just out of view.
 And when paging up or down, @command{nano} keeps the cursor in the same
 screen position as much as possible, instead of always placing it on the
@@ -1889,8 +1967,8 @@ get it back with the @option{--emptyline} option.
 
 @item Interactive Replace
 Instead of allowing you to replace either just one occurrence of a search
-string or all of them, @command{nano}'s replace function is interactive: it
-will pause at each found search string and query whether to replace this
+string or all of them, @command{nano}'s replace function is interactive:
+it pauses at each found search string and asks whether to replace this
 instance.  You can then choose Yes, or No (skip this one), or All (don't
 ask any more), or Cancel (stop with replacing).
 
@@ -1915,8 +1993,8 @@ but also (between the two) the current column position.
 
 @item Spell Checking
 In the internal spell checker misspelled words are sorted alphabetically
-and trimmed for uniqueness, such that the words 'apple' and 'Apple' will
-be prompted for correction separately.
+and trimmed for uniqueness, such that the strings 'Aplpe' and 'aplpe'
+will be offered for correction separately.
 
 @item Writing Selected Text to Files
 When using the Write-Out key (@kbd{^O}), text that has been selected using the
@@ -1928,8 +2006,8 @@ When using the Read-File key (@kbd{^R}), @command{nano} can not just read a file
 it can also read the output of a command to be run (@kbd{^X}).
 
 @item Reading from Working Directory
-By default, Pico will read files from the user's home directory (when
-using @kbd{^R}), but it will write files to the current working directory
+By default, Pico reads files from the user's home directory (when
+using @kbd{^R}), but it writes files to the current working directory
 (when using @kbd{^O}).  @command{nano} makes this symmetrical: always reading
 from and writing to the current working directory --- the directory
 that @command{nano} was started in.
@@ -2064,7 +2142,7 @@ Include some code for runtime debugging output.  This can get messy, so
 chances are you only want this feature when you're working on the nano source.
 
 @item --disable-nls
-Exclude Native Language support.  This will disable the use of any
+Exclude Native Language support.  This disables the use of any
 available GNU @command{nano} translations.
 
 @item --enable-utf8

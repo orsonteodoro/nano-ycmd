@@ -1,7 +1,7 @@
 /**************************************************************************
  *   prototypes.h  --  This file is part of GNU nano.                     *
  *                                                                        *
- *   Copyright (C) 1999-2011, 2013-2023 Free Software Foundation, Inc.    *
+ *   Copyright (C) 1999-2011, 2013-2025 Free Software Foundation, Inc.    *
  *                                                                        *
  *   GNU nano is free software: you can redistribute it and/or modify     *
  *   it under the terms of the GNU General Public License as published    *
@@ -14,7 +14,7 @@
  *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
+ *   along with this program.  If not, see https://gnu.org/licenses/.     *
  *                                                                        *
  **************************************************************************/
 
@@ -27,17 +27,21 @@ extern volatile sig_atomic_t the_window_resized;
 #endif
 
 extern bool on_a_vt;
+extern bool using_utf8;
 extern bool shifted_metas;
 
 extern bool meta_key;
 extern bool shift_held;
 extern bool mute_modifiers;
-extern bool bracketed_paste;
 
 extern bool we_are_running;
 extern bool more_than_one;
 extern bool report_size;
+
 extern bool ran_a_tool;
+extern char *foretext;
+
+extern int final_status;
 
 extern bool inhelp;
 extern char *title;
@@ -68,18 +72,19 @@ extern int controlup, controldown;
 extern int controlhome, controlend;
 #ifndef NANO_TINY
 extern int controldelete, controlshiftdelete;
-extern int shiftleft, shiftright;
 extern int shiftup, shiftdown;
 extern int shiftcontrolleft, shiftcontrolright;
 extern int shiftcontrolup, shiftcontroldown;
 extern int shiftcontrolhome, shiftcontrolend;
 extern int altleft, altright;
 extern int altup, altdown;
+extern int althome, altend;
 extern int altpageup, altpagedown;
 extern int altinsert, altdelete;
 extern int shiftaltleft, shiftaltright;
 extern int shiftaltup, shiftaltdown;
 #endif
+extern int mousefocusin, mousefocusout;
 
 #ifdef ENABLED_WRAPORJUSTIFY
 extern ssize_t fill;
@@ -92,10 +97,11 @@ extern WINDOW *footwin;
 extern int editwinrows;
 extern int editwincols;
 extern int margin;
-extern int thebar;
+extern int sidebar;
 #ifndef NANO_TINY
 extern int *bardata;
 extern ssize_t stripe_column;
+extern int cycling_aim;
 #endif
 
 extern linestruct *cutbuffer;
@@ -201,10 +207,6 @@ void to_last_file(void);
 #endif
 
 /* Most functions in chars.c. */
-#ifdef ENABLE_UTF8
-void utf8_init(void);
-bool using_utf8(void);
-#endif
 bool is_alpha_char(const char *c);
 bool is_blank_char(const char *c);
 bool is_cntrl_char(const char *c);
@@ -237,6 +239,9 @@ char *mbrevstrpbrk(const char *head, const char *accept, const char *pointer);
 bool has_blank_char(const char *string);
 #endif
 bool white_string(const char *string);
+#if defined(ENABLE_SPELLER) || defined(ENABLE_COLOR)
+void strip_leading_blanks_from(char *string);
+#endif
 
 /* Most functions in color.c. */
 #ifdef ENABLE_COLOR
@@ -248,6 +253,7 @@ void precalc_multicolorinfo(void);
 #endif
 
 /* Most functions in cut.c. */
+void expunge(undo_type action);
 void do_delete(void);
 void do_backspace(void);
 #ifndef NANO_TINY
@@ -266,8 +272,8 @@ void cut_text(void);
 void cut_till_eof(void);
 void zap_text(void);
 void copy_marked_region(void);
-void copy_text(void);
 #endif
+void copy_text(void);
 void paste_text(void);
 
 /* Most functions in files.c. */
@@ -349,7 +355,7 @@ void load_history(void);
 void save_history(void);
 void load_poshistory(void);
 void update_poshistory(void);
-bool has_old_position(const char *file, ssize_t *line, ssize_t *column);
+void restore_cursor_position_if_any(void);
 #endif
 
 /* Most functions in move.c. */
@@ -357,6 +363,12 @@ void to_first_line(void);
 void to_last_line(void);
 void do_page_up(void);
 void do_page_down(void);
+#ifndef NANO_TINY
+void to_top_row(void);
+void to_bottom_row(void);
+void do_cycle(void);
+void do_center(void);
+#endif
 #ifdef ENABLE_JUSTIFY
 void do_para_begin(linestruct **line);
 void do_para_end(linestruct **line);
@@ -376,7 +388,6 @@ void do_down(void);
 #if !defined(NANO_TINY) || defined(ENABLE_HELP)
 void do_scroll_up(void);
 void do_scroll_down(void);
-void do_center(void);
 #endif
 void do_left(void);
 void do_right(void);
@@ -428,6 +439,7 @@ void confirm_margin(void);
 #endif
 void unbound_key(int code);
 bool changes_something(functionptrtype f);
+void suck_up_input_and_paste_it(void);
 void inject(char *burst, size_t count);
 
 /* Most functions in prompt.c. */
@@ -583,8 +595,8 @@ linestruct *line_from_number(ssize_t number);
 void record_macro(void);
 void run_macro(void);
 #endif
-void reserve_space_for(size_t newsize);
 size_t waiting_keycodes(void);
+void put_back(int keycode);
 #ifdef ENABLE_NANORC
 void implant(const char *string);
 #endif
@@ -598,7 +610,7 @@ void blank_edit(void);
 void blank_statusbar(void);
 void wipe_statusbar(void);
 void blank_bottombars(void);
-void check_statusblank(void);
+void blank_it_when_expired(void);
 void set_blankdelay_to_one(void);
 char *display_string(const char *buf, size_t column, size_t span,
 						bool isdata, bool isprompt);

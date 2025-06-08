@@ -1,7 +1,7 @@
 /**************************************************************************
  *   help.c  --  This file is part of GNU nano.                           *
  *                                                                        *
- *   Copyright (C) 2000-2011, 2013-2023 Free Software Foundation, Inc.    *
+ *   Copyright (C) 2000-2011, 2013-2025 Free Software Foundation, Inc.    *
  *   Copyright (C) 2017 Rishabh Dave                                      *
  *   Copyright (C) 2014-2019 Benno Schulenberg                            *
  *                                                                        *
@@ -16,7 +16,7 @@
  *   See the GNU General Public License for more details.                 *
  *                                                                        *
  *   You should have received a copy of the GNU General Public License    *
- *   along with this program.  If not, see http://www.gnu.org/licenses/.  *
+ *   along with this program.  If not, see https://gnu.org/licenses/.     *
  *                                                                        *
  **************************************************************************/
 
@@ -67,8 +67,8 @@ void help_init(void)
 		htx[2] = NULL;
 	} else if (currmenu == MREPLACEWITH) {
 		htx[0] = N_("=== Replacement ===\n\n "
-				"Type the characters that should replace the characters that "
-				"you typed at the previous prompt, and press Enter.\n\n");
+				"Type the characters that should replace what you "
+				"typed at the previous prompt, and press Enter.\n\n");
 		htx[1] = N_(" The following function keys "
 				"are available at this prompt:\n\n");
 		htx[2] = NULL;
@@ -325,7 +325,7 @@ void help_init(void)
 void wrap_help_text_into_buffer(void)
 {
 	/* Avoid overtight and overwide paragraphs in the introductory text. */
-	size_t wrapping_point = ((COLS < 40) ? 40 : (COLS > 74) ? 74 : COLS) - thebar;
+	size_t wrapping_point = ((COLS < 40) ? 40 : (COLS > 74) ? 74 : COLS) - sidebar;
 	const char *ptr = start_of_body;
 	size_t sum = 0;
 
@@ -344,7 +344,7 @@ void wrap_help_text_into_buffer(void)
 		char *oneline;
 
 		if (ptr == end_of_intro)
-			wrapping_point = ((COLS < 40) ? 40 : COLS) - thebar;
+			wrapping_point = ((COLS < 40) ? 40 : COLS) - sidebar;
 
 		if (ptr < end_of_intro || *(ptr - 1) == '\n') {
 			length = break_line(ptr, wrapping_point, TRUE);
@@ -352,7 +352,7 @@ void wrap_help_text_into_buffer(void)
 			shim = (*(ptr + length - 1) == ' ') ? 0 : 1;
 			snprintf(oneline, length + shim, "%s", ptr);
 		} else {
-			length = break_line(ptr, ((COLS < 40) ? 22 : COLS - 18) - thebar, TRUE);
+			length = break_line(ptr, ((COLS < 40) ? 22 : COLS - 18) - sidebar, TRUE);
 			oneline = nmalloc(length + 5);
 			snprintf(oneline, length + 5, "\t\t  %s", ptr);
 		}
@@ -433,7 +433,7 @@ void show_help(void)
 	UNSET(WHITESPACE_DISPLAY);
 
 #ifdef ENABLE_LINENUMBERS
-	editwincols = COLS - thebar;
+	editwincols = COLS - sidebar;
 	margin = 0;
 #endif
 	tabsize = 8;
@@ -476,18 +476,11 @@ void show_help(void)
 
 #ifndef NANO_TINY
 		spotlighted = FALSE;
-
-		if (bracketed_paste || kbinput == BRACKETED_PASTE_MARKER) {
-			beep();
-			continue;
-		}
 #endif
 		function = interpret(kbinput);
 
-		if (function == full_refresh) {
-			full_refresh();
-		} else if (ISSET(SHOW_CURSOR) && (function == do_left || function == do_right ||
-											function == do_up || function == do_down)) {
+		if (ISSET(SHOW_CURSOR) && (function == do_left || function == do_right ||
+									function == do_up || function == do_down)) {
 			function();
 		} else if (function == do_up || function == do_scroll_up) {
 			do_scroll_up();
@@ -511,9 +504,15 @@ void show_help(void)
 			get_mouseinput(&dummy_row, &dummy_col, TRUE);
 #endif
 #ifndef NANO_TINY
-		} else if (kbinput == KEY_WINCH) {
+		} else if (kbinput == START_OF_PASTE) {
+			while (get_kbinput(midwin, BLIND) != END_OF_PASTE)
+				;
+			statusline(AHEM, _("Paste is ignored"));
+		} else if (kbinput == THE_WINDOW_RESIZED) {
 			;  /* Nothing to do. */
 #endif
+		} else if (function == full_refresh) {
+			full_refresh();
 		} else if (function == do_exit) {
 			break;
 		} else
@@ -539,7 +538,7 @@ void show_help(void)
 
 #ifdef ENABLE_LINENUMBERS
 	margin = was_margin;
-	editwincols = COLS - margin - thebar;
+	editwincols = COLS - margin - sidebar;
 #endif
 	tabsize = was_tabsize;
 #ifdef ENABLE_COLOR
