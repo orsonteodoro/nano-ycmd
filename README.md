@@ -61,10 +61,6 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
 
 #### Dependencies
 
-* ycmd, confirmed working for 20180210 (commit
-  1a83224202c4381d6d791c245a893ce25db7a974)
-* <code>>=</code>jedi 0.10, for Python support and for completer commands to work.
-* Latest jedihttp, for Python completion commands support.
 * One cryptographic library of either Nettle, OpenSSL, or libgcrypt, to mitigate
   against a man-in-the-middle (MITM) attack between ycmd and the nano text editor.
 * neon, for http interprocess communication between nano editor and ycmd server
