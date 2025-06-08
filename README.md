@@ -8,7 +8,7 @@ branch.
 
 * The master branch contains upstreams gnu nano source code untouched.
 * The ymcd-code-completion contains a modification to gnu nano that has ycmd
-support.
+  support.
 
 #### Which commits are working?  Which one should I clone?
 
@@ -26,20 +26,32 @@ You can use the following which have been tested:
 | [14e4255c52c9f64cabaa2af28354e9752d27ae65](https://github.com/orsonteodoro/nano-ycmd/tree/14e4255c52c9f64cabaa2af28354e9752d27ae65) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/14e4255c52c9f64cabaa2af28354e9752d27ae65.tar.gz) | RECOMMENDED. Tested working on Feb 11, 2018, for ycmd core version 39 (commit date circa Aug 21, 2018)   |
 | [1f1a50665877e6dd6f6d09999de3166f4b84a9a2](https://github.com/orsonteodoro/nano-ycmd/tree/1f1a50665877e6dd6f6d09999de3166f4b84a9a2) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/1f1a50665877e6dd6f6d09999de3166f4b84a9a2.tar.gz) | Works, recently tested but old; non-simd non-multicore. A Feb 11, 2017 build.                            |
 
-Recognized ycmd core versions:
+Compatible ycmd core versions:
 
-| Commit                                                                                                                     | Core version       | Clang/LLVM version | End of Life (EOL) status          |
-|----------------------------------------------------------------------------------------------------------------------------|--------------------|--------------------|-----------------------------------|
-| [33922510b354bae0561b5de886d0d0767ed8822a](https://github.com/ycm-core/ycmd/tree/33922510b354bae0561b5de886d0d0767ed8822a) | 47 (Live snapshot) | 16.0.1             | Supported dev build               |
-| [5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c](https://github.com/ycm-core/ycmd/tree/5f1e71240949ef9e6a64f47fa17ab63d1ec50a4c) | 46                 | 14                 | Supported feature complete build  |
-| [2ee41000a28fb6b2ae00985c231896b6d072af86](https://github.com/ycm-core/ycmd/tree/2ee41000a28fb6b2ae00985c231896b6d072af86) | 45                 | 14                 | Deprecated, supported             |
-| [6f2f818364bb5c52f60e720741ff583bf77b4cd5](https://github.com/ycm-core/ycmd/tree/6f2f818364bb5c52f60e720741ff583bf77b4cd5) | 44                 | 11                 | EOL                               |
-| [ef48cfe1b63bcc07b88e537fb5b6d17b513e319c](https://github.com/ycm-core/ycmd/tree/ef48cfe1b63bcc07b88e537fb5b6d17b513e319c) | 43                 | 10                 | EOL                               |
+| Commit                                                                                                                     | Core version       | Clang/LLVM version | Python compat  | Rust             | Mono / .NET Core           | Java | Node / TS       | End of Life (EOL) status          |
+|----------------------------------------------------------------------------------------------------------------------------|--------------------|--------------------|----------------|------------------|----------------------------|------|-----------------|--------------------------------|
+| [a51329a55f02ee3f16218c25ed5ee57b44cfc954](https://github.com/ycm-core/ycmd/tree/a51329a55f02ee3f16218c25ed5ee57b44cfc954) | 48 (Live snapshot) | 19.1.0             | 3.6 - 3.13     | 1.83.0 (nightly) | 6.6.0 / 2.1, 3.1, 5.0, 6.0 | 17   | 22 / 5.7.2      | Fully supported                   |
+| [99c068120c14257c236e1dcfbf55838e33ae141e](https://github.com/ycm-core/ycmd/tree/99c068120c14257c236e1dcfbf55838e33ae141e) | 48                 | 17.0.1             | 3.6 - 3.12     | 1.71.0 (nightly) | 6.6.0 / 2.1, 3.1, 5.0, 6.0 | 17   | 20 / 5.1.6      | Available                         |
+| [671fee16bbaa5da3858108b3717b76bc833b3953](https://github.com/ycm-core/ycmd/tree/671fee16bbaa5da3858108b3717b76bc833b3953) | 47                 | 15.0.1             | 3.6 - 3.10     | 1.63 (nightly)   | 6.6.0 / 2.1, 3.1, 5.0, 6.0 | 17   | 17 / 4.7.4      | EOL                         |
+| [18808eae493548f37c50e1e3e0b5607b5f94093d](https://github.com/ycm-core/ycmd/tree/18808eae493548f37c50e1e3e0b5607b5f94093d) | 46                 | 14.0.0             | 3.6 - 3.9      | 1.63 (nightly)   | 6.6.0 / 2.1, 3.1, 5.0, 6.0 | 17   | 17 / 4.7.4      | EOL                         |
+| [a9f616e24f4bc71cd0e7f227a41e8bc2640193fd](https://github.com/ycm-core/ycmd/tree/a9f616e24f4bc71cd0e7f227a41e8bc2640193fd) | 45                 | 11.0.0             | 3.6 - 3.9      | 1.50.0 (nightly) | 6.6.0 / 3.1, 5.0           | 11   | 14 / 4.1.5      | EOL                               |
+| [ff428c9976c93e217cd3f502d92ea68ca2ac5210](https://github.com/ycm-core/ycmd/tree/ff428c9976c93e217cd3f502d92ea68ca2ac5210) | 44                 | 10.0.0             | 2.7, 3.5 - 3.8 | 1.42.0 (nightly) | 6.6.0 / 3.1, 5.0           | 8    | 13 / 3.8.3      | EOL                               |
+| [228adf91f5ea15cca837f3ccc85f4e55edfa1b4f](https://github.com/ycm-core/ycmd/tree/228adf91f5ea15cca837f3ccc85f4e55edfa1b4f) | 43                 | 10.0.0             | 2.7, 3.5 - 3.8 | 1.42.0 (nightly) | 5.18 / 2.1                 | 8    | 0.10, 6, 7 / NA | EOL                               |
+| [683cb5e51d9e2379903189d7be6b16cf7fe80e7e](https://github.com/ycm-core/ycmd/tree/683cb5e51d9e2379903189d7be6b16cf7fe80e7e) | 39                 | 6.0.0              | 2.7, 3.3 - 3.6 | NA               | 3.0 / NA                   | 8    | 0.10, 6, 7 / NA | EOL                               |
 
+* NA = Not Available
 * Support for a particular ycmd core version is based on version availability of
-Python and Clang dependencies of the distro.
+  Python on the developer(s)' distro.
 * The End of Life (EOL) column is interpreted from the last tested commit
-snapshot of nano-ycmd.
+  snapshot of nano-ycmd.
+* For 2025, the commits supported for compatible ycmd core version has changed
+  and is based on the version bump of CORE_VERSION.  The version bump is assumed
+  to be the final version and is based on other Python projects that bump the
+  version variable in setup.py or __init__.py while simultaneously tagging the
+  release on the repo.  For ycmd, it is unclear and ambiguous which version is
+  the official final release because there are no repo tags.  The core version
+  bump can be interpreted as either the final version or the beginning of
+  the new development cycle.
 
 #### Docker
 
@@ -49,42 +61,42 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
 #### Dependencies
 
 * ycmd, confirmed working for 20180210 (commit
-1a83224202c4381d6d791c245a893ce25db7a974)
+  1a83224202c4381d6d791c245a893ce25db7a974)
 * <code>>=</code>jedi 0.10, for Python support and for completer commands to work.
 * Latest jedihttp, for Python completion commands support.
 * One cryptographic library of either Nettle, OpenSSL, or libgcrypt, to mitigate
-against a man-in-the-middle (MITM) attack between ycmd and the nano text editor.
+  against a man-in-the-middle (MITM) attack between ycmd and the nano text editor.
 * neon, for http interprocess communication between nano editor and ycmd server
 * YCM-Generator (https://github.com/rdnetto/YCM-Generator), for
-C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py.  It
-requires YCM-Generator to be patched for Python 3 support.
+  C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py.  It
+  requires YCM-Generator to be patched for Python 3 support.
 * Bear (https://github.com/rizsotto/Bear), for C/C++/Objective-C/Objective-C++
-support to generate a compile_commands.json.
+  support to generate a compile_commands.json.
 * Clang, for C/C++/Objective-C/Objective-C++ code completion.
 * GNU Make, to clean up the project files
 * Sed, for patching .ycm_extra_conf.py
 * Bash >=4, for `&|` support
 * Unix, Linux, Cygwin for /dev/null and /dev/random support
 * NXJSON, for server response parsing (A Makefile patch applied to NXJSON
-package needs to be applied
-https://github.com/orsonteodoro/oiledmachine-overlay/blob/master/dev-libs/nxjson/files/nxjson-9999.20141019-create-libs.patch
-so that it is a shared library)
+  package needs to be applied
+  https://github.com/orsonteodoro/oiledmachine-overlay/blob/master/dev-libs/nxjson/files/nxjson-9999.20141019-create-libs.patch
+  so that it is a shared library)
 * compdb (https://github.com/Sarcasm/compdb) and Ninja, for Ninja build system
-support
+  support
 * jq (https://stedolan.github.io/jq/) (OPTIONAL) is json beautifier and filter.
-This is used to clean the DiagnosticResponse after parsing and inject an index
-on the node to allow for nano-ymcd to conveniently to find a FixIt based on an
-index selected by the user when the user hovers over this line/index with a
-shortcut key.  Currently, the `Display All FixIts` is broken because of the
-non-deterministic bug.
+  This is used to clean the DiagnosticResponse after parsing and inject an index
+  on the node to allow for nano-ymcd to conveniently to find a FixIt based on an
+  index selected by the user when the user hovers over this line/index with a
+  shortcut key.  Currently, the `Display All FixIts` is broken because of the
+  non-deterministic bug.
 * GNU findutils, requires for the find utility to search for Makefile,
-configure, *.ninja, *.pro, files.
+  configure, *.ninja, *.pro, files.
 * GNU coreutils, nano-ycmd needs tac command to reverse the clang system
-includes order for SIMD headers.
+  includes order for SIMD headers.
 * AVX512, AVX2, SSE2, MMX (OPTIONAL and undergoing testing, AVX2/AVX512 support
-untested) for string_replace and escape_json.
+  untested) for string_replace and escape_json.
 * OpenMP (OPTIONAL and undergoing testing) via --with-openmp for multicore
-string_replace and escape_json.
+  string_replace and escape_json.
 
 #### My distribution doesn't have the required dependencies
 
@@ -157,13 +169,13 @@ language that you working with.
 | Ctrl-space          | Yes                   | Yes               | Yes          | -                                 | Exits the completer commands menu
 
 * (1) It triggers randomly (in a not deterministic way).  It works for %d->%s
-format specifier, missing semicolon, identifier spelling errors.  It was tested
-only with the C language.
+  format specifier, missing semicolon, identifier spelling errors.  It was tested
+  only with the C language.
 * (2) It needs more test cases.
 * (3) Subserver problems were encountered.
 * (4) Interactive testing is performed.
 * (5) The results currently shown are from an older evaluated version.  Breakage
-may be encountered for newer versions.
+  may be encountered for newer versions.
 
 #### Why use ycmd backend over the builtin WORDCOMPLETION?
 
@@ -189,12 +201,12 @@ syntax checking (currently not supported in nano-ycmd).
 Working with some of these languages require additional requirements:
 
 * (1) JavaScript support requires both .tern-project and .tern-config project
-files to work.
+  files to work.
 * (2) C# support requires a .sln project file to work.
 * (3) C, C++, Objective-C, Objective-C++ requires either a *.pro, configure,
-CMakeList.txt, GNUmakefile, Makefile, or makefile to work.  An optional *.ninja
-file may be supplied in your project and would require additional steps to
-handle.  build.meson is supported through the YCM-Generator's develop branch.
+  CMakeList.txt, GNUmakefile, Makefile, or makefile to work.  An optional *.ninja
+  file may be supplied in your project and would require additional steps to
+  handle.  build.meson is supported through the YCM-Generator's develop branch.
 
 #### Why does the autocompleter not work with C, C++, Objective C, Objective C++ with a single hello world file?
 
@@ -305,11 +317,11 @@ The following environmental variables are defined by nano-ycmd are required for
 C family support (C/C++/ObjC/ObjC++):
 
 * YCMG_PROJECT_PATH - This should point to the folder containing the top-level
-Makefile, configure, CMakeList.txt. (REQUIRED)
+  Makefile, configure, CMakeList.txt. (REQUIRED)
 * YCMG_FLAGS - This adds extra parameters to config_gen.py.  I recommend using
-make over autotools specifically `-b make` because more include files are
-exposed instead of allowing YCM-Generator autodetect.  This environment variable
-is optional but recommended be in use in certain situations.
+  make over autotools specifically `-b make` because more include files are
+  exposed instead of allowing YCM-Generator autodetect.  This environment variable
+  is optional but recommended be in use in certain situations.
 
 So to use it in combination of nano-ycmd (ynano) without Ninja, it would look
 like:
@@ -336,10 +348,10 @@ We need the YCMG_PROJECT_PATH above plus the two required environment variables
 below:
 
 * NINJA_BUILD_PATH - This should point to the folder containing your *.ninja
-file (REQUIRED)
+  file (REQUIRED)
 * NINJA_BUILD_TARGETS - This should be the rule(s) space seperated and listed
-under the `# Rules for compiling comment` section and having the line begin with
-`command = clang` or whatever compiler you are using. (REQUIRED)
+  under the `# Rules for compiling comment` section and having the line begin with
+  `command = clang` or whatever compiler you are using. (REQUIRED)
 
 For NINJA_BUILD_TARGETS, the contents of gst-transcoder's build.ninja is
 presented below:
