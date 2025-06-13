@@ -2410,7 +2410,7 @@ void ycmd_restart_server()
 }
 
 int get_secret_otp_key(uint8_t *secret_otp_key) {
-#if defined(USE_URANDOM)
+#if defined(USE_RANDOM)
 	FILE *random_file;
 	statusline(HUSH, "Obtaining the secret key.  I need more entropy.  Type on the keyboard or move the mouse.");
 	random_file = fopen("/dev/random", "r");
