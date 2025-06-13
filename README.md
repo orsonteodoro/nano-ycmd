@@ -159,7 +159,6 @@ language that you working with.
 | Ctrl-y              | No                    | Yes               | Yes          | GoToType                          | Goes to a type
 | Ctrl-x              | No                    | Yes               | Yes          | ClearCompilationFlagCache         | Clears and updates FlagsForFile from .ycm_extra_conf.py
 | Ctrl-p              | Yes                   | Yes               | Yes          | GetParent                         | Gets parent class or method
-| Ctrl-s              | No                    | No                | No           | SolutionFile                      | Gets the path to the solution file
 | Ctrl-n              | Yes                   | Yes               | Yes          | -                                 | Sets the number of suggestions to show.  Max 2, 4, 6 depending on characters per line.
 | Ctrl-space          | Yes                   | Yes               | Yes          | -                                 | Exits the completer commands menu
 

@@ -244,10 +244,7 @@ void restore_terminal(void)
 void finish(void)
 {
 #ifdef ENABLE_YCMD
-#ifdef DEBUG
-	fprintf(stderr,"finish called.\n");
-#endif
-	ycmd_destroy();
+	delete_ycmd();
 #endif
 
 	/* Blank the status bar and (if applicable) the shortcut list. */
@@ -2783,7 +2780,7 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ENABLE_YCMD
-	ycmd_init();
+	ycmd_constructor();
 #endif
 
 #ifdef ENABLE_LINENUMBERS

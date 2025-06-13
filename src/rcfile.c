@@ -491,7 +491,7 @@ keystruct *strtosc(const char *input)
 }
 
 #ifdef ENABLE_YCMD
-#define NUMBER_OF_MENUS  20
+#define NUMBER_OF_MENUS  21
 #else
 #define NUMBER_OF_MENUS  16
 #endif

@@ -341,6 +341,12 @@ if test "x$enable_tabcomp" != xno; then
 	AC_DEFINE(ENABLE_TABCOMP, 1, [Define this to have tab completion for filenames and search strings.])
 fi
 
+AC_ARG_ENABLE(random,
+AS_HELP_STRING([--enable-random], [Enable /dev/random for secret key generation]))
+if test "x$enable_random" != xyes; then
+	AC_DEFINE(USE_RANDOM, 1, [Define this to use /dev/random for secret key generation.])
+fi
+
 AC_ARG_ENABLE(wordcomp,
 AS_HELP_STRING([--disable-wordcomp], [Disable the word-completion function]))
 if test "x$enable_tiny" = xyes; then
@@ -397,7 +403,6 @@ AC_ARG_WITH(bear,AS_HELP_STRING([--with-bear], [Enable Bear support for ycmd.  R
 AC_ARG_WITH(libgcrypt,AS_HELP_STRING([--with-libgcrypt], [Enable Libgcrypt support for ycmd]))
 AC_ARG_WITH(nettle,AS_HELP_STRING([--with-nettle], [Enable Nettle support for ycmd]))
 AC_ARG_WITH(ninja,AS_HELP_STRING([--with-ninja], [Enable Ninja support for ycmd.  Required for projects that rely on .ninja files.  (optional)]))
-AC_ARG_WITH(openmp,AS_HELP_STRING([--with-openmp], [Enable OpenMP support for ycmd (optional)]))
 AC_ARG_WITH(openssl,AS_HELP_STRING([--with-openssl], [Enable OpenSSL support for ycmd]))
 AC_ARG_WITH(ycm-generator,AS_HELP_STRING([--with-ycm-generator], [Enable YCM-Generator support for ycmd.  Required for C / C++ / Objective-C / Objective C++ projects that use GNU Make, qmake, cmake.  (optional)]))
 AC_ARG_ENABLE(ycmd,
@@ -507,13 +512,6 @@ if test "x$enable_ycmd" = xyes; then
 		AC_MSG_ERROR([unable to find the nx_json_get() function])
 	])
 
-	if test "x$with_openmp" = xyes; then
-		AC_SEARCH_LIBS([omp_get_thread_num], [omp], [], [
-			AC_MSG_ERROR([unable to find the omp_get_thread_num() function])
-		])
-		have_openmp=yes
-	fi
-
 	if test "x$with_openssl" = xyes; then
 		PKG_CHECK_MODULES([OPENSSL], [openssl >= 3], [
 			OPENSSL_LIB=$OPENSSL_LIBS
@@ -609,7 +607,6 @@ AM_CONDITIONAL([HAVE_MONO], [test x$MONO_PATH != x])
 AM_CONDITIONAL([HAVE_NETTLE], [test x$have_nettle = xyes])
 AM_CONDITIONAL([HAVE_NINJA], [test x$NINJA_PATH != x])
 AM_CONDITIONAL([HAVE_OMNISHARP], [test x$OMNISHARP_PATH != x])
-AM_CONDITIONAL([HAVE_OPENMP], [test x$have_openmp = xyes])
 AM_CONDITIONAL([HAVE_OPENSSL], [test x$have_openssl = xyes])
 AM_CONDITIONAL([HAVE_RACERD], [test x$RACERD_PATH != x])
 AM_CONDITIONAL([HAVE_RLS], [test x$RLS_PATH != x])

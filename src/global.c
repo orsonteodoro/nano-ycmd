@@ -1265,8 +1265,6 @@ void shortcut_init(void)
 			N_("Get Parent"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
 	add_to_funcs(do_completer_command_refactorrename, MCOMPLETERCOMMANDS,
 			N_("Refactor Rename"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
-	add_to_funcs(do_completer_command_solutionfile, MCOMPLETERCOMMANDS,
-			N_("Solution File"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
 	add_to_funcs(do_completer_command_gettype, MCOMPLETERCOMMANDS,
 			N_("Get Type"), WHENHELP(nano_ycmd_command_msg), TOGETHER);
 	add_to_funcs(do_completer_command_gettypeimprecise, MCOMPLETERCOMMANDS,
@@ -1353,7 +1351,6 @@ void shortcut_init(void)
 	add_to_sclist(MCOMPLETERCOMMANDS, "M-O", 0, do_completer_command_getdocimprecise, 0);
 	add_to_sclist(MCOMPLETERCOMMANDS, "^P", 0, do_completer_command_getparent, 0);
 	add_to_sclist(MCOMPLETERCOMMANDS, "^R", 0, do_completer_command_refactorrename, 0);
-	add_to_sclist(MCOMPLETERCOMMANDS, "^S", 0, do_completer_command_solutionfile, 0);
 	add_to_sclist(MCOMPLETERCOMMANDS, "^T", 0, do_completer_command_gettype, 0);
 	add_to_sclist(MCOMPLETERCOMMANDS, "M-T", 0, do_completer_command_gettypeimprecise, 0);
 	add_to_sclist(MCOMPLETERCOMMANDS, "^Y", 0, do_completer_command_gototype, 0);
