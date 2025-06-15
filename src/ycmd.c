@@ -126,6 +126,28 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 #endif
 #include <assert.h>
 #include <limits.h>
+#include <pthread.h>
+
+#if defined(__clang__) || defined(__GNUC__)
+	#define EMIT_WARNING(msg) _Pragma("warning \"" msg "\"")
+#elif defined(_MSC_VER)
+	#define EMIT_WARNING(msg) _Pragma("message \"" msg "\"")
+#else
+	#define EMIT_WARNING(msg)
+#endif
+
+/* Mitigate against memset being optimized out by the compiler. */
+#if defined(__linux__) && defined(__GLIBC__) && (__GLIBC__ > 2 || (__GLIBC__ == 2 && __GLIBC_MINOR__ >= 25))
+  #include <string.h>
+  #define SECURE_ZERO(ptr, size) explicit_bzero((ptr), (size))
+#elif defined(__FreeBSD__) || defined(__NetBSD__) || defined(__OpenBSD__) || defined(__APPLE__)
+  #include <strings.h>
+  #define SECURE_ZERO(ptr, size) explicit_bzero((ptr), (size))
+#else
+  EMIT_WARNING("Using memset for SECURE_ZERO.  It may be optimized out and reduce security.  Update to glibc 2.25 to fix the security issue.")
+  #include <string.h>
+  #define SECURE_ZERO(ptr, size) memset((ptr), 0, (size))
+#endif
 
 /* Notes:
  *
@@ -160,9 +182,9 @@ int ycmd_is_hmac_valid(const char *hmac_rsp_header, char *rsp_hmac_base64);
 int ycmd_rsp_is_server_ready(char *filetype);
 int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget, defined_subcommands_results_struct *dsr);
 int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget, char *completercommand, run_completer_command_result_struct *rccr);
-size_t _ne_send_file(ne_buffer *buf, linestruct *filetop);
-size_t _ne_send_sprintf(ne_buffer *buf, const char *format, ...);
-size_t ycmd_escape_json(char *unescaped, char *escaped, int offset);
+size_t _req_file(char *req_buffer, linestruct *filetop);
+size_t _req_sprintf(char *req_buffer, const char *format, ...);
+size_t ycmd_escape_json(char *unescaped, char *escaped);
 void default_settings_constructor(default_settings_struct *settings);
 void file_ready_to_parse_results_constructor(file_ready_to_parse_results_struct *frtpr);
 void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64);
@@ -178,6 +200,8 @@ void ycmd_start_server();
 void ycmd_stop_server();
 
 ycmd_globals_struct ycmd_globals;
+static pthread_mutex_t ycmd_request_mutex = PTHREAD_MUTEX_INITIALIZER; /* Serialize startup requests */
+static pthread_mutex_t session_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 void ycmd_send_to_server(int signum)
 {
@@ -186,14 +210,14 @@ void ycmd_send_to_server(int signum)
 
 void ycmd_constructor()
 {
-	memset(&ycmd_globals, 0, sizeof(ycmd_globals_struct));
+	SECURE_ZERO(&ycmd_globals, sizeof(ycmd_globals_struct));
 	ycmd_globals.core_version = DEFAULT_YCMD_CORE_VERSION;
 	ycmd_globals.session = 0;
 	ycmd_globals.scheme = "http";
 	ycmd_globals.hostname = "127.0.0.1";
 	ycmd_globals.port = 0;
 	ycmd_globals.child_pid = -1;
-	memset(&ycmd_globals.json, 0, sizeof(ycmd_globals.json));
+	SECURE_ZERO(&ycmd_globals.json, sizeof(ycmd_globals.json));
 
 	if (COLS <= HALF_LINE_LENGTH)
 		ycmd_globals.max_entries = 2;
@@ -444,7 +468,7 @@ sed -e "s|'do_cache': True|'do_cache': False|g" -e "s|'-I.'|'-isystem','$(echo $
 semantic_triggers_struct json_default_set_semantic_trigger(char *lang, char triggers[10][QUARTER_LINE_LENGTH])
 {
 	semantic_triggers_struct row;
-	memset(&row, 0, sizeof(semantic_triggers_struct));
+	SECURE_ZERO(&row, sizeof(semantic_triggers_struct));
 	strcpy(row.lang, lang);
 	memcpy(row.triggers, triggers, sizeof(row.triggers));
 	return row;
@@ -453,7 +477,7 @@ semantic_triggers_struct json_default_set_semantic_trigger(char *lang, char trig
 filetype_specific_completion_to_disable_struct json_default_set_filetype_specific_completion_to_disable(char *filetype, int off)
 {
 	filetype_specific_completion_to_disable_struct row;
-	memset(&row, 0, sizeof(filetype_specific_completion_to_disable_struct));
+	SECURE_ZERO(&row, sizeof(filetype_specific_completion_to_disable_struct));
 	strcpy(row.filetype, filetype);
 	row.off = off;
 	return row;
@@ -462,7 +486,7 @@ filetype_specific_completion_to_disable_struct json_default_set_filetype_specifi
 filetype_whitelist_struct json_default_set_filetype_whitelist(char *filetype, int whitelisted)
 {
 	filetype_whitelist_struct row;
-	memset(&row, 0, sizeof(filetype_whitelist_struct));
+	SECURE_ZERO(&row, sizeof(filetype_whitelist_struct));
 	strcpy(row.filetype, filetype);
 	row.whitelisted = whitelisted;
 	return row;
@@ -471,7 +495,7 @@ filetype_whitelist_struct json_default_set_filetype_whitelist(char *filetype, in
 filetype_blacklist_struct json_default_set_filetype_blacklist(char *filetype, int blacklisted)
 {
 	filetype_blacklist_struct row;
-	memset(&row, 0, sizeof(filetype_blacklist_struct));
+	SECURE_ZERO(&row, sizeof(filetype_blacklist_struct));
 	strcpy(row.filetype, filetype);
 	row.blacklisted = blacklisted;
 	return row;
@@ -480,7 +504,7 @@ filetype_blacklist_struct json_default_set_filetype_blacklist(char *filetype, in
 /* Preconditions:  ycmd_globals.secret_key_base64 must be set before calling function. */
 void default_settings_constructor(default_settings_struct *settings)
 {
-	memset(settings, 0, sizeof(default_settings_struct));
+	SECURE_ZERO(settings, sizeof(default_settings_struct));
 	settings->filepath_completion_use_working_dir = 1;
 	settings->auto_trigger = 1;
 	settings->min_num_of_chars_for_completion = 2;
@@ -606,28 +630,6 @@ void default_settings_constructor(default_settings_struct *settings)
 
 /* Needs to be freed */
 
-int _json_sprintf(char *json_buf, const char *format, ...)
-{
-	va_list args;
-	char line[PATH_MAX + LINE_LENGTH];
-	memset(line, 0, sizeof(line));
-	int len;
-
-	va_start(args, format);
-	len = vsnprintf(line, sizeof(line), format, args);
-	va_end(args);
-
-	if (len < 0)
-		return -1;
-
-#if defined(DEBUG)
-	fprintf(stderr, line);
-#endif
-
-	strcat(json_buf, line);
-	return len;
-}
-
 void default_settings_json_constructor(char *json)
 {
 #if defined(DEBUG)
@@ -639,17 +641,17 @@ void default_settings_json_constructor(char *json)
 
 	default_settings_struct *settings = &ycmd_globals.default_settings;
 
-	memset(json, 0, DEFAULT_JSON_SIZE);
+	SECURE_ZERO(json, DEFAULT_JSON_SIZE);
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wmisleading-indentation"
 
-	_json_sprintf(json, "{\n");
-		_json_sprintf(json, "\"filepath_completion_use_working_dir\": %d,\n", settings->filepath_completion_use_working_dir);
-		_json_sprintf(json, "\"auto_trigger\": %d,\n", settings->auto_trigger);
-		_json_sprintf(json, "\"min_num_of_chars_for_completion\": %d,\n", settings->min_num_of_chars_for_completion);
-		_json_sprintf(json, "\"min_num_identifier_candidate_chars\": %d,\n", settings->min_num_identifier_candidate_chars);
-		_json_sprintf(json, "\"semantic_triggers\": {\n");
+	_req_sprintf(json, "{\n");
+		_req_sprintf(json, "\"filepath_completion_use_working_dir\": %d,\n", settings->filepath_completion_use_working_dir);
+		_req_sprintf(json, "\"auto_trigger\": %d,\n", settings->auto_trigger);
+		_req_sprintf(json, "\"min_num_of_chars_for_completion\": %d,\n", settings->min_num_of_chars_for_completion);
+		_req_sprintf(json, "\"min_num_identifier_candidate_chars\": %d,\n", settings->min_num_identifier_candidate_chars);
+		_req_sprintf(json, "\"semantic_triggers\": {\n");
 
 			for (i = 0 ; i < settings->semantic_triggers_num ; i++) {
 				char comma1[2];
@@ -657,21 +659,21 @@ void default_settings_json_constructor(char *json)
 					strcpy(comma1, ",");
 				else
 					strcpy(comma1, "");
-				_json_sprintf(json, "\"%s\": [", settings->semantic_triggers[i].lang);
+				_req_sprintf(json, "\"%s\": [", settings->semantic_triggers[i].lang);
 				for (j = 0 ; j < settings->semantic_triggers[i].triggers_num ; j++); {
 					char comma2[2];
 					if (j < settings->semantic_triggers[i].triggers_num - 1)
 						strcpy(comma2, ",");
 					else
 						strcpy(comma2, "");
-					_json_sprintf(json, "\"%s\"%s", settings->semantic_triggers[i].lang, settings->semantic_triggers[i].triggers[j], comma2);
+					_req_sprintf(json, "\"%s\"%s", settings->semantic_triggers[i].lang, settings->semantic_triggers[i].triggers[j], comma2);
 				}
-				_json_sprintf(json, "]%s\n", comma1);
+				_req_sprintf(json, "]%s\n", comma1);
 			}
 
-		_json_sprintf(json, "},\n");
+		_req_sprintf(json, "},\n");
 
-		_json_sprintf(json, "\"filetype_specific_completion_to_disable\": {\n");
+		_req_sprintf(json, "\"filetype_specific_completion_to_disable\": {\n");
 
 			for (i = 0 ; i < settings->filetype_specific_completion_to_disable_num ; i++) {
 				char comma[2];
@@ -679,41 +681,41 @@ void default_settings_json_constructor(char *json)
 					strcpy(comma, ",");
 				else
 					strcpy(comma, "");
-				_json_sprintf(json, "\"%s\": %d%s\n", settings->filetype_specific_completion_to_disable[i].filetype, settings->filetype_specific_completion_to_disable[i].off, comma);
+				_req_sprintf(json, "\"%s\": %d%s\n", settings->filetype_specific_completion_to_disable[i].filetype, settings->filetype_specific_completion_to_disable[i].off, comma);
 			}
 
-		_json_sprintf(json, "},\n");
+		_req_sprintf(json, "},\n");
 
 		if (ycmd_globals.core_version < 43) {
-			_json_sprintf(json, "\"seed_identifiers_with_syntax\": %d,\n", settings->seed_identifiers_with_syntax);
+			_req_sprintf(json, "\"seed_identifiers_with_syntax\": %d,\n", settings->seed_identifiers_with_syntax);
 		}
-		_json_sprintf(json, "\"collect_identifiers_from_comments_and_strings\": %d,\n", settings->collect_identifiers_from_comments_and_strings);
+		_req_sprintf(json, "\"collect_identifiers_from_comments_and_strings\": %d,\n", settings->collect_identifiers_from_comments_and_strings);
 		if (ycmd_globals.core_version < 43) {
-			_json_sprintf(json, "\"collect_identifiers_from_tags_files\": %d,\n", settings->collect_identifiers_from_tags_files);
+			_req_sprintf(json, "\"collect_identifiers_from_tags_files\": %d,\n", settings->collect_identifiers_from_tags_files);
 		}
-		_json_sprintf(json, "\"max_num_identifier_candidates\": %d,\n", settings->max_num_identifier_candidates);
-		_json_sprintf(json, "\"max_num_candidates\": %d,\n", settings->max_num_candidates);
+		_req_sprintf(json, "\"max_num_identifier_candidates\": %d,\n", settings->max_num_identifier_candidates);
+		_req_sprintf(json, "\"max_num_candidates\": %d,\n", settings->max_num_candidates);
 		if (ycmd_globals.core_version >= 45) {
-			_json_sprintf(json, "\"max_num_candidates_to_detail\": %d,\n", settings->max_num_candidates_to_detail);
+			_req_sprintf(json, "\"max_num_candidates_to_detail\": %d,\n", settings->max_num_candidates_to_detail);
 		}
 
-		_json_sprintf(json, "\"extra_conf_globlist\": [");
+		_req_sprintf(json, "\"extra_conf_globlist\": [");
 
 			for (i = 0 ; i < settings->extra_conf_globlist_num ; i++) {
-				_json_sprintf(json, "'%s',", settings->extra_conf_globlist[i].pattern);
+				_req_sprintf(json, "'%s',", settings->extra_conf_globlist[i].pattern);
 			}
-		_json_sprintf(json, "],\n");
-		_json_sprintf(json, "\"global_ycm_extra_conf\": \"%s\",\n", settings->global_ycm_extra_conf);
-		_json_sprintf(json, "\"confirm_extra_conf\": %d,\n", settings->confirm_extra_conf);
+		_req_sprintf(json, "],\n");
+		_req_sprintf(json, "\"global_ycm_extra_conf\": \"%s\",\n", settings->global_ycm_extra_conf);
+		_req_sprintf(json, "\"confirm_extra_conf\": %d,\n", settings->confirm_extra_conf);
 		if (ycmd_globals.core_version < 43) {
-			_json_sprintf(json, "\"complete_in_comments\": %d,\n", settings->complete_in_comments);
-			_json_sprintf(json, "\"complete_in_strings\": %d,\n", settings->complete_in_strings);
+			_req_sprintf(json, "\"complete_in_comments\": %d,\n", settings->complete_in_comments);
+			_req_sprintf(json, "\"complete_in_strings\": %d,\n", settings->complete_in_strings);
 		}
 
-		_json_sprintf(json, "\"max_diagnostics_to_display\": %d,\n", settings->max_diagnostics_to_display);
+		_req_sprintf(json, "\"max_diagnostics_to_display\": %d,\n", settings->max_diagnostics_to_display);
 
 		if (ycmd_globals.core_version < 43) {
-			_json_sprintf(json, "\"filetype_whitelist\": {\n");
+			_req_sprintf(json, "\"filetype_whitelist\": {\n");
 
 				for (i = 0 ; i < settings->filetype_whitelist_num ; i++) {
 					char comma[2];
@@ -721,13 +723,13 @@ void default_settings_json_constructor(char *json)
 						strcpy(comma, ",");
 					else
 						strcpy(comma, "");
-					_json_sprintf(json, "\"%s\": %d%s\n", settings->filetype_whitelist[i].filetype, settings->filetype_whitelist[i].whitelisted, comma);
+					_req_sprintf(json, "\"%s\": %d%s\n", settings->filetype_whitelist[i].filetype, settings->filetype_whitelist[i].whitelisted, comma);
 				}
 
-			_json_sprintf(json, "},\n");
+			_req_sprintf(json, "},\n");
 		}
 
-		_json_sprintf(json, "\"filetype_blacklist\": {\n");
+		_req_sprintf(json, "\"filetype_blacklist\": {\n");
 
 			for (i = 0 ; i < settings->filetype_blacklist_num ; i++) {
 				char comma[2];
@@ -735,55 +737,55 @@ void default_settings_json_constructor(char *json)
 					strcpy(comma, ",");
 				else
 					strcpy(comma, "");
-				_json_sprintf(json, "\"%s\": %d%s\n", settings->filetype_blacklist[i].filetype, settings->filetype_blacklist[i].blacklisted, comma);
+				_req_sprintf(json, "\"%s\": %d%s\n", settings->filetype_blacklist[i].filetype, settings->filetype_blacklist[i].blacklisted, comma);
 			}
 
-		_json_sprintf(json, "},\n");
-		_json_sprintf(json, "\"auto_start_csharp_server\": %d,\n", settings->auto_start_csharp_server);
-		_json_sprintf(json, "\"auto_stop_csharp_server\": %d,\n", settings->auto_stop_csharp_server);
-		_json_sprintf(json, "\"use_ultisnips_completer\": %d,\n", settings->use_ultisnips_completer);
-		_json_sprintf(json, "\"csharp_server_port\": %d,\n", settings->csharp_server_port);
-		_json_sprintf(json, "\"hmac_secret\": \"%s\",\n", settings->hmac_secret);
-		_json_sprintf(json, "\"server_keep_logfiles\": %d,\n", settings->server_keep_logfiles);
+		_req_sprintf(json, "},\n");
+		_req_sprintf(json, "\"auto_start_csharp_server\": %d,\n", settings->auto_start_csharp_server);
+		_req_sprintf(json, "\"auto_stop_csharp_server\": %d,\n", settings->auto_stop_csharp_server);
+		_req_sprintf(json, "\"use_ultisnips_completer\": %d,\n", settings->use_ultisnips_completer);
+		_req_sprintf(json, "\"csharp_server_port\": %d,\n", settings->csharp_server_port);
+		_req_sprintf(json, "\"hmac_secret\": \"%s\",\n", settings->hmac_secret);
+		_req_sprintf(json, "\"server_keep_logfiles\": %d,\n", settings->server_keep_logfiles);
 		if (ycmd_globals.core_version < 43) {
-			_json_sprintf(json, "\"gocode_binary_path\": \"%s\",\n", settings->gocode_binary_path);
-			_json_sprintf(json, "\"godef_binary_path\": \"%s\",\n", settings->godef_binary_path);
-			_json_sprintf(json, "\"rust_src_path\": \"%s\",\n", settings->rust_src_path);
-			_json_sprintf(json, "\"racerd_binary_path\": \"%s\",\n", settings->racerd_binary_path);
+			_req_sprintf(json, "\"gocode_binary_path\": \"%s\",\n", settings->gocode_binary_path);
+			_req_sprintf(json, "\"godef_binary_path\": \"%s\",\n", settings->godef_binary_path);
+			_req_sprintf(json, "\"rust_src_path\": \"%s\",\n", settings->rust_src_path);
+			_req_sprintf(json, "\"racerd_binary_path\": \"%s\",\n", settings->racerd_binary_path);
 		}
 
-		_json_sprintf(json, "\"python_binary_path\": \"%s\",\n", settings->python_binary_path);
+		_req_sprintf(json, "\"python_binary_path\": \"%s\",\n", settings->python_binary_path);
 
 		if (ycmd_globals.core_version >= 43) {
-			_json_sprintf(json, "\"language_server\": [],\n");
-			_json_sprintf(json, "\"java_jdtls_use_clean_workspace\": %d,\n", settings->java_jdtls_use_clean_workspace);
-			_json_sprintf(json, "\"java_jdtls_extension_path\": [],\n");
-			_json_sprintf(json, "\"use_clangd\": %d,\n", settings->use_clangd);
-			_json_sprintf(json, "\"clangd_binary_path\": \"%s\",\n", settings->clangd_binary_path);
-			_json_sprintf(json, "\"clangd_args\": [],\n");
-			_json_sprintf(json, "\"clangd_uses_ycmd_caching\": %d,\n", settings->clangd_uses_ycmd_caching);
-			_json_sprintf(json, "\"disable_signature_help\": %d,\n", settings->disable_signature_help);
-			_json_sprintf(json, "\"gopls_binary_path\": \"%s\",\n", settings->gopls_binary_path);
-			_json_sprintf(json, "\"gopls_args\": [],\n");
-			_json_sprintf(json, "\"rls_binary_path\": \"%s\",\n", settings->rls_binary_path);
-			_json_sprintf(json, "\"rustc_binary_path\": \"%s\",\n", settings->rustc_binary_path);
-			_json_sprintf(json, "\"tsserver_binary_path\": \"%s\",\n", settings->tsserver_binary_path);
-			_json_sprintf(json, "\"roslyn_binary_path\": \"%s\",\n", settings->roslyn_binary_path);
+			_req_sprintf(json, "\"language_server\": [],\n");
+			_req_sprintf(json, "\"java_jdtls_use_clean_workspace\": %d,\n", settings->java_jdtls_use_clean_workspace);
+			_req_sprintf(json, "\"java_jdtls_extension_path\": [],\n");
+			_req_sprintf(json, "\"use_clangd\": %d,\n", settings->use_clangd);
+			_req_sprintf(json, "\"clangd_binary_path\": \"%s\",\n", settings->clangd_binary_path);
+			_req_sprintf(json, "\"clangd_args\": [],\n");
+			_req_sprintf(json, "\"clangd_uses_ycmd_caching\": %d,\n", settings->clangd_uses_ycmd_caching);
+			_req_sprintf(json, "\"disable_signature_help\": %d,\n", settings->disable_signature_help);
+			_req_sprintf(json, "\"gopls_binary_path\": \"%s\",\n", settings->gopls_binary_path);
+			_req_sprintf(json, "\"gopls_args\": [],\n");
+			_req_sprintf(json, "\"rls_binary_path\": \"%s\",\n", settings->rls_binary_path);
+			_req_sprintf(json, "\"rustc_binary_path\": \"%s\",\n", settings->rustc_binary_path);
+			_req_sprintf(json, "\"tsserver_binary_path\": \"%s\",\n", settings->tsserver_binary_path);
+			_req_sprintf(json, "\"roslyn_binary_path\": \"%s\",\n", settings->roslyn_binary_path);
 		}
 
 		if (ycmd_globals.core_version < 43) {
-			_json_sprintf(json, "\"java_jdtls_use_clean_workspace\": %d\n", settings->java_jdtls_use_clean_workspace);
+			_req_sprintf(json, "\"java_jdtls_use_clean_workspace\": %d\n", settings->java_jdtls_use_clean_workspace);
 		}
 
 		if (ycmd_globals.core_version >= 44) {
-			_json_sprintf(json, "\"mono_binary_path\": \"%s\",\n", settings->mono_binary_path);
+			_req_sprintf(json, "\"mono_binary_path\": \"%s\",\n", settings->mono_binary_path);
 		}
 
 		if (ycmd_globals.core_version >= 44) {
-			_json_sprintf(json, "\"java_binary_path\": \"%s\"\n", settings->java_binary_path);
+			_req_sprintf(json, "\"java_binary_path\": \"%s\"\n", settings->java_binary_path);
 		}
 
-	_json_sprintf(json, "}\n");
+	_req_sprintf(json, "}\n");
 #pragma GCC diagnostic pop
 }
 
@@ -815,7 +817,7 @@ void ycmd_gen_extra_conf()
 
 void file_ready_to_parse_results_constructor(file_ready_to_parse_results_struct *frtpr)
 {
-	memset(frtpr, 0, sizeof(file_ready_to_parse_results_struct));
+	SECURE_ZERO(frtpr, sizeof(file_ready_to_parse_results_struct));
 }
 
 void delete_file_ready_to_parse_results(file_ready_to_parse_results_struct *frtpr)
@@ -827,7 +829,7 @@ void delete_file_ready_to_parse_results(file_ready_to_parse_results_struct *frtp
 }
 
 void get_abs_path(char *filepath, char *abs_filepath) {
-	memset(abs_filepath, 0, PATH_MAX);
+	SECURE_ZERO(abs_filepath, PATH_MAX);
 	if (filepath[0] != '/') {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -853,50 +855,80 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	int compromised = 0;
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 	int ret;
-	int status_code = 0;
+#pragma GCC diagnostic pop
+	int status_code = -1;
 	ne_request *request;
 
 	request = ne_request_create(ycmd_globals.session, method, path);
+	if (!request) {
+#if defined(DEBUG)
+		fprintf(stderr, "%s: ne_request_create failed", function_name);
+#endif
+	        pthread_mutex_unlock(&ycmd_request_mutex);
+	        return -1;
+	}
 
-	ne_buffer *buf = ne_buffer_create();
 	get_abs_path(filepath, abspath);
 
 	/* We send the data directly skipping the json and string lib because we need to stream the file it. */
-	_ne_send_sprintf(buf, "{\n");
-	_ne_send_sprintf(buf, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
-	_ne_send_sprintf(buf, "  \"event_name\": \"%s\",\n", eventname);
-	_ne_send_sprintf(buf, "  \"file_data\": {\n");
-	_ne_send_sprintf(buf, "    \"%s\": {\n", abspath);
-	_ne_send_sprintf(buf, "      \"contents\": \"");
-		_ne_send_file(buf, filetop);
-		_ne_send_sprintf(buf, "\",\n");
-	_ne_send_sprintf(buf, "      \"filetypes\": [\"%s\"]\n", filetype);
-	_ne_send_sprintf(buf, "    }\n");
-	_ne_send_sprintf(buf, "  },\n");
-	_ne_send_sprintf(buf, "  \"filepath\": \"%s\",\n", abspath);
-	_ne_send_sprintf(buf, "  \"line_num\": %d\n", linenum);
-	_ne_send_sprintf(buf, "}\n");
-	ycmd_get_hmac_request(req_hmac_base64, method, path, buf->data, ne_buffer_size(buf));
+	char *req_buffer = malloc(MAX_FILESIZE_LIMIT);
+	if (!req_buffer) {
+		statusline(HUSH, "Out of Memory");
+	        ne_request_destroy(request);
+		return -1;
+	}
+	SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+	_req_sprintf(req_buffer, "{\n");
+	_req_sprintf(req_buffer, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
+	_req_sprintf(req_buffer, "  \"event_name\": \"%s\",\n", eventname);
+	_req_sprintf(req_buffer, "  \"file_data\": {\n");
+	_req_sprintf(req_buffer, "    \"%s\": {\n", abspath);
+	_req_sprintf(req_buffer, "      \"contents\": \"");
+		_req_file(req_buffer, filetop);
+		_req_sprintf(req_buffer, "\",\n");
+	_req_sprintf(req_buffer, "      \"filetypes\": [\"%s\"]\n", filetype);
+	_req_sprintf(req_buffer, "    }\n");
+	_req_sprintf(req_buffer, "  },\n");
+	_req_sprintf(req_buffer, "  \"filepath\": \"%s\",\n", abspath);
+	_req_sprintf(req_buffer, "  \"line_num\": %d\n", linenum);
+	_req_sprintf(req_buffer, "}\n");
+
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 
 	ne_add_request_header(request, "content-type", "application/json");
 	ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	ne_set_request_flag(request, NE_REQFLAG_IDEMPOTENT, 0);
-	ne_set_request_body_buffer(request, buf->data, ne_buffer_size(buf));
+	ne_set_request_body_buffer(request, req_buffer, strlen(req_buffer));
 
-	ret = ne_begin_request(request); /* Asynchronous */
+	ret = ne_begin_request(request);				/* Asynchronous */
+	char *response_body = _ne_read_response_body_full(request);
+	if (response_body == NULL) {
+		/* Sanitize sensitive data */
+		SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+		SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+
+		free(req_buffer);
+	        ne_request_destroy(request);
+		return -1;
+	}
+
+	const ne_status *status = ne_get_status(request);
+	if (status)
+		status_code = status->code;
 
 	if (strstr(eventname, "FileReadyToParse")) {
 		delete_file_ready_to_parse_results(&ycmd_globals.file_ready_to_parse_results);
 		file_ready_to_parse_results_constructor(&ycmd_globals.file_ready_to_parse_results);
-		ycmd_globals.file_ready_to_parse_results.status_code = status_code;
+		if (status)
+			ycmd_globals.file_ready_to_parse_results.status_code = status->code;
 	}
 
-	char *response_body = _ne_read_response_body_full(request);
-	status_code = ne_get_status(request)->code;
 #if defined(DEBUG)
-	fprintf(stderr, "DEBUG:  ycmd_req_completions_suggestions() status_code = %d, ret = %d\n", status_code, ret);
-	fprintf(stderr, "DEBUG:  ycmd_req_completions_suggestions() response_body:  %s\n", response_body);
+	fprintf(stderr, "DEBUG:  %s() status_code = %d, ret = %d\n", function_name, status_code, ret);
+	fprintf(stderr, "DEBUG:  %s() response_body:  %s\n", function_name, response_body);
 #endif
 	if (status_code == HTTP_STATUS_CODE_OK) {
 		const char *hmac_rsp_header = ne_get_response_header(request, HTTP_HEADER_YCM_HMAC);
@@ -915,15 +947,17 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 
 	}
 	ne_end_request(request);
-	if (response_body)
-		free(response_body);
 
 	/* Sanitize sensitive data */
-	memset(rsp_hmac_base64, 0, sizeof(rsp_hmac_base64));
-	memset(req_hmac_base64, 0, sizeof(req_hmac_base64));
-	/* memset(buf, 0, ne_buffer_size(buf)); */
-	ne_buffer_destroy(buf); /* It breaks here. */
+	SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+	SECURE_ZERO(rsp_hmac_base64, sizeof(rsp_hmac_base64));
+	SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+	if (response_body) {
+		/* SECURE_ZERO(response_body, strlen(response_body)); */ /* Segfaults */
+		free(response_body);
+	}
 
+	free(req_buffer);
         ne_request_destroy(request);
 
 	return status_code == HTTP_STATUS_CODE_OK && !compromised;
@@ -936,32 +970,36 @@ char *_ne_read_response_body_full(ne_request *request)
 	char *function_name = "_ne_read_response_body_full";
 #endif
 	char *response_body;
-	ssize_t chunksize = LINE_LENGTH;
+	int status_code = -1;
+	ssize_t chunksize = MAX_FILESIZE_LIMIT;
 	ssize_t total = 0;
 	ssize_t read_len = 0;
 
 	response_body = malloc(chunksize);
-	memset(response_body + total, 0, chunksize);
-	do {
-		read_len = ne_read_response_block(request, response_body + total, chunksize);
-		if (read_len > 0) {
+	if (!response_body) {
+		statusline(HUSH, "Out of Memory");
+		return NULL;
+	}
+	SECURE_ZERO(response_body + total, chunksize);
+	const ne_status *status = ne_get_status(request);
+	if (status)
+		status_code = status->code;
+	if (status_code == HTTP_STATUS_CODE_OK) {
+		while ((read_len = ne_read_response_block(request, response_body + total, chunksize)) > 0) {
 			total += read_len;
-			char *response_body_new = realloc(response_body, total + chunksize);
-			if (response_body_new == NULL)
-				break;
-			response_body = response_body_new;
-			memset(response_body + total, 0, chunksize);
-		} else if (read_len == 0) {
-			/* Done */
-			break;
-		} else {
+		}
+
+		if (read_len < 0) {
 #if defined(DEBUG)
 			const char *error = ne_get_error(ycmd_globals.session);
-			fprintf(stderr, "DEBUG:  %s() error = %s\n", function_name, error);
-			break;
+			fprintf(stderr, "DEBUG:  %s() Error reading response.  error = %s\n", function_name, error);
 #endif
 		}
-	} while (read_len > 0);
+	} else {
+#if defined(DEBUG)
+		fprintf(stderr, "%s:  Invalid status, code=%d", function_name, status->code);
+#endif
+	}
 
 	return response_body;
 }
@@ -991,8 +1029,11 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 	int ret;
-	int status_code = 0;
+#pragma GCC diagnostic pop
+	int status_code = -1;
 	struct funcstruct *func = allfuncs;
 	ne_request *request;
 
@@ -1003,36 +1044,61 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	}
 
 	request = ne_request_create(ycmd_globals.session, method, path);
+	if (!request) {
+#if defined(DEBUG)
+		fprintf(stderr, "%s: ne_request_create failed", function_name);
+#endif
+	        pthread_mutex_unlock(&ycmd_request_mutex);
+	        return -1;
+	}
 
-	ne_buffer *buf = ne_buffer_create();
 	get_abs_path(filepath, abspath);
 
 	/* We send the data directly skipping the json and string lib because we need to stream the file it. */
-	_ne_send_sprintf(buf, "{\n");
-	_ne_send_sprintf(buf, "  \"line_num\": %d,\n", linenum);
-	_ne_send_sprintf(buf, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
-	_ne_send_sprintf(buf, "  \"filepath\": \"%s\",\n", abspath);
-	_ne_send_sprintf(buf, "  \"file_data\": {\n");
-	_ne_send_sprintf(buf, "    \"%s\": {\n", abspath);
-	_ne_send_sprintf(buf, "      \"contents\": \"");
-		_ne_send_file(buf, filetop);
-		_ne_send_sprintf(buf, "\",\n");
-	_ne_send_sprintf(buf, "      \"filetypes\": [\"%s\"]\n", filetype);
-	_ne_send_sprintf(buf, "    }\n");
-	_ne_send_sprintf(buf, "  },\n");
-	_ne_send_sprintf(buf, "  \"completer_target\": \"%s\"\n", completertarget);
-	_ne_send_sprintf(buf, "}\n");
-	ycmd_get_hmac_request(req_hmac_base64, method, path, buf->data, ne_buffer_size(buf));
+	char *req_buffer = malloc(MAX_FILESIZE_LIMIT);
+	if (!req_buffer) {
+		statusline(HUSH, "Out of Memory");
+	        ne_request_destroy(request);
+		return -1;
+	}
+	SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+	_req_sprintf(req_buffer, "{\n");
+	_req_sprintf(req_buffer, "  \"line_num\": %d,\n", linenum);
+	_req_sprintf(req_buffer, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
+	_req_sprintf(req_buffer, "  \"filepath\": \"%s\",\n", abspath);
+	_req_sprintf(req_buffer, "  \"file_data\": {\n");
+	_req_sprintf(req_buffer, "    \"%s\": {\n", abspath);
+	_req_sprintf(req_buffer, "      \"contents\": \"");
+		_req_file(req_buffer, filetop);
+		_req_sprintf(req_buffer, "\",\n");
+	_req_sprintf(req_buffer, "      \"filetypes\": [\"%s\"]\n", filetype);
+	_req_sprintf(req_buffer, "    }\n");
+	_req_sprintf(req_buffer, "  },\n");
+	_req_sprintf(req_buffer, "  \"completer_target\": \"%s\"\n", completertarget);
+	_req_sprintf(req_buffer, "}\n");
+
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 
 	ne_add_request_header(request, "content-type", "application/json");
 	ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	ne_set_request_flag(request, NE_REQFLAG_IDEMPOTENT, 0);
-	ne_set_request_body_buffer(request, buf->data, ne_buffer_size(buf));
+	ne_set_request_body_buffer(request, req_buffer, strlen(req_buffer));
 
-	ret = ne_begin_request(request); /* Asynchronous */
-
+	ret = ne_begin_request(request);				/* Asynchronous */
 	char *response_body = _ne_read_response_body_full(request);
-	status_code = ne_get_status(request)->code;
+	if (response_body == NULL) {
+		/* Sanitize sensitive data */
+		SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+		SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+
+		free(req_buffer);
+	        ne_request_destroy(request);
+		return -1;
+	}
+
+	const ne_status *status = ne_get_status(request);
+	if (status)
+		status_code = status->code;
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  %s() status_code = %d, ret = %d\n", function_name, status_code, ret);
 	fprintf(stderr, "DEBUG:  %s() response_body:  %s\n", function_name, response_body);
@@ -1061,19 +1127,25 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 					const nx_json *candidate = nx_json_item(completions, i);
 					const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
 					if (insertion_text != NX_JSON_NULL) {
-						if (func->tag != NULL)
+						if (func->tag != NULL) {
+							SECURE_ZERO(func->tag, strlen(func->tag));
 							free((void *)func->tag);
+						}
 						func->tag = strdup(insertion_text->text_value);
+						/* Sanitize insertion_text->text_value? */
 						found_cc_entry = 1;
 					}
 					func = func->next;
 				}
 				for (i = j; i < completions->length && i < maximum && i < 6 && func; i++, func = func->next) {
-					if (func->tag != NULL)
+					if (func->tag != NULL) {
+						SECURE_ZERO(func->tag, strlen(func->tag));
 						free((void *)func->tag);
+					}
 					func->tag = strdup("");
 				}
 				ycmd_globals.apply_column = nx_json_get(pjson, "completion_start_column")->int_value;
+				/* Sanitize pjson? */
 				nx_json_free(pjson);
 			}
 
@@ -1084,15 +1156,17 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 		}
 	}
 	ne_end_request(request);
-	if (response_body)
-		free(response_body);
 
 	/* Sanitize sensitive data */
-	memset(rsp_hmac_base64, 0, sizeof(rsp_hmac_base64));
-	memset(req_hmac_base64, 0, sizeof(req_hmac_base64));
-	/* memset(buf, 0, ne_buffer_size(buf)); */
-	ne_buffer_destroy(buf);
+	SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+	SECURE_ZERO(rsp_hmac_base64, sizeof(rsp_hmac_base64));
+	SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+	if (response_body) {
+		/* SECURE_ZERO(response_body, strlen(response_body)); */ /* Segfaults */
+		free(response_body);
+	}
 
+	free(req_buffer);
 	ne_request_destroy(request);
 
 	return status_code == HTTP_STATUS_CODE_OK && !compromised;
@@ -1117,7 +1191,7 @@ void _run_completer_command_execute_command(char *completercommand, run_complete
 
 void constructor_run_completer_command_result(run_completer_command_result_struct *rccr)
 {
-	memset(rccr, 0, sizeof(run_completer_command_result_struct));
+	SECURE_ZERO(rccr, sizeof(run_completer_command_result_struct));
 }
 
 void delete_run_completer_command_result(run_completer_command_result_struct *rccr)
@@ -1166,6 +1240,7 @@ void parse_run_completer_command_result(run_completer_command_result_struct *rcc
 		if (n->type != NX_JSON_NULL)
 			rccr->detailed_info = strdup(n->text_value);
 
+		/* Sanitize json_parsed? */
 		nx_json_free(json_parsed);
 	}
 
@@ -1293,6 +1368,7 @@ void do_completer_command_goto(void)
 				}
 			}
 
+			/* Sanitize json? */
 			nx_json_free(json);
 		}
 		statusline(HUSH, display_text);
@@ -1345,6 +1421,7 @@ void do_completer_command_gotoreferences(void)
 				int line_num = nx_json_get(item, "line_num")->int_value;
 			}
 
+			// Sanitize json?
 			nx_json_free(json);
 		}
 		*/
@@ -1472,6 +1549,7 @@ void do_completer_command_fixit(void)
 						goto_line_and_column(fcre_line_num, 1, FALSE, FALSE);
 						openfile->current_x = fcre_column_num - 1;
 						cut_text(); /* It serves the same function as (cut character) ^K in global.c. */
+						/* Sanitize replacement_text? */
 						inject((char*)replacement_text, strlen(replacement_text));
 						statusline(HUSH, "Applied FixIt.");
 					}
@@ -1480,6 +1558,7 @@ void do_completer_command_fixit(void)
 				}
 			}
 
+			/* Sanitize json? */
 			nx_json_free(json);
 		}
 
@@ -1546,7 +1625,7 @@ void do_completer_command_refactorrename(void)
 	constructor_run_completer_command_result(&rccr);
 
 	char cc_command[LINE_LENGTH];
-	memset(cc_command, 0, sizeof(cc_command));
+	SECURE_ZERO(cc_command, sizeof(cc_command));
 
 	int ret = do_prompt(MREFACTORRENAME, NULL,
 #ifndef DISABLE_HISTORIES
@@ -1632,7 +1711,7 @@ void do_completer_command_reloadsolution(void)
 void do_completer_command_restartserver(void)
 {
 	char completercommand[LINE_LENGTH];
-	memset(completercommand, 0, LINE_LENGTH);
+	SECURE_ZERO(completercommand, LINE_LENGTH);
 
 	char *completertarget="filetype_default";
 	sprintf(completercommand, "[\"RestartServer\"]");
@@ -1669,7 +1748,7 @@ void do_completer_command_restartserver(void)
 void do_completer_command_stopserver(void)
 {
 	char completercommand[LINE_LENGTH];
-	memset(completercommand, 0, LINE_LENGTH);
+	SECURE_ZERO(completercommand, LINE_LENGTH);
 
 	char *completertarget = "filetype_default";
 	sprintf(completercommand, "[\"StopServer\"]");
@@ -1770,48 +1849,77 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 	int ret;
-	int status_code = 0;
+#pragma GCC diagnostic pop
+	int status_code = -1;
 	int tabsize = 4;
 	ne_request *request;
 
 	request = ne_request_create(ycmd_globals.session, method, path);
+	if (!request) {
+#if defined(DEBUG)
+		fprintf(stderr, "%s: ne_request_create failed", function_name);
+#endif
+	        pthread_mutex_unlock(&ycmd_request_mutex);
+	        return -1;
+	}
 
-	ne_buffer *buf = ne_buffer_create();
 	get_abs_path(filepath, abspath);
 
 	/* We send the data directly skipping the json and string lib because we need to stream the file it. */
-	_ne_send_sprintf(buf, "{\n");
-	_ne_send_sprintf(buf, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
-	_ne_send_sprintf(buf, "  \"command_arguments\": [%s],\n", completercommand);
-	_ne_send_sprintf(buf, "  \"completer_target\": \"%s\",\n", completertarget);
-	_ne_send_sprintf(buf, "  \"file_data\": {\n");
-	_ne_send_sprintf(buf, "    \"%s\": {\n", abspath);
-	_ne_send_sprintf(buf, "      \"filetypes\": [\"%s\"],\n", filetype);
-	_ne_send_sprintf(buf, "      \"contents\": \"\n");
-		_ne_send_file(buf, filetop);
-		_ne_send_sprintf(buf, "\"\n");
-	_ne_send_sprintf(buf, "    }");
-	_ne_send_sprintf(buf, "  },");
-	_ne_send_sprintf(buf, "  \"filepath\": \"%s\",\n", abspath);
-	_ne_send_sprintf(buf, "  \"line_num\": %d,\n", linenum);
-	_ne_send_sprintf(buf, "  \"options\": {\n");
-	_ne_send_sprintf(buf, "    \"insert_spaces\": %s,\n", insertspaces);
-	_ne_send_sprintf(buf, "    \"tab_size\": %d,\n", tabsize);
-	_ne_send_sprintf(buf, "  }\n");
-	_ne_send_sprintf(buf, "}\n");
-	ycmd_get_hmac_request(req_hmac_base64, method, path, buf->data, ne_buffer_size(buf));
+	char *req_buffer = malloc(MAX_FILESIZE_LIMIT);
+	if (!req_buffer) {
+		statusline(HUSH, "Out of Memory");
+	        ne_request_destroy(request);
+		return -1;
+	}
+	SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+	_req_sprintf(req_buffer, "{\n");
+	_req_sprintf(req_buffer, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
+	_req_sprintf(req_buffer, "  \"command_arguments\": [%s],\n", completercommand);
+	_req_sprintf(req_buffer, "  \"completer_target\": \"%s\",\n", completertarget);
+	_req_sprintf(req_buffer, "  \"file_data\": {\n");
+	_req_sprintf(req_buffer, "    \"%s\": {\n", abspath);
+	_req_sprintf(req_buffer, "      \"filetypes\": [\"%s\"],\n", filetype);
+	_req_sprintf(req_buffer, "      \"contents\": \"");
+		_req_file(req_buffer, filetop);
+		_req_sprintf(req_buffer, "\"\n");
+	_req_sprintf(req_buffer, "    }");
+	_req_sprintf(req_buffer, "  },");
+	_req_sprintf(req_buffer, "  \"filepath\": \"%s\",\n", abspath);
+	_req_sprintf(req_buffer, "  \"line_num\": %d,\n", linenum);
+	_req_sprintf(req_buffer, "  \"options\": {\n");
+	_req_sprintf(req_buffer, "    \"insert_spaces\": %s,\n", insertspaces);
+	_req_sprintf(req_buffer, "    \"tab_size\": %d,\n", tabsize);
+	_req_sprintf(req_buffer, "  }\n");
+	_req_sprintf(req_buffer, "}\n");
+
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 
 	ne_add_request_header(request, "content-type", "application/json");
 	ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	ne_set_request_flag(request, NE_REQFLAG_IDEMPOTENT, 0);
-	ne_set_request_body_buffer(request, buf->data, ne_buffer_size(buf));
+	ne_set_request_body_buffer(request, req_buffer, strlen(req_buffer));
 
-	ret = ne_begin_request(request); /* Asynchronous */
+	ret = ne_begin_request(request);				/* Asynchronous */
 	/* Sometimes the subservers will throw exceptions so capture it. */
 	rccr->status_code = status_code;
 	char *response_body = _ne_read_response_body_full(request);
-	status_code = ne_get_status(request)->code;
+	if (response_body == NULL) {
+		/* Sanitize sensitive data */
+		SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+		SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+
+		free(req_buffer);
+	        ne_request_destroy(request);
+		return -1;
+	}
+
+	const ne_status *status = ne_get_status(request);
+	if (status)
+		status_code = status->code;
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  %s() status_code = %d, ret = %d\n", function_name, status_code, ret);
 	fprintf(stderr, "DEBUG:  %s() response_body:  %s\n", function_name, response_body);
@@ -1830,15 +1938,17 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 		}
 	}
 	ne_end_request(request);
-	if (response_body)
-		free(response_body);
 
 	/* Sanitize sensitive data */
-	memset(rsp_hmac_base64, 0, sizeof(rsp_hmac_base64));
-	memset(req_hmac_base64, 0, sizeof(req_hmac_base64));
-	/* memset(buf, 0, ne_buffer_size(buf)); */
-	ne_buffer_destroy(buf);
+	SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+	SECURE_ZERO(rsp_hmac_base64, sizeof(rsp_hmac_base64));
+	SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+	if (response_body) {
+		/* SECURE_ZERO(response_body, strlen(response_body)); */ /* Segfaults */
+		free(response_body);
+	}
 
+	free(req_buffer);
 	ne_request_destroy(request);
 
 	return status_code == HTTP_STATUS_CODE_OK && !compromised;
@@ -1854,23 +1964,44 @@ int ycmd_rsp_is_healthy_simple()
 	/* This function works. */
 	char *method = "GET";
 	char *path = "/healthy";
+	char *req_buffer = "";
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 	int ret;
-	int status_code = 0;
+#pragma GCC diagnostic pop
+	int status_code = -1;
 	ne_request *request;
 
 	request = ne_request_create(ycmd_globals.session, method, path);
+	if (!request) {
+#if defined(DEBUG)
+		fprintf(stderr, "%s: ne_request_create failed", function_name);
+#endif
+	        pthread_mutex_unlock(&ycmd_request_mutex);
+	        return -1;
+	}
 
 	ne_set_request_flag(request, NE_REQFLAG_IDEMPOTENT, 1);
 
-	ycmd_get_hmac_request(req_hmac_base64, method, path, "", 0);
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 	ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 
 	ret = ne_begin_request(request); /* Asynchronous */
 	char *response_body = _ne_read_response_body_full(request);
-	status_code = ne_get_status(request)->code;
+	if (response_body == NULL) {
+		/* Sanitize sensitive data */
+		SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+
+	        ne_request_destroy(request);
+		return -1;
+	}
+
+	const ne_status *status = ne_get_status(request);
+	if (status)
+		status_code = status->code;
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  %s() status_code = %d, ret = %d\n", function_name, status_code, ret);
 	fprintf(stderr, "DEBUG:  %s() response_body:  %s\n", function_name, response_body);
@@ -1885,10 +2016,14 @@ int ycmd_rsp_is_healthy_simple()
 		}
 	}
 	ne_end_request(request);
-	if (response_body)
-		free(response_body);
 
-	memset(req_hmac_base64, 0, sizeof(req_hmac_base64));
+	/* Sanitize sensitive data */
+	SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+	if (response_body) {
+		/* SECURE_ZERO(response_body, strlen(response_body)); */ /* Segfaults */
+		free(response_body);
+	}
+
         ne_request_destroy(request);
 
 	return status_code == HTTP_STATUS_CODE_OK && !compromised;
@@ -1904,38 +2039,60 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	/* This function doesn't work */
 	char *method = "GET";
 	char *path = "/healthy";
-	char body[HALF_LINE_LENGTH];
+	char req_buffer[HALF_LINE_LENGTH];
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 	int ret;
-	int status_code = 0;
+#pragma GCC diagnostic pop
+	int status_code = -1;
 	ne_request *request;
 
 	request = ne_request_create(ycmd_globals.session, method, path);
+	if (!request) {
+#if defined(DEBUG)
+		fprintf(stderr, "%s: ne_request_create failed", function_name);
+#endif
+	        pthread_mutex_unlock(&ycmd_request_mutex);
+	        return -1;
+	}
 
 	/* We send the data directly skipping the json and string lib to stream it. */
-	memset(body, 0, HALF_LINE_LENGTH);
+	SECURE_ZERO(req_buffer, HALF_LINE_LENGTH);
 	if (include_subservers) {
-		sprintf(body, "include_subservers=1");
+		sprintf(req_buffer, "include_subservers=1");
 #if defined(DEBUG)
-		fprintf(stderr, "%s\n", body);
+		fprintf(stderr, "%s\n", req_buffer);
 #endif
 	} else {
-		sprintf(body, "include_subservers=0");
+		sprintf(req_buffer, "include_subservers=0");
 #if defined(DEBUG)
-		fprintf(stderr, "%s\n", body);
+		fprintf(stderr, "%s\n", req_buffer);
 #endif
 	}
-	ycmd_get_hmac_request(req_hmac_base64, method, path, body, strlen(body));
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 
 	ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	ne_set_request_flag(request, NE_REQFLAG_IDEMPOTENT, 1);
-	ne_set_request_body_buffer(request, body, strlen(body));
+	ne_set_request_body_buffer(request, req_buffer, strlen(req_buffer));
 
 	ret = ne_begin_request(request); /* Asynchronous */
 	char *response_body = _ne_read_response_body_full(request);
-	status_code = ne_get_status(request)->code;
+	if (response_body == NULL) {
+		/* Sanitize sensitive data */
+		SECURE_ZERO(req_buffer, HALF_LINE_LENGTH);
+		SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+
+		free(req_buffer);
+	        ne_request_destroy(request);
+		return -1;
+	}
+
+	const ne_status *status = ne_get_status(request);
+	if (status)
+		status_code = status->code;
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  %s() status_code = %d, ret = %d\n", function_name, status_code, ret);
 	fprintf(stderr, "DEBUG:  %s() response_body:  %s\n", function_name, response_body);
@@ -1950,10 +2107,15 @@ int ycmd_rsp_is_healthy(int include_subservers)
 		}
 	}
 	ne_end_request(request);
-	if (response_body)
-		free(response_body);
 
-	memset(req_hmac_base64, 0, sizeof(req_hmac_base64));
+	/* Sanitize sensitive data */
+	SECURE_ZERO(req_buffer, HALF_LINE_LENGTH);
+	SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+	if (response_body) {
+		/* SECURE_ZERO(response_body, strlen(response_body)); */ /* Segfaults */
+		free(response_body);
+	}
+
 	ne_request_destroy(request);
 
 	return status_code == HTTP_STATUS_CODE_OK && !compromised;
@@ -1968,32 +2130,53 @@ int ycmd_rsp_is_server_ready(char *filetype)
 #endif
 	char *method = "GET";
 	char *path = "/ready";
-	char body[HALF_LINE_LENGTH];
+	char req_buffer[HALF_LINE_LENGTH];
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 	int ret;
-	int status_code = 0;
+#pragma GCC diagnostic pop
+	int status_code = -1;
 	ne_request *request;
 
 	request = ne_request_create(ycmd_globals.session, method, path);
+	if (!request) {
+#if defined(DEBUG)
+		fprintf(stderr, "%s: ne_request_create failed", function_name);
+#endif
+	        pthread_mutex_unlock(&ycmd_request_mutex);
+	        return -1;
+	}
 
 	/* We send the data directly skipping the json and string lib to stream it. */
-	memset(body, 0, HALF_LINE_LENGTH);
-	sprintf(body, "subserver=%s", filetype);
+	SECURE_ZERO(req_buffer, HALF_LINE_LENGTH);
+	sprintf(req_buffer, "subserver=%s", filetype);
 #if defined(DEBUG)
-	fprintf(stderr, "%s\n", body);
+	fprintf(stderr, "%s\n", req_buffer);
 #endif
-	ycmd_get_hmac_request(req_hmac_base64, method, path, body, strlen(body));
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 
 	ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	ne_set_request_flag(request, NE_REQFLAG_IDEMPOTENT, 1);
-	ne_set_request_body_buffer(request, body, strlen(body));
+	ne_set_request_body_buffer(request, req_buffer, strlen(req_buffer));
 
 	ret = ne_begin_request(request); /* Asynchronous */
-
 	char *response_body = _ne_read_response_body_full(request);
-	status_code = ne_get_status(request)->code;
+	if (response_body == NULL) {
+		/* Sanitize sensitive data */
+		SECURE_ZERO(req_buffer, HALF_LINE_LENGTH);
+		SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+
+		free(req_buffer);
+	        ne_request_destroy(request);
+		return -1;
+	}
+
+	const ne_status *status = ne_get_status(request);
+	if (status)
+		status_code = status->code;
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  %s() status_code = %d, ret = %d\n", function_name, status_code, ret);
 	fprintf(stderr, "DEBUG:  %s() response_body:  %s\n", function_name, response_body);
@@ -2008,12 +2191,15 @@ int ycmd_rsp_is_server_ready(char *filetype)
 		}
 	}
 	ne_end_request(request);
-	if (response_body)
-		free(response_body);
 
 	/* Sanitize sensitive data */
-	memset(rsp_hmac_base64, 0, sizeof(rsp_hmac_base64));
-	memset(req_hmac_base64, 0, sizeof(req_hmac_base64));
+	SECURE_ZERO(req_buffer, HALF_LINE_LENGTH);
+	SECURE_ZERO(rsp_hmac_base64, sizeof(rsp_hmac_base64));
+	SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+	if (response_body) {
+		/* SECURE_ZERO(response_body, strlen(response_body)); */ /* Segfaults */
+		free(response_body);
+	}
 
 	ne_request_destroy(request);
 
@@ -2032,34 +2218,53 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 	int ret;
-	int status_code = 0;
+#pragma GCC diagnostic pop
+	int status_code = -1;
 	ne_request *request;
 
-	request = ne_request_create(ycmd_globals.session, method, path);
+	pthread_mutex_lock(&ycmd_request_mutex); /* Serialize startup requests */
 
-	ne_buffer *buf = ne_buffer_create();
+	request = ne_request_create(ycmd_globals.session, method, path);
+	if (!request) {
+#if defined(DEBUG)
+		fprintf(stderr, "%s: ne_request_create failed", function_name);
+#endif
+	        pthread_mutex_unlock(&ycmd_request_mutex);
+	        return -1;
+	}
+
 	get_abs_path(filepath, abspath);
 
 	/* We send the data directly skipping the json and string lib because we need to stream the file it. */
-	_ne_send_sprintf(buf, "{\n");
-	_ne_send_sprintf(buf, "  \"line_num\": %d,\n", linenum);
-	_ne_send_sprintf(buf, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
-	_ne_send_sprintf(buf, "  \"filepath\": \"%s\",\n", abspath);
-	_ne_send_sprintf(buf, "  \"file_data\": {\n");
-	_ne_send_sprintf(buf, "    \"%s\": {\n", abspath);
-	_ne_send_sprintf(buf, "      \"filetypes\": [\"%s\"],\n", filetype);
-	if (filetop == NULL) {
-		_ne_send_sprintf(buf, "\"contents\": \"\"\n");
-	} else {
-		_ne_send_sprintf(buf, "\"contents\": \"");
-			_ne_send_file(buf, filetop);
-			_ne_send_sprintf(buf, "\"\n");
+	char *req_buffer = malloc(MAX_FILESIZE_LIMIT);
+	if (!req_buffer) {
+		statusline(HUSH, "Out of Memory");
+	        ne_request_destroy(request);
+		return -1;
 	}
-	_ne_send_sprintf(buf, "    }\n");
-	_ne_send_sprintf(buf, "  }\n");
-	_ne_send_sprintf(buf, "}\n");
-	ycmd_get_hmac_request(req_hmac_base64, method, path, buf->data, ne_buffer_size(buf));
+	SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+	_req_sprintf(req_buffer, "{\n");
+	_req_sprintf(req_buffer, "  \"line_num\": %d,\n", linenum);
+	_req_sprintf(req_buffer, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
+	_req_sprintf(req_buffer, "  \"filepath\": \"%s\",\n", abspath);
+	_req_sprintf(req_buffer, "  \"file_data\": {\n");
+	_req_sprintf(req_buffer, "    \"%s\": {\n", abspath);
+	_req_sprintf(req_buffer, "      \"filetypes\": [\"%s\"],\n", filetype);
+	if (filetop == NULL) {
+		_req_sprintf(req_buffer, "\"contents\": \"\"\n");
+	} else {
+		_req_sprintf(req_buffer, "\"contents\": \"");
+			_req_file(req_buffer, filetop);
+			_req_sprintf(req_buffer, "\"\n");
+	}
+	_req_sprintf(req_buffer, "    }\n");
+	_req_sprintf(req_buffer, "  }\n");
+	_req_sprintf(req_buffer, "}\n");
+
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 
 	ne_add_request_header(request, "content-type", "application/json");
 	ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, req_hmac_base64);
@@ -2068,11 +2273,23 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	} else {
 		ne_set_request_flag(request, NE_REQFLAG_IDEMPOTENT, 1);
 	}
-	ne_set_request_body_buffer(request, buf->data, ne_buffer_size(buf));
+	ne_set_request_body_buffer(request, req_buffer, strlen(req_buffer));
 
-	ret = ne_begin_request(request); /* Asynchronous */
+	ret = ne_begin_request(request);				/* Asynchronous */
 	char *response_body = _ne_read_response_body_full(request);
-	status_code = ne_get_status(request)->code;
+	if (response_body == NULL) {
+		/* Sanitize sensitive data */
+		SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+		SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+
+		free(req_buffer);
+	        ne_request_destroy(request);
+		return -1;
+	}
+
+	const ne_status *status = ne_get_status(request);
+	if (status)
+		status_code = status->code;
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  %s() status_code = %d, ret = %d\n", function_name, status_code, ret);
 	fprintf(stderr, "DEBUG:  %s() response_body:  %s\n", function_name, response_body);
@@ -2087,13 +2304,19 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 		}
 	}
 	ne_end_request(request);
-	if (response_body)
-		free(response_body);
 
-	memset(req_hmac_base64, 0, sizeof(req_hmac_base64));
-	/* memset(buf, 0, ne_buffer_size(buf)); */
-	ne_buffer_destroy(buf);
+	/* Sanitize sensitive data */
+	SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+	SECURE_ZERO(rsp_hmac_base64, sizeof(rsp_hmac_base64));
+	SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+	if (response_body) {
+		/* SECURE_ZERO(response_body, strlen(response_body)); */ /* Segfaults */
+		free(response_body);
+	}
+
+	free(req_buffer);
 	ne_request_destroy(request);
+	pthread_mutex_unlock(&ycmd_request_mutex);
 
 	return status_code == HTTP_STATUS_CODE_OK && !compromised;
 }
@@ -2119,41 +2342,70 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 	int ret;
-	int status_code = 0;
+#pragma GCC diagnostic pop
+	int status_code = -1;
 	ne_request *request;
 
 	request = ne_request_create(ycmd_globals.session, method, path);
+	if (!request) {
+#if defined(DEBUG)
+		fprintf(stderr, "%s: ne_request_create failed", function_name);
+#endif
+	        pthread_mutex_unlock(&ycmd_request_mutex);
+	        return -1;
+	}
 
-	ne_buffer *buf = ne_buffer_create();
 	get_abs_path(filepath, abspath);
 
 	/* We send the data directly skipping the json and string lib because we need to stream the file it. */
-	_ne_send_sprintf(buf, "{\n");
-	_ne_send_sprintf(buf, "  \"line_num\": %d,\n", linenum);
-	_ne_send_sprintf(buf, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
-	_ne_send_sprintf(buf, "  \"filepath\": \"%s\",\n", abspath);
-	_ne_send_sprintf(buf, "  \"file_data\": {\n");
-	_ne_send_sprintf(buf, "    \"%s\": {\n", abspath);
-	_ne_send_sprintf(buf, "      \"filetypes\": [\"%s\"],\n", filetype);
-	_ne_send_sprintf(buf, "      \"contents\": \"");
-		_ne_send_file(buf, filetop);
-		_ne_send_sprintf(buf, "\"\n");
-	_ne_send_sprintf(buf, "    }\n");
-	_ne_send_sprintf(buf, "  },\n");
-	_ne_send_sprintf(buf, "  \"completer_target\": \"%s\"\n", completertarget);
-	_ne_send_sprintf(buf, "}\n");
-	ycmd_get_hmac_request(req_hmac_base64, method, path, buf->data, ne_buffer_size(buf));
+	char *req_buffer = malloc(MAX_FILESIZE_LIMIT);
+	if (!req_buffer) {
+		statusline(HUSH, "Out of Memory");
+	        ne_request_destroy(request);
+		return -1;
+	}
+	SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+	_req_sprintf(req_buffer, "{\n");
+	_req_sprintf(req_buffer, "  \"line_num\": %d,\n", linenum);
+	_req_sprintf(req_buffer, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
+	_req_sprintf(req_buffer, "  \"filepath\": \"%s\",\n", abspath);
+	_req_sprintf(req_buffer, "  \"file_data\": {\n");
+	_req_sprintf(req_buffer, "    \"%s\": {\n", abspath);
+	_req_sprintf(req_buffer, "      \"filetypes\": [\"%s\"],\n", filetype);
+	_req_sprintf(req_buffer, "      \"contents\": \"");
+		_req_file(req_buffer, filetop);
+		_req_sprintf(req_buffer, "\"\n");
+	_req_sprintf(req_buffer, "    }\n");
+	_req_sprintf(req_buffer, "  },\n");
+	_req_sprintf(req_buffer, "  \"completer_target\": \"%s\"\n", completertarget);
+	_req_sprintf(req_buffer, "}\n");
+
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 
 	ne_add_request_header(request, "content-type", "application/json");
 	ne_add_request_header(request, HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	ne_set_request_flag(request, NE_REQFLAG_IDEMPOTENT, 0);
-	ne_set_request_body_buffer(request, buf->data, ne_buffer_size(buf));
+	ne_set_request_body_buffer(request, req_buffer, strlen(req_buffer));
 
-	ret = ne_begin_request(request); /* Asynchronous */
-	dsr->status_code = status_code; /* sometimes the subservers will throw exceptions so capture it. */
+	ret = ne_begin_request(request);				/* Asynchronous */
+	dsr->status_code = status_code;					/* Sometimes the subservers will throw exceptions so capture it. */
 	char *response_body = _ne_read_response_body_full(request);
-	status_code = ne_get_status(request)->code;
+	if (response_body == NULL) {
+		/* Sanitize sensitive data */
+		SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+		SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+
+		free(req_buffer);
+	        ne_request_destroy(request);
+		return -1;
+	}
+
+	const ne_status *status = ne_get_status(request);
+	if (status)
+		status_code = status->code;
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  %s() status_code = %d, ret = %d\n", function_name, status_code, ret);
 	fprintf(stderr, "DEBUG:  %s() response_body:  %s\n", function_name, response_body);
@@ -2172,15 +2424,17 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 		}
 	}
 	ne_end_request(request);
-	if (response_body)
-		free(response_body);
 
 	/* Sanitize sensitive data */
-	memset(rsp_hmac_base64, 0, sizeof(rsp_hmac_base64));
-	memset(req_hmac_base64, 0, sizeof(req_hmac_base64));
-	/* memset(buf, 0, ne_buffer_size(buf)); */
-	ne_buffer_destroy(buf);
+	SECURE_ZERO(req_buffer, MAX_FILESIZE_LIMIT);
+	SECURE_ZERO(rsp_hmac_base64, sizeof(rsp_hmac_base64));
+	SECURE_ZERO(req_hmac_base64, sizeof(req_hmac_base64));
+	if (response_body) {
+		/* SECURE_ZERO(response_body, strlen(response_body)); */ /* Segfaults */
+		free(response_body);
+	}
 
+	free(req_buffer);
 	ne_request_destroy(request);
 
 	return status_code == HTTP_STATUS_CODE_OK && !compromised;
@@ -2234,7 +2488,7 @@ int find_unused_localhost_port()
 	if (ycmd_globals.tcp_socket == -1)
 		return -1;
 
-	memset(&address, 0, sizeof(address));
+	SECURE_ZERO(&address, sizeof(address));
 	address.sin_family = AF_INET;
 	address.sin_addr.s_addr = INADDR_ANY;
 	address.sin_port = 0;
@@ -2319,7 +2573,14 @@ void ycmd_start_server()
 	}
 
 	ycmd_globals.child_pid = pid;
+	pthread_mutex_lock(&session_mutex);
 	ycmd_globals.session = ne_session_create(ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port);
+	if (!ycmd_globals.session) {
+#if defined(DEBUG)
+		fprintf(stderr, "%s:  ne_session_create failed", function_name);
+#endif
+		pthread_mutex_unlock(&session_mutex);
+	}
 	ne_set_read_timeout(ycmd_globals.session, 1);
 
 	if (waitpid(pid,0,WNOHANG) == 0) {
@@ -2389,6 +2650,7 @@ void ycmd_stop_server()
 #endif
 	ne_close_connection(ycmd_globals.session);
 	ne_session_destroy(ycmd_globals.session);
+	pthread_mutex_unlock(&session_mutex);
 	close(ycmd_globals.tcp_socket);
 
 	if (access(ycmd_globals.tmp_options_filename, F_OK) == 0)
@@ -2438,7 +2700,7 @@ int get_secret_otp_key(uint8_t *secret_otp_key) {
 
 	/* Generate 16-byte OTP key */
 	yarrow256_random(&yarrow_ctx, SECRET_KEY_LENGTH, secret_otp_key);
-	memset(seed, 0, 32);
+	SECURE_ZERO(seed, 32);
 #elif defined(USE_OPENSSL)
 	// Generate 16-byte OTP key
 	if (RAND_bytes(secret_otp_key, SECRET_KEY_LENGTH) != 1) {
@@ -2493,7 +2755,7 @@ void ycmd_generate_secret_key_raw(uint8_t *secret)
 
 void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64)
 {
-	memset(secret_base64, 0, SECRET_KEY_LENGTH * 2);
+	SECURE_ZERO(secret_base64, SECRET_KEY_LENGTH * 2);
 #ifdef USE_NETTLE
 	base64_encode_raw(secret_base64, SECRET_KEY_LENGTH, secret);
 #elif USE_OPENSSL
@@ -2513,7 +2775,7 @@ void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64)
 #elif USE_LIBGCRYPT
         gchar *_secret_base64 = g_base64_encode((unsigned char *)secret, SECRET_KEY_LENGTH);
 	strncpy(secret_base64, _secret_base64, SECRET_KEY_LENGTH * 2);
-	memset(_secret_base64, 0, strlen(_secret_base64));
+	SECURE_ZERO(_secret_base64, strlen(_secret_base64));
 	g_free (_secret_base64);
 #else
 #error "You need to define a crypto library to use."
@@ -2522,7 +2784,7 @@ void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64)
 
 void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char *body, size_t body_len /* strlen based */)
 {
-	memset(req_hmac_base64, 0, HMAC_SIZE * 2);
+	SECURE_ZERO(req_hmac_base64, HMAC_SIZE * 2);
 #ifdef USE_NETTLE
 	char join[HMAC_SIZE * 3];
 	static char hmac_request[HMAC_SIZE];
@@ -2543,9 +2805,9 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 
 	base64_encode_raw(req_hmac_base64, HMAC_SIZE, (const uint8_t *)hmac_request);
 
-	/* Sanitize */
-	memset(join, 0, HMAC_SIZE *3);
-	memset(hmac_request, 0, HMAC_SIZE);
+	/* Sanitize sensitive data */
+	SECURE_ZERO(join, HMAC_SIZE *3);
+	SECURE_ZERO(hmac_request, HMAC_SIZE);
 #elif USE_OPENSSL
 	unsigned char hmac_method[HMAC_SIZE];
 	unsigned char hmac_path[HMAC_SIZE];
@@ -2573,7 +2835,7 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	EVP_MAC_init(ctx, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, params); /* Reset ctx */
 
 	/* Calculate HMAC for body */
-	EVP_MAC_update(ctx, (const unsigned char *)(body), body_len);
+	EVP_MAC_update(ctx, (unsigned char *)body, body_len);
 	size_t hmac_body_len = EVP_MAX_MD_SIZE;
 	EVP_MAC_final(ctx, hmac_body, &hmac_body_len, EVP_MAX_MD_SIZE);
 	EVP_MAC_init(ctx, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, params); /* Reset ctx */
@@ -2603,11 +2865,11 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	memcpy(req_hmac_base64, pp->data, pp->length);
 	BIO_free_all(b);
 
-	/* Sanitize */
-	memset(hmac_method, 0, HMAC_SIZE);
-	memset(hmac_path, 0, HMAC_SIZE);
-	memset(hmac_body, 0, HMAC_SIZE);
-	memset(hmac_final, 0, HMAC_SIZE);
+	/* Sanitize sensitive data */
+	SECURE_ZERO(hmac_method, HMAC_SIZE);
+	SECURE_ZERO(hmac_path, HMAC_SIZE);
+	SECURE_ZERO(hmac_body, HMAC_SIZE);
+	SECURE_ZERO(hmac_final, HMAC_SIZE);
 #elif USE_LIBGCRYPT
         unsigned char join[HMAC_SIZE * 3];
 	size_t length;
@@ -2643,7 +2905,10 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 
         gchar *_req_hmac_base64 = g_base64_encode((unsigned char *)digest_join, HMAC_SIZE);
 	strncpy(req_hmac_base64, _req_hmac_base64, HMAC_SIZE * 2 - 1);
-	memset(_req_hmac_base64, 0, strlen(_req_hmac_base64));
+
+	/* Sanitize sensitive data */
+	SECURE_ZERO(_req_hmac_base64, strlen(_req_hmac_base64));
+
 	free (_req_hmac_base64);
 #else
 #error "You need to define a crypto library to use."
@@ -2652,7 +2917,7 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 
 void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 {
-	memset(rsp_hmac_base64, 0, HMAC_SIZE * 2);
+	SECURE_ZERO(rsp_hmac_base64, HMAC_SIZE * 2);
 #ifdef USE_NETTLE
 	static char hmac_response[HMAC_SIZE];
 	struct hmac_sha256_ctx hmac_ctx;
@@ -2677,6 +2942,7 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 	BIO_get_mem_ptr(b, &pp);
 
 	memcpy(rsp_hmac_base64, pp->data, pp->length);
+
 	BIO_free_all(b);
 #elif USE_LIBGCRYPT
 	gcry_mac_hd_t hd;
@@ -2692,7 +2958,10 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 
         gchar *_rsp_hmac_base64 = g_base64_encode((unsigned char *)response_digest, HMAC_SIZE);
 	strncpy(rsp_hmac_base64, _rsp_hmac_base64, HMAC_SIZE * 2 - 1);
-	memset(_rsp_hmac_base64, 0, strlen(_rsp_hmac_base64));
+
+	/* Sanitize sensitive data */
+	SECURE_ZERO(_rsp_hmac_base64, strlen(_rsp_hmac_base64));
+
 	g_free (_rsp_hmac_base64);
 #else
 #error "You need to define a crypto library to use."
@@ -2709,15 +2978,15 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 
 /* In the past, gprof reports this function takes 33% of the time. */
 /* We use the naive version because it is more secure. */
-size_t ycmd_escape_json(char *unescaped, char *escaped, int offset)
+size_t ycmd_escape_json(char *unescaped, char *escaped)
 {
 	int before_len = strlen(unescaped);
 	size_t after_len = 0;
 
-	int j = offset;
+	int j = 0;
 	char *p = unescaped;
 
-	for (int i = 0; i < before_len; i++) {
+	for (int i = 0; i < before_len && j + 6 + 1 < MAX_FILESIZE_LIMIT ; i++) {
 		char c = p[i];
 		if (c == '\\') {
 		/* Escape the already escaped */
@@ -2769,12 +3038,22 @@ size_t ycmd_escape_json(char *unescaped, char *escaped, int offset)
 	return after_len;
 }
 
-size_t _ne_send_sprintf(ne_buffer *buf, const char *format, ...)
+/* Precondition caller is responsible for clearing req_buffer before calling. */
+size_t _req_sprintf(char *req_buffer, const char *format, ...)
 {
+#if defined(DEBUG)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+	char *function_name = "_req_sprintf";
+#pragma GCC diagnostic pop
+#endif
 	va_list args;
-	char line[LINE_LENGTH];
-	memset(line, 0, sizeof(line));
+	char line[PATH_MAX + LINE_LENGTH];
+	/* PATH_MAX + LINE_LENGTH for default_settings */
+	/* LINE_LENGTH for json requests */
 	int len;
+
+	SECURE_ZERO(line, sizeof(line));
 
 	va_start(args, format);
 	len = vsnprintf(line, sizeof(line), format, args);
@@ -2786,19 +3065,29 @@ size_t _ne_send_sprintf(ne_buffer *buf, const char *format, ...)
 #if defined(DEBUG)
 	fprintf(stderr, line);
 #endif
+	strcat(req_buffer, line);
 
-	ne_buffer_append(buf, line, len);
+	/* Sanitize sensitive data */
+	SECURE_ZERO(line, sizeof(line));
+
 	return len; /* length without null */
 }
 
 /* Assemble the entire file of *unsaved* buffers. */
 /* The consumer must free it. */
-size_t _ne_send_file(ne_buffer *buf, linestruct *filetop)
+size_t _req_file(char *req_buffer, linestruct *filetop)
 {
-	char *escaped;
-	escaped = NULL;
+#if defined(DEBUG)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
+	char *function_name = "_req_file";
+#pragma GCC diagnostic pop
+#endif
+	char *escaped = NULL;
 	size_t total_len = 0;
 	size_t expanded_len = 0;
+
+	size_t base_offset = strlen(req_buffer);
 
 	linestruct *node;
 	node = filetop;
@@ -2806,15 +3095,21 @@ size_t _ne_send_file(ne_buffer *buf, linestruct *filetop)
 	if (node == NULL)
 		return -1;
 
-	/* Constant time O(1) unescape array size prediction but wastes 6 times space. */
-	size_t escaped_length = strlen(node->data) * 6 + 1;
+	size_t escaped_length = MAX_FILESIZE_LIMIT;
 	escaped = malloc(escaped_length);
-	memset(escaped, 0, escaped_length);
+	if (!escaped) {
+		statusline(HUSH, "Out of Memory");
+	}
+	SECURE_ZERO(escaped, escaped_length);
 
-	expanded_len = ycmd_escape_json(node->data, escaped, 0);
+	expanded_len = ycmd_escape_json(node->data, escaped);
+	if (total_len + expanded_len + 1 >= MAX_FILESIZE_LIMIT) {
+		statusline(HUSH, "You reached the 10 MiB per file limit allowed by the server.  Aborting.");
+		free(escaped);
+		return -1;
+	}
+	memcpy(req_buffer + base_offset, escaped, expanded_len);
 	total_len += expanded_len;
-
-	ne_buffer_append(buf, escaped, expanded_len);
 
 	node = node->next;
 
@@ -2822,26 +3117,21 @@ size_t _ne_send_file(ne_buffer *buf, linestruct *filetop)
 		if (node->data == NULL)
 			node = node->next;
 
-		int data_length = strlen(node->data);
-		escaped_length = data_length * 6 + 3;
-		escaped = realloc(escaped, escaped_length);
-		if (escaped == NULL) {
-			break;
-		}
-		if (total_len >= MAX_FILESIZE_LIMIT) {
+		if (total_len + 2 + 1 >= MAX_FILESIZE_LIMIT) {
 			statusline(HUSH, "You reached the 10 MiB per file limit allowed by the server.  Aborting.");
 			break;
 		}
-
-		memset(escaped, 0, escaped_length);
-
-		sprintf(escaped, "\\n");
+		*(req_buffer + base_offset + total_len) = '\\';
+		*(req_buffer + base_offset + total_len + 1) = 'n';
 		total_len += 2;
 
-		expanded_len = ycmd_escape_json(node->data, escaped, 2);
+		expanded_len = ycmd_escape_json(node->data, escaped);
+		if (total_len + expanded_len + 1 >= MAX_FILESIZE_LIMIT) {
+			statusline(HUSH, "You reached the 10 MiB per file limit allowed by the server.  Aborting.");
+			break;
+		}
+		memcpy(req_buffer + base_offset + total_len, escaped, expanded_len);
 		total_len += expanded_len;
-
-		ne_buffer_append(buf, escaped, expanded_len + 2);
 
 		node = node->next;
 	}
@@ -2849,6 +3139,9 @@ size_t _ne_send_file(ne_buffer *buf, linestruct *filetop)
 #if defined(DEBUG)
 	fprintf(stderr, escaped);
 #endif
+
+	/* Sanitize sensitive data */
+	SECURE_ZERO(escaped, escaped_length);
 
 	free(escaped);
 
@@ -2971,7 +3264,7 @@ void do_code_completion(char letter)
 
 	for (i = 'A', j = 0; j < maximum && i <= 'F' && func; i++, j++, func = func->next) {
 		if (i == letter) {
-			if (strcmp(func->tag,"") == 0)
+			if (strcmp(func->tag, "") == 0)
 				break;
 
 			if (func->tag != NULL) {
@@ -2982,8 +3275,10 @@ void do_code_completion(char letter)
 
 				openfile->current_x = ycmd_globals.apply_column - 1;
 
-				inject(func->tag,strlen(func->tag));
+				/* Sanitize func->tag? */
+				inject(func->tag, strlen(func->tag));
 
+				SECURE_ZERO(func->tag, strlen(func->tag));
 				free((void *)func->tag);
 				func->tag = strdup("");
 				blank_statusbar();
@@ -3038,7 +3333,7 @@ void do_end_completer_commands(void)
 
 void constructor_defined_subcommands_results(defined_subcommands_results_struct *dsr)
 {
-	memset(dsr, 0, sizeof(defined_subcommands_results_struct));
+	SECURE_ZERO(dsr, sizeof(defined_subcommands_results_struct));
 }
 
 void destroy_defined_subcommands_results(defined_subcommands_results_struct *dsr)
