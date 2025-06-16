@@ -380,6 +380,21 @@ else
 	AC_DEFINE(NDEBUG, 1, [Shut up assert warnings :-)])
 fi
 
+AC_ARG_WITH([allocator],
+  [AS_HELP_STRING([--with-allocator],
+    [choose allocator (hardened_malloc, mimalloc-secure, libc)])],
+  [allocator=$withval],
+  [allocator=libc])
+if test "x$allocator" = "xhardened_malloc" ; then
+	AC_DEFINE(USE_HARDENED_MALLOC, 1, [Define this to use the hardened_malloc allocator.])
+elif test "x$allocator" = "xmimalloc-secure" ; then
+	AC_DEFINE(USE_MIMALLOC_SECURE, 1, [Define this to use the mimalloc-secure allocator.])
+elif test "x$allocator" = "xlibc" ; then
+	AC_DEFINE(USE_LIBC_MALLOC, 1, [Define this to use the insecure glibc/musl allocator.])
+fi
+AC_MSG_CHECKING([for allocator])
+AC_MSG_RESULT([$allocator])
+
 AC_ARG_VAR([BEAR_PATH],[Define the full path to bear for the Ninja build system support in ycmd (optional)])
 AC_ARG_VAR([CLANGD_PATH],[Define the full path to clangd for C / C++ / Objective-C / Objective C++ language support in ycmd >=41 (optional, experimental)])
 AC_ARG_VAR([GOCODE_PATH],[Define the full path to your gocode executable for Go language support in ycmd <42 (optional)])
@@ -399,14 +414,34 @@ AC_ARG_VAR([YCMD_PATH],[Define the path to ycmd directory])
 AC_ARG_VAR([YCMD_PYTHON_PATH],[Define the full path to your ycmd python executable for ycmd])
 AC_ARG_VAR([YCMG_PATH],[Define the full path to YCM-Generator for C / C++ / Objective-C / Objective C++ language support in ycmd (optional)])
 AC_ARG_VAR([YCMG_PYTHON_PATH],[Define the full path to your YCM-Generator python executable for ycmd (optional)])
+
 AC_ARG_WITH(bear,AS_HELP_STRING([--with-bear], [Enable Bear support for ycmd.  Required for C / C++ / Objective-C / Objective C++ projects.  (optional)]))
 AC_ARG_WITH(libgcrypt,AS_HELP_STRING([--with-libgcrypt], [Enable Libgcrypt support for ycmd]))
 AC_ARG_WITH(nettle,AS_HELP_STRING([--with-nettle], [Enable Nettle support for ycmd]))
 AC_ARG_WITH(ninja,AS_HELP_STRING([--with-ninja], [Enable Ninja support for ycmd.  Required for projects that rely on .ninja files.  (optional)]))
 AC_ARG_WITH(openssl,AS_HELP_STRING([--with-openssl], [Enable OpenSSL support for ycmd]))
+AC_ARG_WITH(safeclib,AS_HELP_STRING([--with-safeclib], [Enable safeclib support for ycmd]))
+
+AC_CHECK_HEADERS(pthread.h)
+if test "x$with_safeclib" = xyes; then
+	AC_CHECK_HEADERS(pthread.h)
+	PKG_CHECK_MODULES([SAFECLIB], [libsafec], [
+		SAFECLIB_LIB=$SAFECLIB_LIBS
+		CPPFLAGS="$SAFECLIB_CFLAGS $CPPFLAGS"
+		SAFECLIB_LIB_NAME=safec
+	], [:])
+	have_safeclib=yes
+	AC_MSG_CHECKING([for safeclib])
+	AC_MSG_RESULT([yes])
+else
+	AC_MSG_CHECKING([for safeclib])
+	AC_MSG_RESULT([no])
+fi
+
 AC_ARG_WITH(ycm-generator,AS_HELP_STRING([--with-ycm-generator], [Enable YCM-Generator support for ycmd.  Required for C / C++ / Objective-C / Objective C++ projects that use GNU Make, qmake, cmake.  (optional)]))
 AC_ARG_ENABLE(ycmd,
-AS_HELP_STRING([--enable-ycmd], [Enable code completion support via ycmd]))
+  AS_HELP_STRING([--enable-ycmd], [Enable code completion support via ycmd])
+)
 have_ycmd=no
 AC_DEFUN([AC_CHECK_YCMD_CORE_VERSION],[
 	AC_MSG_CHECKING([for YCMD_PATH])
@@ -602,6 +637,7 @@ AM_CONDITIONAL([HAVE_GOCODE], [test x$GOCODE_PATH != x])
 AM_CONDITIONAL([HAVE_GODEF], [test x$GODEF_PATH != x])
 AM_CONDITIONAL([HAVE_GOPLS], [test x$GOPLS_PATH != x])
 AM_CONDITIONAL([HAVE_LIBGCRYPT], [test x$have_libgcrypt = xyes])
+AM_CONDITIONAL([HAVE_SAFECLIB], [test x$have_safeclib = xyes])
 AM_CONDITIONAL([HAVE_JAVA], [test x$JAVA_PATH != x])
 AM_CONDITIONAL([HAVE_MONO], [test x$MONO_PATH != x])
 AM_CONDITIONAL([HAVE_NETTLE], [test x$have_nettle = xyes])
@@ -619,9 +655,13 @@ AM_CONDITIONAL([HAVE_YCMD_PYTHON], [test x$YCMD_PYTHON_PATH != x])
 AM_CONDITIONAL([HAVE_YCMG], [test x$YCMG_PATH != x])
 AM_CONDITIONAL([HAVE_YCMG_PYTHON], [test x$YCMG_PYTHON_PATH != x])
 AM_CONDITIONAL([USE_BEAR], [test x$with_bear == xyes])
+AM_CONDITIONAL([USE_HARDENED_MALLOC], [test x$allocator = xhardened_malloc])
+AM_CONDITIONAL([USE_LIBC_MALLOC], [test x$allocator = xlibc])
+AM_CONDITIONAL([USE_MIMALLOC_SECURE], [test x$allocator = xmimalloc-secure])
 AM_CONDITIONAL([USE_NINJA], [test x$with_ninja == xyes])
 AM_CONDITIONAL([USE_YCM_GENERATOR], [test x$with_ycm_generator = xyes])
 AM_CONDITIONAL([USE_YCMD], [test x$enable_ycmd = xyes])
+
 
 AC_ARG_ENABLE(tiny,
 AS_HELP_STRING([--enable-tiny], [Disable features for the sake of size]))

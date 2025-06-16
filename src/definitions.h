@@ -23,6 +23,16 @@
 #include <config.h>
 #endif
 
+#if defined(USE_MIMALLOC_SECURE)
+#include <mimalloc.h>
+#define malloc mi_malloc
+#define free mi_free
+#elif defined(USE_HARDENED_MALLOC)
+#include <h_malloc.h>
+#define malloc h_malloc
+#define free h_free
+#endif
+
 #ifdef NEED_XOPEN_SOURCE_EXTENDED
 #ifndef _XOPEN_SOURCE_EXTENDED
 #define _XOPEN_SOURCE_EXTENDED  1

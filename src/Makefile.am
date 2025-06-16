@@ -1,12 +1,13 @@
+AM_CFLAGS =
 AM_CPPFLAGS = -DLOCALEDIR=\"$(localedir)\" -DSYSCONFDIR=\"$(sysconfdir)\" \
 	-I$(top_builddir)/lib -I$(top_srcdir)/lib
+AM_LDFLAGS =
 
 if HAVE_YCMD
 
 AM_CPPFLAGS += -DENABLE_YCMD -DYCMD_PATH=\"@YCMD_PATH@\" @GLIB_CFLAGS@
-AM_CFLAGS =
 AM_CPPFLAGS += -DYCMD_PYTHON_PATH=\"@YCMD_PYTHON_PATH@\"
-AM_LDFLAGS = -lnxjson
+AM_LDFLAGS += -lnxjson
 
 if HAVE_CLANGD
 AM_CPPFLAGS += -DCLANGD_PATH=\"@CLANGD_PATH@\"
@@ -102,6 +103,11 @@ else
 AM_CPPFLAGS += -DRUSTC_PATH=\"\"
 endif
 
+if HAVE_SAFECLIB
+AM_CFLAGS += @SAFECLIB_CFLAGS@
+AM_CPPFLAGS += -DUSE_SAFECLIB
+endif
+
 if HAVE_TSSERVER
 AM_CPPFLAGS += -DTSSERVER_PATH=\"@TSSERVER_PATH@\"
 else
@@ -162,6 +168,7 @@ nano_SOURCES = \
 		nano.c \
 		prompt.c \
 		rcfile.c \
+		safe_wrapper.c \
 		search.c \
 		text.c \
 		utils.c \
@@ -175,6 +182,14 @@ endif
 nano_LDADD = $(top_builddir)/lib/libgnu.a @LIBINTL@ \
 		$(GETRANDOM_LIB) $(CLOCK_TIME_LIB) $(LIBTHREAD)
 
+if USE_HARDENED_MALLOC
+ynano_LDADD += -lhardened_malloc
+endif
+
+if USE_MIMALLOC_SECURE
+ynano_LDADD += -lmimalloc-secure
+endif
+
 if USE_YCMD
 nano_LDADD += @NEON_LIBS@
 endif
@@ -182,13 +197,20 @@ endif
 if HAVE_NETTLE
 nano_LDADD += @NETTLE_LIBS@
 endif
+
 if HAVE_OPENSSL
 nano_LDADD += @OPENSSL_LIBS@
 endif
+
 if HAVE_LIBGCRYPT
 nano_LDADD += @GLIB_LIBS@
 nano_LDFLAGS = $(LIBGCRYPT_LIBS)
 endif
+
+if HAVE_SAFECLIB
+ynano_LDADD += @SAFECLIB_LIBS@
+endif
+
 if HAVE_YCMD
 nano_LDADD += @GLIB_LIBS@
 endif
