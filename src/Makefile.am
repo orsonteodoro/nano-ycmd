@@ -183,11 +183,11 @@ nano_LDADD = $(top_builddir)/lib/libgnu.a @LIBINTL@ \
 		$(GETRANDOM_LIB) $(CLOCK_TIME_LIB) $(LIBTHREAD)
 
 if USE_HARDENED_MALLOC
-ynano_LDADD += -lhardened_malloc
+nano_LDADD += -lhardened_malloc
 endif
 
 if USE_MIMALLOC_SECURE
-ynano_LDADD += -lmimalloc-secure
+nano_LDADD += -lmimalloc-secure
 endif
 
 if USE_YCMD
@@ -208,7 +208,7 @@ nano_LDFLAGS = $(LIBGCRYPT_LIBS)
 endif
 
 if HAVE_SAFECLIB
-ynano_LDADD += @SAFECLIB_LIBS@
+nano_LDADD += @SAFECLIB_LIBS@
 endif
 
 if HAVE_YCMD
