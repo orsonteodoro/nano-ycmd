@@ -166,9 +166,6 @@ void *_safe_malloc(size_t size) {
 	 * UAR = Use After Return
 	 * ZF = Zero Free
 	 */
-	/* Scudo is part of the LLVM project and provides a hardened allocator */
-	/* Mitigations:  CE, DF, DoS, DP, HO, ID, OOBA, OOBR, OOBW, PE, PP, UAF, ZF
-	 */
 #if defined(USE_HARDENED_MALLOC)
 	/* hardened_malloc is a hardened memory allocator */
 	/* Mitigations:  CE, DF, DoS, DP, HO, ID, OOBA, OOBR, OOBW, PE, PP, UAF, ZF
@@ -182,7 +179,9 @@ void *_safe_malloc(size_t size) {
 	extern void *mi_malloc(size_t size);
 	return mi_malloc(size);
 #else
-	/* Default to glibc/musl malloc */
+	/* Default to glibc/musl/scudo-standalone malloc */
+	/* Scudo is part of the LLVM project and provides a hardened allocator */
+	/* Mitigations (scudo-standalone):  CE, DF, DoS, DP, HO, ID, OOBA, OOBR, OOBW, PE, PP, UAF, ZF */
 	/* Mitigations (glibc):  DoS */
 	/* Mitigations (musl):  DF, DoS */
 	return malloc(size);
