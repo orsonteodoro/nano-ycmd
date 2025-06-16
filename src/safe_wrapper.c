@@ -181,6 +181,7 @@ void *_safe_malloc(size_t size) {
 #else
 	/* Default to glibc/musl/scudo-standalone malloc */
 	/* Scudo is part of the LLVM project and provides a hardened allocator */
+	/* Scudo needs LD_PRELOAD=$(clang --print-file-name=libclang_rt.scudo_standalone-<arch>.so) */
 	/* Mitigations (scudo-standalone):  CE, DF, DoS, DT, DP, HO, ID, OOBA, OOBR, OOBW, PE, PF, UAF, ZF */
 	/* Mitigations (glibc):  DoS */
 	/* Mitigations (musl):  DF, DoS */
