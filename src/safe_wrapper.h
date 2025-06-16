@@ -54,7 +54,7 @@ typedef int errno_t;
  */
 #if defined(USE_SAFECLIB)
 /* LibsafeC secure functions */
-/* Mitigations (opinion 1):  DF, DoS, NPD, OOBA, OOBR, OOBW, SF */
+/* Mitigations (opinion 1):  DF, DoS, DT, ID, NPD, OOBA, OOBR, OOBW, SF */
 /* Mitigations (opinion 2):  DF, DP, HO, NPD, OOBA, OOBW, PF, SO, UAF, ZF */
 #else
 /* libc standard functions */

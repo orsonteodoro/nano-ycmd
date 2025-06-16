@@ -168,20 +168,20 @@ void *_safe_malloc(size_t size) {
 	 */
 #if defined(USE_HARDENED_MALLOC)
 	/* hardened_malloc is a hardened memory allocator */
-	/* Mitigations:  CE, DF, DoS, DP, HO, ID, OOBA, OOBR, OOBW, PE, PF, UAF, ZF
+	/* Mitigations:  CE, DF, DoS, DT, DP, HO, ID, OOBA, OOBR, OOBW, PE, PF, UAF, ZF
 	 */
 	extern void *hardened_malloc(size_t size);
 	return hardened_malloc(size);
 #elif defined(USE_MIMALLOC_SECURE)
 	/* mimalloc-secure is a hardened version of the mimalloc allocator */
-	/* Mitigations:  CE, DF, DoS, DP, HO, ID, OOBA, OOBR, OOBW, PE, PF, UAF, ZF
+	/* Mitigations:  CE, DF, DoS, DT, DP, HO, ID, OOBA, OOBR, OOBW, PE, PF, UAF, ZF
 	 */
 	extern void *mi_malloc(size_t size);
 	return mi_malloc(size);
 #else
 	/* Default to glibc/musl/scudo-standalone malloc */
 	/* Scudo is part of the LLVM project and provides a hardened allocator */
-	/* Mitigations (scudo-standalone):  CE, DF, DoS, DP, HO, ID, OOBA, OOBR, OOBW, PE, PF, UAF, ZF */
+	/* Mitigations (scudo-standalone):  CE, DF, DoS, DT, DP, HO, ID, OOBA, OOBR, OOBW, PE, PF, UAF, ZF */
 	/* Mitigations (glibc):  DoS */
 	/* Mitigations (musl):  DF, DoS */
 	return malloc(size);
