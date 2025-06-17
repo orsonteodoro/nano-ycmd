@@ -16,6 +16,7 @@ You can use the following which have been tested:
 
 | Commit / Tree snapshot                                                                             | Source code download                                                                                                                                                                                                  | Notes                                                                                                                                                                                                                                                      |
 |----------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| [edb702c](https://github.com/orsonteodoro/nano-ycmd/tree/edb702c690fc02f9af79d82bce2d634debc392b5) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/edb702c690fc02f9af79d82bce2d634debc392b5.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/edb702c690fc02f9af79d82bce2d634debc392b5.tar.gz) | (Pre-release) Tested working for ycmd CORE_VERSION 48 on Jun 17, 2025.  Hardened version.  Support for hardened_malloc, mimalloc-secure, safeclib.  Faster startup with Chacha20.  Skips security prompt if .ycm_extra_conf.py is missing.  Removed performance-critical for security-critical since nano is used for website passwords and sensitive data.  Drops SIMD and OpenMP support. |
 | [dab16f0](https://github.com/orsonteodoro/nano-ycmd/tree/dab16f057401457163374efe17d53955cf1004db) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/dab16f057401457163374efe17d53955cf1004db.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/dab16f057401457163374efe17d53955cf1004db.tar.gz) | RECOMMENDED.  Tested working for ycmd CORE_VERSION 48 on Jun 8, 2025.  Adds core version 48 support.  Updates to latest upstream HEAD (version 8.4).  Fixes possible privilege escalation [CVE-2024-5742](https://nvd.nist.gov/vuln/detail/CVE-2024-5742). |
 | [7efd128](https://github.com/orsonteodoro/nano-ycmd/tree/7efd128a4e4a9e5c3269ba04c3743e21bc364190) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/7efd128a4e4a9e5c3269ba04c3743e21bc364190.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/7efd128a4e4a9e5c3269ba04c3743e21bc364190.tar.gz) | Tested working for latest ycmd CORE_VERSION 47 commit on Jul 7, 2023.  Security and completer suggestion improvements.                                                                                                                                     |
 | [7b52887](https://github.com/orsonteodoro/nano-ycmd/tree/7b52887728a19e95c77c73a0f4cd39075379e45f) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/7b52887728a19e95c77c73a0f4cd39075379e45f.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/7b52887728a19e95c77c73a0f4cd39075379e45f.tar.gz) | Tested working for latest ycmd CORE_VERSION 47 commit on Jul 2, 2023 with upstream commits to 7f4c2c6.                                                                                                                                                     |
@@ -62,23 +63,23 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
 * One cryptographic library of either Nettle, OpenSSL, or libgcrypt, to mitigate
   against a man-in-the-middle (MITM) attack between ycmd and the nano text editor.
 * neon, for http interprocess communication between nano editor and ycmd server
-* YCM-Generator (https://github.com/rdnetto/YCM-Generator), for
+* [YCM-Generator](https://github.com/rdnetto/YCM-Generator), for
   C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py.  It
   requires YCM-Generator to be patched for Python 3 support.
-* Bear (https://github.com/rizsotto/Bear), for C/C++/Objective-C/Objective-C++
+* [Bear](https://github.com/rizsotto/Bear), for C/C++/Objective-C/Objective-C++
   support to generate a compile_commands.json.
 * Clang, for C/C++/Objective-C/Objective-C++ code completion.
 * GNU Make, to clean up the project files
 * Sed, for patching .ycm_extra_conf.py
 * Bash >=4, for `&|` support
 * Unix, Linux, Cygwin for /dev/null and /dev/random support
-* NXJSON, for server response parsing (A Makefile patch applied to NXJSON
-  package needs to be applied
+* [NXJSON](https://github.com/yarosla/nxjson), for server response parsing (A
+  Makefile patch applied to NXJSON package needs to be applied
   https://github.com/orsonteodoro/oiledmachine-overlay/blob/master/dev-libs/nxjson/files/nxjson-9999.20141019-create-libs.patch
   so that it is a shared library)
-* compdb (https://github.com/Sarcasm/compdb) and Ninja, for Ninja build system
+* [compdb](https://github.com/Sarcasm/compdb) and Ninja, for Ninja build system
   support
-* jq (https://stedolan.github.io/jq/) (OPTIONAL) is json beautifier and filter.
+* [jq](https://stedolan.github.io/jq/) (OPTIONAL) is json beautifier and filter.
   This is used to clean the DiagnosticResponse after parsing and inject an index
   on the node to allow for nano-ymcd to conveniently to find a FixIt based on an
   index selected by the user when the user hovers over this line/index with a
@@ -88,6 +89,18 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
   configure, *.ninja, *.pro, files.
 * GNU coreutils, nano-ycmd needs tac command to reverse the clang system
   includes order for SIMD headers.
+* [safeclib](https://github.com/rurban/safeclib) for security-critical string
+  processing. (Optional)
+* [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc) for
+  security-critical memory allocation (Optional)
+* [mimalloc-secure](https://github.com/microsoft/mimalloc/) for
+  security-critical memory allocation (Optional)
+
+If you are using nano-ycmd for passwords or untrusted data (e.g. opening files
+from the web or without file extension), it is recommended to install hardened
+libraries.
+
+##### Older builds
 * AVX512, AVX2, SSE2, MMX (OPTIONAL and undergoing testing, AVX2/AVX512 support
   untested) for string_replace and escape_json.
 * OpenMP (OPTIONAL and undergoing testing) via --with-openmp for multicore
