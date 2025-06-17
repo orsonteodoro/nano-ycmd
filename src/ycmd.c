@@ -2698,8 +2698,9 @@ void csprng_chacha20_get_key(uint8_t *key, size_t key_size) {
 
 	uint8_t block[CSPRNG_CHACHA20_BLOCK_SIZE];
 	chacha_crypt(&ctx, CSPRNG_CHACHA20_BLOCK_SIZE, block, NULL);
-	memcpy(key, block, key_size);
+	wrap_memcpy(key, block, key_size);
 
+	/* Sanitize sensitive data */
 	wrap_secure_zero(chacha_key, CSPRNG_CHACHA20_KEY_SIZE);
 	wrap_secure_zero(nonce, CSPRNG_CHACHA20_NONCE_SIZE);
 	wrap_secure_zero(block, CSPRNG_CHACHA20_BLOCK_SIZE);
@@ -2714,9 +2715,10 @@ void csprng_chacha20_get_key(uint8_t *key, size_t key_size) {
 	uint8_t block[CSPRNG_CHACHA20_BLOCK_SIZE];
 	int len;
 	EVP_EncryptUpdate(ctx, block, &len, NULL, CSPRNG_CHACHA20_BLOCK_SIZE);
-	memcpy(key, block, key_size);
+	wrap_memcpy(key, block, key_size);
 	EVP_CIPHER_CTX_free(ctx);
 
+	/* Sanitize sensitive data */
 	wrap_secure_zero(chacha_key, CSPRNG_CHACHA20_KEY_SIZE);
 	wrap_secure_zero(block, CSPRNG_CHACHA20_BLOCK_SIZE);
 #elif defined(USE_LIBGCRYPT)
@@ -2734,9 +2736,10 @@ void csprng_chacha20_get_key(uint8_t *key, size_t key_size) {
 
 	uint8_t block[CSPRNG_CHACHA20_BLOCK_SIZE];
 	gcry_cipher_encrypt(ctx, block, CSPRNG_CHACHA20_BLOCK_SIZE, NULL, 0);
-	memcpy(key, block, key_size);
+	wrap_memcpy(key, block, key_size);
 	gcry_cipher_close(ctx);
 
+	/* Sanitize sensitive data */
 	wrap_secure_zero(chacha_key, CSPRNG_CHACHA20_KEY_SIZE);
 	wrap_secure_zero(nonce, CSPRNG_CHACHA20_NONCE_SIZE);
 	wrap_secure_zero(block, CSPRNG_CHACHA20_BLOCK_SIZE);
