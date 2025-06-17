@@ -2622,6 +2622,7 @@ void ycmd_start_server()
 				/* This should be number of columns. */
 				char display_text[DOUBLE_LINE_LENGTH];
 
+				/* This is neccessary to avoid a possible code execution attack if opening files in web browser's download folder or unattended computer's home folder. */
 				snprintf(display_text, DOUBLE_LINE_LENGTH, "SECURITY:  Load and execute the project's .ycm_extra_conf.py for ycmd support?  Does it look clean and uncompromised?");
 				statusline(HUSH, display_text);
 				full_refresh();
