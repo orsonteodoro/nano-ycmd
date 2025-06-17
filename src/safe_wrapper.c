@@ -155,6 +155,9 @@ void *_safe_malloc(size_t size) {
 	 * DP = Dangling Pointer
 	 * HO = Heap Overflow
 	 * NPD = Null Pointer Dereference
+	 * OOBA = Out Of Bounds Access
+	 * OOBR = Out Of Bounds Read
+	 * OOBW = Out Of Bounds Write
 	 * PF = Poison Free
 	 * SO = Stack Overflow
 	 * TC = Type Confusion
