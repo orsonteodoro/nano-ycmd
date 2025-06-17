@@ -2506,7 +2506,7 @@ void delete_ycmd()
 	ycmd_stop_server();
 
 	/* Sanitize sensitive data */
-	//wrap_secure_zero(&ycmd_globals, sizeof(ycmd_globals_struct));
+	wrap_secure_zero(&ycmd_globals, sizeof(ycmd_globals_struct));
 }
 
 void ycmd_start_server()
