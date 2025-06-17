@@ -2678,9 +2678,10 @@ void generate_entropy(uint8_t *key) {
 }
 
 /* Trade-off table for CSPRNG
- *                Entropy | Security | Performance | Estimated worst case startup time
- * Chacha20     | 8/10    | 9/10     | 9/10        | 1 microsecond or less
- * /dev/random  | 9/10    | 9/10     | 6/10        | A few seconds
+ * | CSPRNG       | Entropy | Security | Performance | Estimated worst case startup time |
+ * | ----         | ----    | ----     | ----        | ----                              |
+ * | Chacha20     | 8/10    | 9/10     | 9/10        | 1 microsecond or less             |
+ * | /dev/random  | 9/10    | 9/10     | 6/10        | A few seconds                     |
  */
 void csprng_chacha20_get_key(uint8_t *key, size_t key_size) {
 #if defined(USE_NETTLE)
