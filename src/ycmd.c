@@ -2759,12 +2759,12 @@ int get_secret_otp_key(uint8_t *secret_otp_key) {
 #endif
 	}
 #ifdef DEBUG
-	fprintf(stderr, "read %d bytes of /dev/random\n", (int)nread);
+	fprintf(stderr, "Read %d bytes of /dev/random\n", (int)nread);
 #endif
 	fclose(random_file);
 	blank_statusbar();
 #else
-	/* Chacha20 Keystream */
+	/* ChaCha20 Keystream */
 	csprng_chacha20_get_key(secret_otp_key, SECRET_KEY_LENGTH);
 #endif
 	return 0;
