@@ -1320,7 +1320,7 @@ void do_completer_command_gotodefinitionelsedeclaration(void)
 void do_completer_command_goto(void)
 {
 	/* It should be number of columns. */
-	char display_text[LINE_LENGTH];
+	char display_text[DOUBLE_LINE_LENGTH];
 
 	run_completer_command_result_struct rccr;
 	constructor_run_completer_command_result(&rccr);
@@ -1342,10 +1342,10 @@ void do_completer_command_goto(void)
 				const nx_json *item = nx_json_item(a, i);
 				const char *description = nx_json_get(item, "description")->text_value;
 				if (i == 0) {
-					wrap_strncat(display_text, description, LINE_LENGTH - 1);
+					wrap_strncat(display_text, description, DOUBLE_LINE_LENGTH);
 				} else {
-					wrap_strncat(display_text, ", ", LINE_LENGTH - 1);
-					wrap_strncat(display_text, description, LINE_LENGTH - 1);
+					wrap_strncat(display_text, ", ", DOUBLE_LINE_LENGTH);
+					wrap_strncat(display_text, description, DOUBLE_LINE_LENGTH);
 				}
 			}
 
@@ -2620,9 +2620,9 @@ void ycmd_start_server()
 				bottombars(MYCMEXTRACONF);
 
 				/* This should be number of columns. */
-				char display_text[100];
+				char display_text[DOUBLE_LINE_LENGTH];
 
-				snprintf(display_text, 100, "SECURITY:  Load and execute this file for ycmd support?  Does it look clean and uncompromised?");
+				snprintf(display_text, DOUBLE_LINE_LENGTH, "SECURITY:  Load and execute this file for ycmd support?  Does it look clean and uncompromised?");
 				statusline(HUSH, display_text);
 				full_refresh();
 				bottombars(MYCMEXTRACONF);
@@ -3526,9 +3526,9 @@ void do_ycm_extra_conf_accept(void)
 		if (access(path_extra_conf, F_OK) == 0) {
 
 			/* It should be number of columns. */
-			char display_text[PATH_MAX];
+			char display_text[DOUBLE_LINE_LENGTH];
 
-			snprintf(display_text, PATH_MAX, "Accepted %s", path_extra_conf);
+			snprintf(display_text, DOUBLE_LINE_LENGTH, "Accepted %s", path_extra_conf);
 			statusline(HUSH, display_text);
 			ycmd_req_load_extra_conf_file(path_extra_conf);
 		}
@@ -3549,9 +3549,9 @@ void do_ycm_extra_conf_reject(void)
 
 		if (access(path_extra_conf, F_OK) == 0) {
 			/* It should be number of columns. */
-			char display_text[PATH_MAX];
+			char display_text[DOUBLE_LINE_LENGTH];
 
-			snprintf(display_text, PATH_MAX, "Rejected %s", path_extra_conf);
+			snprintf(display_text, DOUBLE_LINE_LENGTH, "Rejected %s", path_extra_conf);
 			statusline(HUSH, display_text);
 			ycmd_req_load_extra_conf_file(path_extra_conf);
 		}
@@ -3575,9 +3575,9 @@ void do_ycm_extra_conf_generate(void)
 #ifdef ENABLE_YCM_GENERATOR
 
 		/* It should be number of columns. */
-		char display_text[PATH_MAX];
+		char display_text[DOUBLE_LINE_LENGTH];
 
-		snprintf(display_text, PATH_MAX, "Generated and accepted %s", path_extra_conf);
+		snprintf(display_text, DOUBLE_LINE_LENGTH, "Generated and accepted %s", path_extra_conf);
 		statusline(HUSH, display_text);
 		ycmd_gen_extra_conf();
 #endif
