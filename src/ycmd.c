@@ -2622,7 +2622,7 @@ void ycmd_start_server()
 				/* This should be number of columns. */
 				char display_text[DOUBLE_LINE_LENGTH];
 
-				snprintf(display_text, DOUBLE_LINE_LENGTH, "SECURITY:  Load and execute this file for ycmd support?  Does it look clean and uncompromised?");
+				snprintf(display_text, DOUBLE_LINE_LENGTH, "SECURITY:  Load and execute the project's .ycm_extra_conf.py for ycmd support?  Does it look clean and uncompromised?");
 				statusline(HUSH, display_text);
 				full_refresh();
 				bottombars(MYCMEXTRACONF);
