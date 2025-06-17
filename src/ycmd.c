@@ -89,27 +89,22 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 	"RestartServer",
 };
 
-#ifdef USE_NETTLE
+#if defined(USE_NETTLE)
 #include <nettle/base64.h>
 #include <nettle/hmac.h>
-#include <nettle/yarrow.h>
+#include <nettle/chacha.h>
 #define CRYPTO_LIB "NETTLE"
-#endif
-
-#ifdef USE_OPENSSL
+#elif defined(USE_OPENSSL)
 #include <openssl/buffer.h>
 #include <openssl/hmac.h>
 #include <openssl/rand.h>
+#include <openssl/evp.h>
 #define CRYPTO_LIB "OPENSSL"
-#endif
-
-#ifdef USE_LIBGCRYPT
+#elif defined(USE_LIBGCRYPT)
 #include <gcrypt.h>
 #include <glib.h>
 #define CRYPTO_LIB "LIBGCRYPT"
-#endif
-
-#ifndef CRYPTO_LIB
+#else
 #error "You must choose a cryptographic library to use ycmd code completion support.  Currently Nettle, OpenSSL 3.x, Libgcrypt are supported."
 #endif
 
@@ -452,8 +447,8 @@ semantic_triggers_struct json_default_set_semantic_trigger(char *lang, char trig
 {
 	semantic_triggers_struct row;
 	wrap_secure_zero(&row, sizeof(semantic_triggers_struct));
-	wrap_strncpy(row.lang, lang, 10);
-	wrap_memcpy(row.triggers, triggers, sizeof(row.triggers));
+	wrap_strncpy(row.lang, lang, QUARTER_LINE_LENGTH);
+	wrap_memcpy(row.triggers, triggers, 10 * QUARTER_LINE_LENGTH);
 	return row;
 }
 
@@ -461,7 +456,7 @@ filetype_specific_completion_to_disable_struct json_default_set_filetype_specifi
 {
 	filetype_specific_completion_to_disable_struct row;
 	wrap_secure_zero(&row, sizeof(filetype_specific_completion_to_disable_struct));
-	wrap_strncpy(row.filetype, filetype, NAME_MAX - 1);
+	wrap_strncpy(row.filetype, filetype, NAME_MAX);
 	row.off = off;
 	return row;
 }
@@ -470,7 +465,7 @@ filetype_whitelist_struct json_default_set_filetype_whitelist(char *filetype, in
 {
 	filetype_whitelist_struct row;
 	wrap_secure_zero(&row, sizeof(filetype_whitelist_struct));
-	wrap_strncpy(row.filetype, filetype, NAME_MAX - 1);
+	wrap_strncpy(row.filetype, filetype, NAME_MAX);
 	row.whitelisted = whitelisted;
 	return row;
 }
@@ -479,7 +474,7 @@ filetype_blacklist_struct json_default_set_filetype_blacklist(char *filetype, in
 {
 	filetype_blacklist_struct row;
 	wrap_secure_zero(&row, sizeof(filetype_blacklist_struct));
-	wrap_strncpy(row.filetype, filetype, NAME_MAX - 1);
+	wrap_strncpy(row.filetype, filetype, NAME_MAX);
 	row.blacklisted = blacklisted;
 	return row;
 }
@@ -775,7 +770,7 @@ void default_settings_json_constructor(char *json)
 
 void ycmd_gen_extra_conf()
 {
-	char command[PATH_MAX + 160];
+	char command[PATH_MAX + DOUBLE_LINE_LENGTH];
 	char path_project[PATH_MAX];
 	ycmd_get_project_path(path_project);
 
@@ -784,7 +779,7 @@ void ycmd_gen_extra_conf()
 	else
 		return;
 
-	snprintf(command, PATH_MAX + 160, "find '%s' -name '*.mm' -o -name '*.m' -o -name '*.cpp' -o -name '*.C' -o -name '*.cxx' -o -name '*.c' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' >/dev/null", path_project);
+	snprintf(command, PATH_MAX + DOUBLE_LINE_LENGTH, "find '%s' -name '*.mm' -o -name '*.m' -o -name '*.cpp' -o -name '*.C' -o -name '*.cxx' -o -name '*.c' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' >/dev/null", path_project);
 	int ret = system(command);
 
 	if (ret == 0) {
@@ -2313,7 +2308,7 @@ typedef struct defined_subcommands {
 	int line_num;
 	int column_num;
 	char filepath[PATH_MAX];
-	char completer_target[NAME_MAX];
+	char completer_target[NAME_MAX + 1];
 } defined_subcommands;
 
 /* Get the list completer commands available for the completer target. */
@@ -2499,6 +2494,7 @@ int find_unused_localhost_port()
 	return -1;
 }
 
+/* The main exit function. */
 void delete_ycmd()
 {
 #if defined(DEBUG)
@@ -2508,6 +2504,9 @@ void delete_ycmd()
 	delete_file_ready_to_parse_results(&ycmd_globals.file_ready_to_parse_results);
 
 	ycmd_stop_server();
+
+	/* Sanitize sensitive data */
+	//wrap_secure_zero(&ycmd_globals, sizeof(ycmd_globals_struct));
 }
 
 void ycmd_start_server()
@@ -2615,18 +2614,20 @@ void ycmd_start_server()
 	if (wrap_strncmp(path_project, "(null)", PATH_MAX) != 0 && access(path_project, F_OK) == 0) {
 		if (access(path_project, F_OK) == 0) {
 			ycmd_get_extra_conf_path(path_project, path_extra_conf);
-			open_buffer(path_extra_conf, TRUE);
-			edit_refresh();
-			bottombars(MYCMEXTRACONF);
+			if (access(path_extra_conf, F_OK) == 0) {
+				open_buffer(path_extra_conf, TRUE);
+				edit_refresh();
+				bottombars(MYCMEXTRACONF);
 
-			/* This should be number of columns. */
-			char display_text[100];
+				/* This should be number of columns. */
+				char display_text[100];
 
-			snprintf(display_text, 100, "SECURITY:  Load and execute this file for ycmd support?  Does it look clean and uncompromised?");
-			statusline(HUSH, display_text);
-			full_refresh();
-			bottombars(MYCMEXTRACONF);
-			full_refresh();
+				snprintf(display_text, 100, "SECURITY:  Load and execute this file for ycmd support?  Does it look clean and uncompromised?");
+				statusline(HUSH, display_text);
+				full_refresh();
+				bottombars(MYCMEXTRACONF);
+				full_refresh();
+			}
 		}
 	}
 }
@@ -2660,6 +2661,81 @@ void ycmd_restart_server()
 	ycmd_start_server();
 }
 
+/* Function to generate entropy for the key */
+void generate_entropy(uint8_t *key) {
+	/* Get the current time */
+	time_t current_time = time(NULL);
+
+	/* Get the PID */
+	pid_t pid = getpid();
+
+	/* Generate random numbers */
+	srand(current_time ^ pid);
+	for (int i = 0; i < CSPRNG_CHACHA20_KEY_SIZE; i++) {
+		key[i] = rand() % 256;
+	}
+}
+
+void csprng_chacha20_get_key(uint8_t *key, size_t key_size) {
+#if defined(USE_NETTLE)
+	uint8_t chacha_key[CSPRNG_CHACHA20_KEY_SIZE];
+	generate_entropy(chacha_key);
+
+	struct chacha_ctx ctx;
+	chacha_set_key(&ctx, chacha_key);
+
+	uint8_t nonce[CSPRNG_CHACHA20_NONCE_SIZE];
+	wrap_secure_zero(nonce, CSPRNG_CHACHA20_NONCE_SIZE);
+	/* Nettle's chacha_set_nonce expects 8 bytes nonce */
+	chacha_set_nonce(&ctx, nonce);
+
+	uint8_t block[CSPRNG_CHACHA20_BLOCK_SIZE];
+	chacha_crypt(&ctx, CSPRNG_CHACHA20_BLOCK_SIZE, block, NULL);
+	memcpy(key, block, key_size);
+
+	wrap_secure_zero(chacha_key, CSPRNG_CHACHA20_KEY_SIZE);
+	wrap_secure_zero(nonce, CSPRNG_CHACHA20_NONCE_SIZE);
+	wrap_secure_zero(block, CSPRNG_CHACHA20_BLOCK_SIZE);
+#elif defined(USE_OPENSSL)
+	uint8_t chacha_key[CSPRNG_CHACHA20_KEY_SIZE];
+	generate_entropy(chacha_key);
+
+	EVP_CIPHER_CTX *ctx;
+	ctx = EVP_CIPHER_CTX_new();
+	EVP_EncryptInit_ex(ctx, EVP_chacha20(), NULL, chacha_key, NULL);
+
+	uint8_t block[CSPRNG_CHACHA20_BLOCK_SIZE];
+	int len;
+	EVP_EncryptUpdate(ctx, block, &len, NULL, CSPRNG_CHACHA20_BLOCK_SIZE);
+	memcpy(key, block, key_size);
+	EVP_CIPHER_CTX_free(ctx);
+
+	wrap_secure_zero(chacha_key, CSPRNG_CHACHA20_KEY_SIZE);
+	wrap_secure_zero(block, CSPRNG_CHACHA20_BLOCK_SIZE);
+#elif defined(USE_LIBGCRYPT)
+	uint8_t chacha_key[CSPRNG_CHACHA20_KEY_SIZE];
+	generate_entropy(chacha_key);
+
+	gcry_cipher_hd_t ctx;
+
+	gcry_cipher_open(&ctx, GCRY_CIPHER_CHACHA20, GCRY_CIPHER_MODE_STREAM, 0);
+	gcry_cipher_setkey(ctx, chacha_key, CSPRNG_CHACHA20_KEY_SIZE);
+
+	uint8_t nonce[CSPRNG_CHACHA20_NONCE_SIZE];
+	wrap_secure_zero(nonce, CSPRNG_CHACHA20_NONCE_SIZE);
+	gcry_cipher_setiv(ctx, nonce, CSPRNG_CHACHA20_NONCE_SIZE);
+
+	uint8_t block[CSPRNG_CHACHA20_BLOCK_SIZE];
+	gcry_cipher_encrypt(ctx, block, CSPRNG_CHACHA20_BLOCK_SIZE, NULL, 0);
+	memcpy(key, block, key_size);
+	gcry_cipher_close(ctx);
+
+	wrap_secure_zero(chacha_key, CSPRNG_CHACHA20_KEY_SIZE);
+	wrap_secure_zero(nonce, CSPRNG_CHACHA20_NONCE_SIZE);
+	wrap_secure_zero(block, CSPRNG_CHACHA20_BLOCK_SIZE);
+#endif
+}
+
 int get_secret_otp_key(uint8_t *secret_otp_key) {
 #if defined(USE_RANDOM)
 	FILE *random_file;
@@ -2677,36 +2753,9 @@ int get_secret_otp_key(uint8_t *secret_otp_key) {
 #endif
 	fclose(random_file);
 	blank_statusbar();
-#elif defined(USE_NETTLE)
-	struct yarrow256_ctx yarrow_ctx;
-	uint8_t seed[32];
-
-	/* Initialize Yarrow PRNG */
-	yarrow256_init(&yarrow_ctx, 0, NULL);
-
-	/* Seed the Yarrow context */
-	yarrow256_seed(&yarrow_ctx, 32, seed);
-
-	/* Generate 16-byte OTP key */
-	yarrow256_random(&yarrow_ctx, SECRET_KEY_LENGTH, secret_otp_key);
-	wrap_secure_zero(seed, 32);
-#elif defined(USE_OPENSSL)
-	// Generate 16-byte OTP key
-	if (RAND_bytes(secret_otp_key, SECRET_KEY_LENGTH) != 1) {
-		printf("Failed to generate random bytes\n");
-		return -1;
-	}
-#elif defined(USE_LIBGCRYPT)
-	/* Initialize libgcrypt */
-	if (!gcry_check_version(GCRYPT_VERSION)) {
-		printf("libgcrypt version mismatch\n");
-		return -1;
-	}
-	gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
-	gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
-
-	/* Generate 16-byte OTP key */
-	gcry_randomize(secret_otp_key, SECRET_KEY_LENGTH, GCRY_STRONG_RANDOM);
+#else
+	/* Chacha20 Keystream */
+	csprng_chacha20_get_key(secret_otp_key, SECRET_KEY_LENGTH);
 #endif
 	return 0;
 }
@@ -2755,9 +2804,9 @@ void ycmd_generate_secret_key_raw(uint8_t *secret)
 void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64)
 {
 	wrap_secure_zero(secret_base64, SECRET_KEY_LENGTH * 2);
-#ifdef USE_NETTLE
+#if defined(USE_NETTLE)
 	base64_encode_raw(secret_base64, SECRET_KEY_LENGTH, secret);
-#elif USE_OPENSSL
+#elif defined(USE_OPENSSL)
 	BIO *b, *append;
 	BUF_MEM *pp;
 	b = BIO_new(BIO_f_base64());
@@ -2771,7 +2820,7 @@ void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64)
 
 	wrap_memcpy(secret_base64, pp->data, pp->length);
 	BIO_free_all(b);
-#elif USE_LIBGCRYPT
+#elif defined(USE_LIBGCRYPT)
         gchar *_secret_base64 = g_base64_encode((unsigned char *)secret, SECRET_KEY_LENGTH);
 	wrap_strncpy(secret_base64, _secret_base64, SECRET_KEY_LENGTH * 2 - 1);
 	wrap_secure_zero(_secret_base64, strlen(_secret_base64));
@@ -2784,7 +2833,7 @@ void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64)
 void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char *body, size_t body_len /* strlen based */)
 {
 	wrap_secure_zero(req_hmac_base64, HMAC_SIZE * 2);
-#ifdef USE_NETTLE
+#if defined(USE_NETTLE)
 	char join[HMAC_SIZE * 3];
 	static char hmac_request[HMAC_SIZE];
 	struct hmac_sha256_ctx hmac_ctx;
@@ -2807,7 +2856,7 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	/* Sanitize sensitive data */
 	wrap_secure_zero(join, HMAC_SIZE *3);
 	wrap_secure_zero(hmac_request, HMAC_SIZE);
-#elif USE_OPENSSL
+#elif defined(USE_OPENSSL)
 	unsigned char hmac_method[HMAC_SIZE];
 	unsigned char hmac_path[HMAC_SIZE];
 	unsigned char hmac_body[HMAC_SIZE];
@@ -2869,7 +2918,7 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	wrap_secure_zero(hmac_path, HMAC_SIZE);
 	wrap_secure_zero(hmac_body, HMAC_SIZE);
 	wrap_secure_zero(hmac_final, HMAC_SIZE);
-#elif USE_LIBGCRYPT
+#elif defined(USE_LIBGCRYPT)
         unsigned char join[HMAC_SIZE * 3];
 	size_t length;
 
@@ -2917,7 +2966,7 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 {
 	wrap_secure_zero(rsp_hmac_base64, HMAC_SIZE * 2);
-#ifdef USE_NETTLE
+#if defined(USE_NETTLE)
 	static char hmac_response[HMAC_SIZE];
 	struct hmac_sha256_ctx hmac_ctx;
 
@@ -2926,7 +2975,7 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 	hmac_sha256_digest(&hmac_ctx, HMAC_SIZE, (unsigned char *)hmac_response);
 
 	base64_encode_raw(rsp_hmac_base64, HMAC_SIZE, (const uint8_t *)hmac_response);
-#elif USE_OPENSSL
+#elif defined(USE_OPENSSL)
         unsigned char *response_digest = HMAC(EVP_sha256(), ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH,(unsigned char *) response_body,strlen(response_body), NULL, NULL);
 
 	BIO *b, *append;
@@ -2943,7 +2992,7 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 	wrap_memcpy(rsp_hmac_base64, pp->data, pp->length);
 
 	BIO_free_all(b);
-#elif USE_LIBGCRYPT
+#elif defined(USE_LIBGCRYPT)
 	gcry_mac_hd_t hd;
 	gcry_mac_open(&hd, GCRY_MAC_HMAC_SHA256, 0/*GCRY_MAC_FLAG_SECURE*/, NULL);
 	gcry_mac_setkey(hd, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH);

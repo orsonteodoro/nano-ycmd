@@ -71,19 +71,33 @@ void init_wrapper(void) {
 }
 
 char *wrap_strncpy(char *dest, const char *src, size_t n) {
-#ifdef USE_SAFECLIB
-	errno_t err = strncpy_s(dest, n, src, n);
-	if (err != EOK) {
-		fprintf(stderr, "strncpy_s:  Error:  %s\n", strerror(err));
-		dest[0] = '\0'; /* Ensure null-termination in case of error */
-	}
-	return dest;
-#else
 	if (dest == NULL || src == NULL) {
 		return NULL;
 	}
-	strncpy(dest, src, n);
+#ifdef USE_SAFECLIB
+	/* There is an inconsistency so a rewrite to mimic glibc. */
+	if (n == 0) {
+		/* glibc's strncpy does nothing when n == 0 */
+		return dest;
+	}
+
+	/* Calculate length of src (excluding null terminator) */
+	size_t src_len = strnlen_s(src, n);
+
+	/* Use memcpy_s to copy up to n characters without forcing null termination */
+	if (memcpy_s(dest, n, src, src_len < n ? src_len : n) != 0) {
+		/* Handle error: mimic glibc by returning dest without modification */
+		return dest;
+	}
+
+	/* Null-pad remaining space if src_len < n, matching glibc behavior */
+	if (src_len < n) {
+		memset(dest + src_len, 0, n - src_len);
+	}
+
 	return dest;
+#else
+	return strncpy(dest, src, n);
 #endif
 }
 
@@ -104,31 +118,13 @@ void *wrap_memcpy(void *dest, const void *src, size_t n) {
 }
 
 int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
-#ifdef USE_SAFECLIB
-	return vsnprintf_s(str, size, format, ap);
-#else
-	if (str == NULL || format == NULL) {
-		return -EINVAL;
-	}
+	/* There is an inconsistency in the safeclib implementation.  Forced glibc implimentation. */
 	return vsnprintf(str, size, format, ap);
-#endif
 }
 
 char *wrap_strncat(char *dest, const char *src, size_t n) {
-#ifdef USE_SAFECLIB
-	errno_t err = strncat_s(dest, n, src, n);
-	if (err != EOK) {
-		fprintf(stderr, "strncat_s:  Error:  %s\n", strerror(err));
-		dest[0] = '\0'; /* Ensure null-termination in case of error */
-	}
-	return dest;
-#else
-	if (dest == NULL || src == NULL) {
-		/* Handle NULL pointer or invalid size error */
-		return NULL;
-	}
+	/* There is an inconsistency in the safeclib implementation.  Forced glibc implimentation. */
 	return strncat(dest, src, n);
-#endif
 }
 
 int wrap_strncmp(const char *s1, const char *s2, size_t n) {

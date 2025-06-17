@@ -41,10 +41,13 @@
 #define DEFAULT_JSON_SEMANTIC_TRIGGERS_MAX 10				/* Arbitrary, not in spec */
 #define DEFAULT_JSON_EXTRA_CONF_GLOBLIST_MAX 10				/* Arbitrary, not in spec */
 
+#define CSPRNG_CHACHA20_BLOCK_SIZE 64
+#define CSPRNG_CHACHA20_KEY_SIZE 32
+#define CSPRNG_CHACHA20_NONCE_SIZE 8
+#define DIGITS_MAX 11							/* It includes the NULL character. */
 #define HTTP_HEADER_YCM_HMAC "X-Ycm-Hmac"
 #define HMAC_SIZE 256/8							/* 32 bytes */
 #define SECRET_KEY_LENGTH 16
-#define DIGITS_MAX 11							/* It includes the NULL character. */
 #define IDLE_SUICIDE_SECONDS 10800					/* 3 Hours */
 #define SEND_TO_SERVER_DELAY 500000
 #ifdef YCMD_CORE_VERSION
@@ -62,17 +65,17 @@
 
 /* See also https://github.com/ycm-core/YouCompleteMe/blob/4654e1bf7001128195ae7692c35fe91b4024d632/doc/youcompleteme.txt#L3118 */
 typedef struct filetype_specific_completion_to_disable_struct {
-	char filetype[NAME_MAX];
+	char filetype[NAME_MAX + 1]; /* NAME_MAX does not contain null */
 	int off;
 } filetype_specific_completion_to_disable_struct;
 
 typedef struct filetype_whitelist_struct {
-	char filetype[NAME_MAX];
+	char filetype[NAME_MAX + 1];
 	int whitelisted;
 } filetype_whitelist_struct;
 
 typedef struct filetype_blacklist_struct {
-	char filetype[NAME_MAX];
+	char filetype[NAME_MAX + 1];
 	int blacklisted;
 } filetype_blacklist_struct;
 
@@ -81,7 +84,7 @@ typedef struct extra_conf_globlist_struct {
 } extra_conf_globlist_struct;
 
 typedef struct semantic_triggers_struct {
-	char lang[10];
+	char lang[QUARTER_LINE_LENGTH];
 	char triggers[10][QUARTER_LINE_LENGTH]; /* [entries index, length of trigger] = "<language syntax token>" */
 	int triggers_num;
 	/* A trigger is a language syntax token (e.g. ::, ->). */
@@ -119,7 +122,7 @@ typedef struct default_settings_struct {
 	int csharp_server_port;
 	char hmac_secret[SECRET_KEY_LENGTH * 2];								/* As base64 encoded */
 	int server_keep_logfiles;
-	char gocode_binary_path[PATH_MAX];
+	char gocode_binary_path[PATH_MAX]; /* PATH_MAX includes null */
 	char godef_binary_path[PATH_MAX];
 	char rust_src_path[PATH_MAX];
 	char racerd_binary_path[PATH_MAX];
@@ -177,7 +180,6 @@ typedef struct ycmd_globals_struct {
 	int max_entries;
 
 	default_settings_struct default_settings;
-
 } ycmd_globals_struct;
 
 extern void ycmd_constructor();
