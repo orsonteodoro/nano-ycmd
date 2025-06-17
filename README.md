@@ -90,7 +90,7 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
 * GNU coreutils, nano-ycmd needs tac command to reverse the clang system
   includes order for SIMD headers.
 * [safeclib](https://github.com/rurban/safeclib) for security-critical string
-  processing. (Optional)
+  and memory processing. (Optional)
 * [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc) for
   security-critical memory allocation (Optional)
 * [mimalloc-secure](https://github.com/microsoft/mimalloc/) for
