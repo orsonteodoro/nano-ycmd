@@ -141,12 +141,16 @@ int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 		int res = vsnprintf_s(dummy, sizeof(dummy), format, ap_copy);
 		va_end(ap_copy);
 		if (res < 0) {
+#ifdef DEBUG
 			fprintf(stderr, "%s: vsnprintf_s failed in dummy case (res=%d)\n", function_name, res);
 			return -1;
+#endif
 		}
 		if (res >= DUMMY_BUFFER_SIZE) {
+#ifdef DEBUG
 			fprintf(stderr, "%: Warning: Format string may exceed %d bytes (res=%d)\n",
 				function_name, DUMMY_BUFFER_SIZE, res);
+#endif
 		}
 		return res;
 	}
