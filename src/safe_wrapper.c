@@ -26,6 +26,9 @@
 #include <safeclib/safec.h>
 #endif
 #include <string.h>
+#include <limits.h>
+
+#define DEFAULT_JSON_SIZE (PATH_MAX * 16 + 44 * 10 + 80 * 50) /* 69976 */
 
 #if defined(__GLIBC__) && __GLIBC_PREREQ(2, 25)
 # define HAVE_EXPLICIT_BZERO 1
@@ -75,7 +78,7 @@ char *wrap_strncpy(char *dest, const char *src, size_t n) {
 		return NULL;
 	}
 #ifdef USE_SAFECLIB
-	/* There is an inconsistency so a rewrite to mimic glibc. */
+	/* There was an inconsistency so it was rewritten to mimic glibc. */
 	if (n == 0) {
 		/* glibc's strncpy does nothing when n == 0 */
 		return dest;
@@ -102,10 +105,15 @@ char *wrap_strncpy(char *dest, const char *src, size_t n) {
 }
 
 void *wrap_memcpy(void *dest, const void *src, size_t n) {
+#ifdef DEBUG
+	char *function_name = "wrap_memcpy";
+#endif
 #ifdef USE_SAFECLIB
 	errno_t err = memcpy_s(dest, n, src, n);
 	if (err != EOK) {
-		fprintf(stderr, "memcpy_s:  Error:  %s\n", strerror(err));
+#ifdef DEBUG
+		fprintf(stderr, "%s:  Error:  %s\n", function_name, strerror(err));
+#endif
 	}
 	return dest;
 #else
@@ -118,13 +126,116 @@ void *wrap_memcpy(void *dest, const void *src, size_t n) {
 }
 
 int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
-	/* There is an inconsistency in the safeclib implementation.  Forced glibc implimentation. */
+#ifdef DEBUG
+	char *function_name = "wrap_vsnprintf";
+#endif
+#ifdef USE_SAFECLIB
+	/* There is an inconsistency in the safeclib implementation.  So rewrite. */
+	if (str == NULL && size != 0) return -1;
+	if (format == NULL) return -1;
+	if (size == 0) {
+		char dummy[DEFAULT_JSON_SIZE];
+		va_list ap_copy;
+		va_copy(ap_copy, ap);
+		int res = vsnprintf_s(dummy, sizeof(dummy), format, ap_copy);
+		va_end(ap_copy);
+		return res < 0 ? -1 : res;
+	}
+	if (size > DEFAULT_JSON_SIZE) {
+#ifdef DEBUG
+		fprintf(stderr, "%s: size capped (input=%zu, max=%d)\n",
+			function_name, size, DEFAULT_JSON_SIZE);
+#endif
+		size = DEFAULT_JSON_SIZE;
+	}
+	int res = vsnprintf_s(str, size, format, ap);
+	if (res < 0) {
+		va_list ap_copy;
+		va_copy(ap_copy, ap);
+		res = vsnprintf(str, size, format, ap_copy);
+		va_end(ap_copy);
+	}
+	return res < 0 ? -1 : res;
+#else
 	return vsnprintf(str, size, format, ap);
+#endif
 }
 
 char *wrap_strncat(char *dest, const char *src, size_t n) {
-	/* There is an inconsistency in the safeclib implementation.  Forced glibc implimentation. */
-	return strncat(dest, src, n);
+#ifdef DEBUG
+	char *function_name = "wrap_strncat";
+#endif
+#ifdef USE_SAFECLIB
+	/* There is an inconsistency in the safeclib implementation.  So rewrite. */
+	/* Validate inputs */
+	if (dest == NULL || src == NULL || n == 0) {
+#ifdef DEBUG
+		fprintf(stderr, "%s: Invalid input (dest=%p, src=%p, n=%zu)\n",
+			function_name, (void *)dest, (void *)src, n);
+#endif
+		return NULL;
+	}
+
+	/* Cap n at DEFAULT_JSON_SIZE */
+	if (n > DEFAULT_JSON_SIZE) {
+#ifdef DEBUG
+		fprintf(stderr, "%s: n capped (input=%zu, max=%d)\n",
+			function_name, n, DEFAULT_JSON_SIZE);
+#endif
+		n = DEFAULT_JSON_SIZE;
+	}
+
+	/* Sanitize dest: Ensure null-termination */
+	dest[n - 1] = '\0';
+	size_t dest_len = strnlen_s(dest, n);
+	if (dest_len >= n - 1) {
+#ifdef DEBUG
+		fprintf(stderr, "%s: No space in dest (dest_len=%zu, n=%zu)\n",
+			function_name, dest_len, n);
+#endif
+		return NULL;
+	}
+
+	/* Compute source length */
+	size_t max_src_len = n - dest_len - 1;
+	if (max_src_len > RSIZE_MAX_STR) {
+		max_src_len = RSIZE_MAX_STR; /* Cap at 131072 */
+	}
+	size_t src_len = strnlen_s(src, max_src_len);
+	if (src_len >= max_src_len && (src_len < n && src[src_len] != '\0')) {
+#ifdef DEBUG
+		fprintf(stderr, "%s: src too long (src_len=%zu, max_src_len=%zu)\n",
+			function_name, src_len, max_src_len);
+#endif
+		return NULL;
+	}
+
+	/* Concatenate */
+	errno_t res = strncat_s(dest, n, src, RSIZE_MAX_STR);
+	if (res != 0) {
+#ifdef DEBUG
+		fprintf(stderr, "%s: strncat_s failed (res=%d, n=%zu, src_len=%zu)\n",
+			function_name, res, n, src_len);
+#endif
+		return NULL;
+	}
+
+	return dest;
+#else
+	/* glibc strncat */
+	if (dest == NULL || src == NULL || n == 0) {
+		return NULL;
+	}
+	if (n > DEFAULT_JSON_SIZE) {
+		n = DEFAULT_JSON_SIZE;
+	}
+	size_t dest_len = strnlen(dest, n);
+	if (dest_len >= n - 1) {
+		return NULL;
+	}
+	strncat(dest, src, n - dest_len - 1);
+	return dest;
+#endif
 }
 
 int wrap_strncmp(const char *s1, const char *s2, size_t n) {

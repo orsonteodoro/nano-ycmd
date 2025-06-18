@@ -184,6 +184,10 @@ void ycmd_send_to_server(int signum)
     ycmd_event_file_ready_to_parse(openfile->current_x, (long)openfile->current->lineno, openfile->filename, openfile->filetop);
 }
 
+#ifdef USE_SAFECLIB
+#include <safe_str_lib.h>
+#endif
+
 void ycmd_constructor()
 {
 	wrap_secure_zero(&ycmd_globals, sizeof(ycmd_globals_struct));

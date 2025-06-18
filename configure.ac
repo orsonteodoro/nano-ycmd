@@ -433,6 +433,16 @@ if test "x$with_safeclib" = xyes; then
 	have_safeclib=yes
 	AC_MSG_CHECKING([for safeclib])
 	AC_MSG_RESULT([yes])
+	AC_MSG_CHECKING([for safeclib RSIZE_MAX_STR >= 128K])
+	AC_RUN_IFELSE(
+		[AC_LANG_PROGRAM(
+			[[#include <safe_str_lib.h>]],
+			[[if (RSIZE_MAX_STR < 131072) return 1; return 0;]]
+		)],
+		[AC_MSG_RESULT([yes])],
+		[AC_MSG_ERROR([safeclib RSIZE_MAX_STR < 131072, needs to be rebuild with --enable-strmax=131072 or greater])],
+		[AC_MSG_RESULT([cross-compiling; assuming OK])]
+	)
 else
 	AC_MSG_CHECKING([for safeclib])
 	AC_MSG_RESULT([no])
