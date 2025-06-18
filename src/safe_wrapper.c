@@ -125,6 +125,7 @@ void *wrap_memcpy(void *dest, const void *src, size_t n) {
 #endif
 }
 
+#define DUMMY_BUFFER_SIZE 1024
 int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 #ifdef DEBUG
 	char *function_name = "wrap_vsnprintf";
@@ -134,12 +135,20 @@ int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 	if (str == NULL && size != 0) return -1;
 	if (format == NULL) return -1;
 	if (size == 0) {
-		char dummy[DEFAULT_JSON_SIZE];
+		char dummy[DUMMY_BUFFER_SIZE] = {0}; /* Initialize to zero */
 		va_list ap_copy;
 		va_copy(ap_copy, ap);
 		int res = vsnprintf_s(dummy, sizeof(dummy), format, ap_copy);
 		va_end(ap_copy);
-		return res < 0 ? -1 : res;
+		if (res < 0) {
+			fprintf(stderr, "%s: vsnprintf_s failed in dummy case (res=%d)\n", function_name, res);
+			return -1;
+		}
+		if (res >= DUMMY_BUFFER_SIZE) {
+			fprintf(stderr, "%: Warning: Format string may exceed %d bytes (res=%d)\n",
+				function_name, DUMMY_BUFFER_SIZE, res);
+		}
+		return res;
 	}
 	if (size > DEFAULT_JSON_SIZE) {
 #ifdef DEBUG
