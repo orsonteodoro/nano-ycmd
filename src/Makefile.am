@@ -196,7 +196,7 @@ endif
 
 if HAVE_LIBGCRYPT
 nano_LDADD += @GLIB_LIBS@
-nano_LDFLAGS = $(LIBGCRYPT_LIBS)
+nano_LDFLAGS += $(LIBGCRYPT_LIBS)
 endif
 
 if HAVE_NETTLE
