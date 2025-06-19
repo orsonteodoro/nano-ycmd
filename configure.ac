@@ -557,13 +557,11 @@ if test "x$enable_ycmd" = xyes; then
 		AC_MSG_ERROR([unable to find the nx_json_get() function])
 	])
 
-	if test "x$with_openssl" = xyes; then
-		PKG_CHECK_MODULES([OPENSSL], [openssl >= 3], [
-			OPENSSL_LIB=$OPENSSL_LIBS
-			CPPFLAGS="$OPENSSL_CFLAGS $CPPFLAGS"
-			OPENSSL_LIB_NAME=openssl
-		], [:])
-		have_openssl=yes
+	if test "x$with_libgcrypt" = xyes; then
+		AC_SEARCH_LIBS([gcry_mac_open], [gcrypt], [], [
+			AC_MSG_ERROR([unable to find the gcry_mac_open() function])
+		])
+		have_libgcrypt=yes
 	elif test "x$with_nettle" = xyes; then
 		PKG_CHECK_MODULES([NETTLE], [nettle], [
 			NETTLE_LIB=$NETTLE_LIBS
@@ -571,13 +569,15 @@ if test "x$enable_ycmd" = xyes; then
 			NETTLE_LIB_NAME=nettle
 		], [:])
 		have_nettle=yes
-	elif test "x$with_libgcrypt" = xyes; then
-		AC_SEARCH_LIBS([gcry_mac_open], [gcrypt], [], [
-			AC_MSG_ERROR([unable to find the gcry_mac_open() function])
-		])
-		have_libgcrypt=yes
+	elif test "x$with_openssl" = xyes; then
+		PKG_CHECK_MODULES([OPENSSL], [openssl >= 3], [
+			OPENSSL_LIB=$OPENSSL_LIBS
+			CPPFLAGS="$OPENSSL_CFLAGS $CPPFLAGS"
+			OPENSSL_LIB_NAME=openssl
+		], [:])
+		have_openssl=yes
 	else
-		AC_MSG_ERROR([You must choose a crypto library: nettle, openssl, libgcrypt])
+		AC_MSG_ERROR([You must choose a crypto library: libgcrypt, nettle, openssl])
 	fi
 	PKG_CHECK_MODULES([NEON], [neon], [
 		NEON_LIB=$NEON_LIBS

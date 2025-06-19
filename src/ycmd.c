@@ -89,7 +89,11 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 	"RestartServer",
 };
 
-#if defined(USE_NETTLE)
+#if defined(USE_LIBGCRYPT)
+#include <gcrypt.h>
+#include <glib.h>
+#define CRYPTO_LIB "LIBGCRYPT"
+#elif defined(USE_NETTLE)
 #include <nettle/base64.h>
 #include <nettle/hmac.h>
 #include <nettle/chacha.h>
@@ -100,12 +104,8 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 #include <openssl/rand.h>
 #include <openssl/evp.h>
 #define CRYPTO_LIB "OPENSSL"
-#elif defined(USE_LIBGCRYPT)
-#include <gcrypt.h>
-#include <glib.h>
-#define CRYPTO_LIB "LIBGCRYPT"
 #else
-#error "You must choose a cryptographic library to use ycmd code completion support.  Currently Nettle, OpenSSL 3.x, Libgcrypt are supported."
+#error "You must choose a cryptographic library to use ycmd code completion support.  Currently Libgcrypt, Nettle, OpenSSL 3.x are supported."
 #endif
 
 #include <ne_request.h>
@@ -212,13 +212,12 @@ void ycmd_constructor()
 
 	signal(SIGALRM, ycmd_send_to_server);
 
-#ifdef USE_LIBGCRYPT
+#if defined(USE_LIBGCRYPT)
 	gcry_control(GCRYCTL_SUSPEND_SECMEM_WARN);
 	gcry_control(GCRYCTL_DISABLE_SECMEM, 0);
 	/* gcry_control(GCRYCTL_INIT_SECMEM, 16384, 0); */
 	gcry_control(GCRYCTL_RESUME_SECMEM_WARN);
 	gcry_control(GCRYCTL_INITIALIZATION_FINISHED, 0);
-#endif
 
 	ycmd_generate_secret_key_raw(ycmd_globals.secret_key_raw);
 	ycmd_generate_secret_key_base64(ycmd_globals.secret_key_raw, ycmd_globals.secret_key_base64);
@@ -2681,11 +2680,33 @@ void generate_entropy(uint8_t *key) {
 	}
 }
 
+/* Nettle doesn't have a random function */
+void generate_random_bytes(uint8_t *buf, size_t len) {
+    FILE *fp = fopen("/dev/urandom", "r");
+    if (fp) {
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+        fread(buf, 1, len, fp);
+#pragma GCC diagnostic pop
+        fclose(fp);
+    }
+}
+
 /* Trade-off table for CSPRNG
  * | CSPRNG       | Entropy | Security | Performance | Estimated worst case startup time |
  * | ----         | ----    | ----     | ----        | ----                              |
  * | ChaCha20     | 8/10    | 9/10     | 9/10        | 1 microsecond or less             |
  * | /dev/random  | 9/10    | 9/10     | 6/10        | A few seconds                     |
+ */
+/*
+ * CSPRNG generation to generate the secret key used with HMAC function for requests.
+ * Input:  Entropy sources (Time, PID, PRNG, ...)
+ * Output:  128-bit key
+ * Algorithm:  ChaCha20
+ *
+ * F(Time, PID, PRNG) -> E1
+ * Nonce -> E2
+ * ChaCha20(E1, E2) -> KEY
  */
 void csprng_chacha20_get_key(uint8_t *key, size_t key_size) {
 #if defined(USE_NETTLE)
@@ -2696,7 +2717,7 @@ void csprng_chacha20_get_key(uint8_t *key, size_t key_size) {
 	chacha_set_key(&ctx, chacha_key);
 
 	uint8_t nonce[CSPRNG_CHACHA20_NONCE_SIZE];
-	wrap_secure_zero(nonce, CSPRNG_CHACHA20_NONCE_SIZE);
+	generate_random_bytes(nonce, sizeof nonce);
 	/* Nettle's chacha_set_nonce expects 8 bytes nonce */
 	chacha_set_nonce(&ctx, nonce);
 
@@ -2712,9 +2733,12 @@ void csprng_chacha20_get_key(uint8_t *key, size_t key_size) {
 	uint8_t chacha_key[CSPRNG_CHACHA20_KEY_SIZE];
 	generate_entropy(chacha_key);
 
+	uint8_t nonce[CSPRNG_CHACHA20_NONCE_SIZE];
+	RAND_bytes(nonce, sizeof(nonce));
+
 	EVP_CIPHER_CTX *ctx;
 	ctx = EVP_CIPHER_CTX_new();
-	EVP_EncryptInit_ex(ctx, EVP_chacha20(), NULL, chacha_key, NULL);
+	EVP_EncryptInit_ex(ctx, EVP_chacha20(), NULL, chacha_key, nonce);
 
 	uint8_t block[CSPRNG_CHACHA20_BLOCK_SIZE];
 	int len;
@@ -2724,18 +2748,18 @@ void csprng_chacha20_get_key(uint8_t *key, size_t key_size) {
 
 	/* Sanitize sensitive data */
 	wrap_secure_zero(chacha_key, CSPRNG_CHACHA20_KEY_SIZE);
+	wrap_secure_zero(nonce, CSPRNG_CHACHA20_NONCE_SIZE);
 	wrap_secure_zero(block, CSPRNG_CHACHA20_BLOCK_SIZE);
 #elif defined(USE_LIBGCRYPT)
 	uint8_t chacha_key[CSPRNG_CHACHA20_KEY_SIZE];
 	generate_entropy(chacha_key);
 
 	gcry_cipher_hd_t ctx;
-
 	gcry_cipher_open(&ctx, GCRY_CIPHER_CHACHA20, GCRY_CIPHER_MODE_STREAM, 0);
 	gcry_cipher_setkey(ctx, chacha_key, CSPRNG_CHACHA20_KEY_SIZE);
 
 	uint8_t nonce[CSPRNG_CHACHA20_NONCE_SIZE];
-	wrap_secure_zero(nonce, CSPRNG_CHACHA20_NONCE_SIZE);
+	gcry_randomize(nonce, sizeof(nonce), GCRY_STRONG_RANDOM);
 	gcry_cipher_setiv(ctx, nonce, CSPRNG_CHACHA20_NONCE_SIZE);
 
 	uint8_t block[CSPRNG_CHACHA20_BLOCK_SIZE];
@@ -2844,6 +2868,25 @@ void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64)
 #endif
 }
 
+// Helper to print hex for debugging
+void print_hex(const char *label, const unsigned char *data, size_t len) {
+    printf("%s: ", label);
+    for (size_t i = 0; i < len; i++) {
+        fprintf(stderr, "%02x", data[i]);
+    }
+    printf("\n");
+}
+
+/*
+ * HMAC generation for ycmd requests
+ * Inputs:  128-bit secret key, method, path, body
+ * Output:   base64 encoded HMAC
+ * Algorithm:  256-bit HMAC-SHA2
+ *
+ * HMAC1(key, method) + HMAC2(key, path) + HMAC3(key, body) -> A	# + = concat operator, order matters
+ * HMAC4(key, A) -> B
+ * generate_base64(B) -> base64 encoded HMAC
+ */
 void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char *body, size_t body_len /* strlen based */)
 {
 	wrap_secure_zero(req_hmac_base64, HMAC_SIZE * 2);
@@ -2977,6 +3020,15 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 #endif
 }
 
+/*
+ * HMAC generation for ycmd response
+ * Input:  128-bit secret key, response body
+ * Output:  base64 encoded HMAC
+ * Algorithm:  256-bit HMAC-SHA2
+ *
+ * HMAC(key, response_body) -> A
+ * generate_base64(A) -> base64 encoded HMAC
+ */
 void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 {
 	wrap_secure_zero(rsp_hmac_base64, HMAC_SIZE * 2);

@@ -21,12 +21,12 @@
  */
 
 #include "safe_wrapper.h"
-#include <unistd.h>
+#include <limits.h>
 #if USE_SAFECLIB
 #include <safeclib/safec.h>
 #endif
 #include <string.h>
-#include <limits.h>
+#include <unistd.h>
 
 #define DEFAULT_JSON_SIZE (PATH_MAX * 16 + 44 * 10 + 80 * 50) /* 69976 */
 
@@ -39,8 +39,8 @@
 # endif
 #endif
 
-#ifndef HAVE_EXPLICIT_BZERO
-#warning "Using fallback implementation of explicit_bzero.  Consider upgrading to glibc 2.25 or later for mitigated information disclosure implementation."
+#if !defined(HAVE_EXPLICIT_BZERO)
+#warning "Using fallback implementation of explicit_bzero.  Consider upgrading to >= glibc 2.25 for mitigated information disclosure implementation."
 # include <string.h>
 void explicit_bzero(void *p, size_t l) {
 	memset(p, 0, l);
@@ -148,7 +148,7 @@ int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 		}
 		if (res >= DUMMY_BUFFER_SIZE) {
 #ifdef DEBUG
-			fprintf(stderr, "%: Warning: Format string may exceed %d bytes (res=%d)\n",
+			fprintf(stderr, "%s: Warning: Format string may exceed %d bytes (res=%d)\n",
 				function_name, DUMMY_BUFFER_SIZE, res);
 #endif
 		}
@@ -291,13 +291,13 @@ void *_safe_malloc(size_t size) {
 	 */
 #if defined(USE_HARDENED_MALLOC)
 	/* hardened_malloc is a hardened memory allocator */
-	/* Mitigations:  CE, DF, DoS, DT, DP, HO, ID, OOBA, OOBR, OOBW, PE, PF, UAF, ZF
+	/* Mitigations:  CE, DF, DoS, DT, DP, HO, ID, NPD, OOBA, OOBR, OOBW, PE, PF, UAF, ZF
 	 */
 	extern void *hardened_malloc(size_t size);
 	return hardened_malloc(size);
 #elif defined(USE_MIMALLOC_SECURE)
 	/* mimalloc-secure is a hardened version of the mimalloc allocator */
-	/* Mitigations:  CE, DF, DoS, DT, DP, HO, ID, OOBA, OOBR, OOBW, PE, PF, UAF, ZF
+	/* Mitigations:  CE, DF, DoS, DT, DP, HO, ID, NPD, OOBA, OOBR, OOBW, PE, PF, UAF, ZF
 	 */
 	extern void *mi_malloc(size_t size);
 	return mi_malloc(size);
@@ -305,7 +305,7 @@ void *_safe_malloc(size_t size) {
 	/* Default to glibc/musl/scudo-standalone malloc */
 	/* Scudo is part of the LLVM project and provides a hardened allocator */
 	/* Scudo needs LD_PRELOAD=$(clang --print-file-name=libclang_rt.scudo_standalone-<arch>.so) */
-	/* Mitigations (scudo-standalone):  CE, DF, DoS, DT, DP, HO, ID, OOBA, OOBR, OOBW, PE, PF, UAF, ZF */
+	/* Mitigations (scudo-standalone):  CE, DF, DoS, DT, DP, HO, ID, NPD, OOBA, OOBR, OOBW, PE, PF, UAF, ZF */
 	/* Mitigations (glibc):  DoS */
 	/* Mitigations (musl):  DF, DoS */
 	return malloc(size);

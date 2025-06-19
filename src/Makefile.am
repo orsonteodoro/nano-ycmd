@@ -194,17 +194,17 @@ if USE_YCMD
 nano_LDADD += @NEON_LIBS@
 endif
 
+if HAVE_LIBGCRYPT
+ynano_LDADD += @GLIB_LIBS@
+ynano_LDFLAGS = $(LIBGCRYPT_LIBS)
+endif
+
 if HAVE_NETTLE
 nano_LDADD += @NETTLE_LIBS@
 endif
 
 if HAVE_OPENSSL
 nano_LDADD += @OPENSSL_LIBS@
-endif
-
-if HAVE_LIBGCRYPT
-nano_LDADD += @GLIB_LIBS@
-nano_LDFLAGS = $(LIBGCRYPT_LIBS)
 endif
 
 if HAVE_SAFECLIB
