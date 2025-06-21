@@ -74,6 +74,7 @@ int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap);
 int wrap_sprintf(char *str, size_t size, const char *format, ...);
 int wrap_strncmp(const char *s1, const char *s2, size_t n);;
 size_t wrap_strlen(const char *s);
+size_t wrap_strnlen(const char *s, size_t maxlen);
 void *wrap_memcpy(void *dest, const void *src, size_t n);
 void *wrap_malloc(size_t size);
 void wrap_free(void **ptr);

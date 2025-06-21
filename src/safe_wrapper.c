@@ -47,10 +47,14 @@
 #include <limits.h>
 #if USE_SAFECLIB
 #include <safeclib/safec.h>
+#ifndef strnlen_s
+#error "strnlen_s not defined in safe_str_lib.h"
+#endif
 #endif
 #include <string.h>
 #include <unistd.h>
 
+#define MAX_FILESIZE_LIMIT ( 10 * 1024 * 1024 ) /* 10 MB */
 #define DEFAULT_JSON_SIZE (PATH_MAX * 16 + 44 * 10 + 80 * 50) /* 69976 */
 
 #if defined(__GLIBC__) && __GLIBC_PREREQ(2, 25)
@@ -401,12 +405,77 @@ char *wrap_strstr(const char *haystack, const char *needle) {
 #endif
 }
 
+
 size_t wrap_strlen(const char *s) {
-#ifdef USE_SAFECLIB
-	return strnlen_s(s, RSIZE_MAX);
-#else
-	return strlen(s);
+	if (!s) {
+#ifdef DEBUG
+		fprintf(stderr, "%s: null input", __func__);
 #endif
+		return 0;
+	}
+#ifdef USE_SAFECLIB
+	/* Validate input for file contents (allow control chars) */
+	size_t smax = MAX_FILESIZE_LIMIT; /* 10 MB */
+	for (size_t i = 0; i < smax; i++) { // Reasonable limit
+		if (s[i] == '\0') break;
+		unsigned char c = (unsigned char)s[i];
+		/* Exclude only NUL (0x00) */
+		if (c == 0) {
+			char msg[256];
+#ifdef DEBUG
+			snprintf(msg, sizeof(msg), "%s: invalid character 0x%02x at index %zu", __func__, c, i);
+			fprintf(stderr, msg);
+#endif
+			return 0;
+		}
+	}
+	rsize_t len = strnlen_s(s, smax);
+	if (len == 0 && s[0] != '\0') {
+		char msg[256];
+		snprintf(msg, sizeof(msg), "%s: strnlen_s failed for input (first 32 chars): '%.32s'", __func__, s);
+		fprintf(stderr, msg);
+		size_t fallback_len = strlen(s); /* glibc fallback */
+		if (fallback_len >= smax) {
+#ifdef DEBUG
+			fprintf(stderr, "%s: string exceeds 10 MB", __func__);
+#endif
+			return 0;
+		}
+		return fallback_len;
+	}
+#else
+	size_t len = strlen(s);
+	if (len >= MAX_FILESIZE_LIMIT) {
+#ifdef DEBUG
+		fprintf(stderr, "%s: string exceeds 10 MB", __func__);
+#endif
+		return 0;
+	}
+#endif
+	return len;
+}
+
+size_t wrap_strnlen(const char *s, size_t maxlen) {
+	if (!s) {
+#ifdef DEBUG
+		fprintf(stderr, "%s: null input");
+#endif
+		return 0;
+	}
+#ifdef USE_SAFECLIB
+	rsize_t len = strnlen_s(s, maxlen);
+	if (len == 0 && s[0] != '\0') {
+		char msg[256];
+#ifdef DEBUG
+		snprintf(msg, sizeof(msg), "%s: strnlen_s failed for input (first 32 chars): '%.32s'", __func__, s);
+		fprintf(stderr, msg);
+#endif
+		return 0;
+	}
+#else
+	size_t len = strnlen(s, maxlen);
+#endif
+	return len;
 }
 
 int wrap_sprintf(char *str, size_t size, const char *format, ...) {
