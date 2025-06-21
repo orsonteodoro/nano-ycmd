@@ -445,6 +445,14 @@ if test "x$with_safeclib" = xyes; then
 		[AC_MSG_ERROR([safeclib RSIZE_MAX_STR < 131072, needs to be rebuild with --enable-strmax=131072 or greater])],
 		[AC_MSG_RESULT([cross-compiling; assuming OK])]
 	)
+
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <safeclib/safe_str_lib.h>
+	#if RSIZE_MAX_STR < 1048576
+	#error RSIZE_MAX_STR too small
+	#endif]])],
+	  [],
+	  [AC_MSG_WARN([RSIZE_MAX_STR is less than 1MB (1048576). For full functionality, rebuild safeclib with --enable-strmax=10485760 to support 10MB files.])]
+	)
 else
 	AC_MSG_CHECKING([for safeclib])
 	AC_MSG_RESULT([no])
