@@ -87,7 +87,9 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  * PF = Poison Free
  * RC = Race Condition
  * SO = Stack Overflow
+ * SF = String Format Vulnerability
  * UAF = Use After Free
+ * UAR = Use After Return
  * ZF = Zero Free
  *
  * The scores are 1-10.
@@ -98,6 +100,7 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  * Mitigations (http neon):  NPD, SO									# Security: 4, Performance: 7, Overall: 5; Removed support
  * Mitigations (mimalloc-secure):  DF, DoS, DP, DT, HO, ID, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF	# Security: 9, Performance: 8, Overall: 9
  * Mitigations (musl malloc/free):  DF, DoS, DP, DT, HO, ID, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 8, Performance: 6, Overall: 6
+ * Mitigations (musl str/mem functions): RC, SO								# Security: 5, Performance: 9, Overall: 7
  * Mitigations (nxjson):  NPD										# Security: 3, Performance: 5, Overall 4; Removed support
  * Mitigations (yyjson):  DF, DP, DoS, ID, DT HO, NPD, OOBA, OOBR, OOBW, SO, UAF			# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation, not widely adopted in distros, faster alternative
  * Mitigations (safeclib):  DF, DP, DoS, DT, ID, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF			# Security: 9, Performance: 7, Overall: 8
