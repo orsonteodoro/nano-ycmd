@@ -90,7 +90,7 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
 * [1] You must choose at least one cryptographic library.
 * [2] The package must be built with --enable-strmax=131072 (128 KiB) or higher.
 * [3] See the ycmd core versions table
-* [4] It requires the `LD_PRELOAD=$(clang --print-file-name=libclang_rt.scudo_standalone-<arch>.so)` environment variable to use the standalone hardened allocator.  arch is either `i386`, `x86_64`, `arm`, `armhf`, `aarch64`, `mips`, `mipsel`, `mips64`, `mips64el`, `powerpc64`, `powerpc64le`, `hexagon`, `loongarch64`, `riscv64`.  It requires the kernel built with ASLR.
+* [4] It requires the `LD_PRELOAD=$(clang --print-file-name=libclang_rt.scudo_standalone-<arch>.so)` environment variable to use the standalone hardened allocator.  arch is either `i386`, `x86_64`, `arm`, `armhf`, `aarch64`, `mips`, `mipsel`, `mips64`, `mips64el`, `powerpc64`, `powerpc64le`, `hexagon`, `loongarch64`, `riscv64`.  It requires the kernel built with ASLR.  Only use 64-bit arches for security-critical to decrease chances of ASLR bypass.
 
 If you are using nano-ycmd for passwords or untrusted data (e.g. opening files
 from the web or without file extension), it is recommended to install hardened
