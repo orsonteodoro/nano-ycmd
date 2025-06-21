@@ -90,14 +90,17 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  * UAF = Use After Free
  * ZF = Zero Free
  *
- * Mitigations (nxjson):  NPD								# Security: 3, Performance: 5, Overall 4; Removed support
- * Mitigations (yyjson):  DF, DP, DoS, ID, DT HO, NPD, OOBA, OOBR, OOBW, SO, UAF	# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation, not widely adopted in distros, faster alternative
- * Mitigations (curl):  DF, DP, DoS, ID, DT, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF	# Security: 9, Performance: 8, Overall: 9
- * Mitigations (http neon):  NPD, SO							# Security: 4, Performance: 7, Overall: 5; Removed support
+ * The scores are 1-10.
+ *
+ * Mitigations (curl):  DF, DP, DoS, ID, DT, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF		# Security: 9, Performance: 8, Overall: 9
+ * Mitigations (jansson):  DF, DP, DoS, DT, ID, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF		# Security: 9, Performance: 7, Overall: 8
+ * Mitigations (http neon):  NPD, SO								# Security: 4, Performance: 7, Overall: 5; Removed support
+ * Mitigations (nxjson):  NPD									# Security: 3, Performance: 5, Overall 4; Removed support
+ * Mitigations (yyjson):  DF, DP, DoS, ID, DT HO, NPD, OOBA, OOBR, OOBW, SO, UAF		# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation, not widely adopted in distros, faster alternative
  */
 
 #include <curl/curl.h>
-#include <jansson.h> /* Mitigations:  DF, DP, DoS, DT, ID, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF; Security: 9, Performance: 7, Overall: 8  */
+#include <jansson.h>
 #include <netinet/ip.h>
 #include <string.h>
 #include <sys/wait.h>
