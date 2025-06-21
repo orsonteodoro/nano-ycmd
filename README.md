@@ -86,9 +86,9 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
 | Sed                                                               |         | Required             | Both                   | For patching .ycm_extra_conf.py                                                                                                       |
 | [YCM-Generator](https://github.com/rdnetto/YCM-Generator)         |         | Optional             | Run-time               | For C, C++, Objective-C, or Objective-C++ support to generate a .ycm_extra_conf.py.  It requires YCM-Generator patched for Python 3.  |
 
- [1] You must choose at least one cryptographic library.
- [2] The package must be built with --enable-strmax=131072 (128 KiB) or higher.
- [3] See the ycmd core versions table
+* [1] You must choose at least one cryptographic library.
+* [2] The package must be built with --enable-strmax=131072 (128 KiB) or higher.
+* [3] See the ycmd core versions table
 
 If you are using nano-ycmd for passwords or untrusted data (e.g. opening files
 from the web or without file extension), it is recommended to install hardened
