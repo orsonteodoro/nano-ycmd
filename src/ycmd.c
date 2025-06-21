@@ -80,6 +80,7 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  * DT = Data Tampering
  * HO = Heap Overflow
  * ID = Information Disclosure
+ * IO = Integer Overflow
  * NPD = Null Pointer Dereference
  * OOBA = Out of Bounds Access
  * OOBR = Out of Bounds Read
@@ -94,19 +95,19 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  *
  * The scores are 1-10.
  *
- * Mitigations (curl):  DF, DP, DoS, ID, DT, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF			# Security: 9, Performance: 8, Overall: 9
- * Mitigations (jansson):  DF, DP, DoS, DT, ID, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF			# Security: 9, Performance: 7, Overall: 8
- * Mitigations (hardened_malloc):  DF, DoS, DP, DT, HO, ID, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF	# Security: 10, Performance: 6, Overall: 6
- * Mitigations (http neon):  NPD, SO									# Security: 4, Performance: 7, Overall: 5; Removed support
- * Mitigations (mimalloc-secure):  DF, DoS, DP, DT, HO, ID, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF	# Security: 9, Performance: 8, Overall: 9
- * Mitigations (musl malloc/free):  DF, DoS, DP, DT, HO, ID, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 8, Performance: 6, Overall: 6
- * Mitigations (musl str/mem functions): RC, SO								# Security: 5, Performance: 9, Overall: 7
- * Mitigations (nxjson):  NPD										# Security: 3, Performance: 5, Overall 4; Removed support
- * Mitigations (yyjson):  DF, DP, DoS, ID, DT HO, NPD, OOBA, OOBR, OOBW, SO, UAF			# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation, not widely adopted in distros, faster alternative
- * Mitigations (safeclib):  DF, DP, DoS, DT, ID, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF			# Security: 9, Performance: 7, Overall: 8
- * Mitigations (scudo):  DF, DoS, DP, DT, HO, ID, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 8, Performance: 7, Overall: 9; Available via LD_PRELOAD
- * Mitigations (glibc malloc/free):  RC									# Security: 4, Performance: 8, Overall: 8
- * Mitigations (glibc str/mem functions):  RC, SO							# Security: 4, Performance: 9, Overall: 6
+ * Mitigations (curl):  DF, DP, DoS, ID, DT, HO, IO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF				# Security: 9, Performance: 8, Overall: 9
+ * Mitigations (glibc malloc/free):  RC										# Security: 3, Performance: 8, Overall: 5
+ * Mitigations (glibc str/mem functions):  RC, SO								# Security: 3, Performance: 9, Overall: 5
+ * Mitigations (jansson):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF			# Security: 9, Performance: 7, Overall: 8
+ * Mitigations (hardened_malloc):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 10, Performance: 6, Overall: 9
+ * Mitigations (http neon):  NPD, SO										# Security: 3, Performance: 7, Overall: 5; Removed support
+ * Mitigations (mimalloc-secure):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 9, Performance: 8, Overall: 9
+ * Mitigations (musl malloc/free):  DF, DoS, DP, DT, HO, ID, IO, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 8, Performance: 6, Overall: 7
+ * Mitigations (musl str/mem functions): RC, SO									# Security: 4, Performance: 9, Overall: 6
+ * Mitigations (nxjson):  NPD											# Security: 2, Performance: 5, Overall 3; Removed support
+ * Mitigations (safeclib):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF			# Security: 9, Performance: 7, Overall: 8
+ * Mitigations (scudo):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF			# Security: 8, Performance: 7, Overall: 8; Available via LD_PRELOAD
+ * Mitigations (yyjson):  DF, DP, DoS, ID, IO, DT HO, NPD, OOBA, OOBR, OOBW, SO, UAF				# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation, not widely adopted in distros, faster alternative
  */
 
 #include <curl/curl.h>
