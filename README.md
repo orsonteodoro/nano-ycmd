@@ -60,52 +60,49 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
 
 #### Dependencies
 
-* One cryptographic library of either Nettle, OpenSSL, or libgcrypt, to mitigate
-  against a man-in-the-middle (MITM) attack between ycmd and the nano text editor.
-* neon, for http interprocess communication between nano editor and ycmd server
-* [YCM-Generator](https://github.com/rdnetto/YCM-Generator), for
-  C/C++/Objective-C/Objective-C++ support to generate a .ycm_extra_conf.py.  It
-  requires YCM-Generator to be patched for Python 3 support.
-* [Bear](https://github.com/rizsotto/Bear), for C/C++/Objective-C/Objective-C++
-  support to generate a compile_commands.json.
-* Clang, for C/C++/Objective-C/Objective-C++ code completion.
-* GNU Make, to clean up the project files
-* Sed, for patching .ycm_extra_conf.py
-* Bash >=4, for `&|` support
-* Unix, Linux, Cygwin for /dev/null and /dev/random support
-* [NXJSON](https://github.com/yarosla/nxjson), for server response parsing (A
-  Makefile patch applied to NXJSON package needs to be applied
-  https://github.com/orsonteodoro/oiledmachine-overlay/blob/master/dev-libs/nxjson/files/nxjson-9999.20141019-create-libs.patch
-  so that it is a shared library)
-* [compdb](https://github.com/Sarcasm/compdb) and Ninja, for Ninja build system
-  support
-* [jq](https://stedolan.github.io/jq/) (OPTIONAL) is json beautifier and filter.
-  This is used to clean the DiagnosticResponse after parsing and inject an index
-  on the node to allow for nano-ymcd to conveniently to find a FixIt based on an
-  index selected by the user when the user hovers over this line/index with a
-  shortcut key.  Currently, the `Display All FixIts` is broken because of the
-  non-deterministic bug.
-* GNU findutils, requires for the find utility to search for Makefile,
-  configure, *.ninja, *.pro, files.
-* GNU coreutils, nano-ycmd needs tac command to reverse the clang system
-  includes order for SIMD headers.
-* [Safe C Library](https://github.com/rurban/safeclib) for security-critical string
-  and memory processing. (Optional)  The package must be built with
-  --enable-strmax=131072 (128 KiB) or higher.
-* [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc) for
-  security-critical memory allocation (Optional)
-* [mimalloc-secure](https://github.com/microsoft/mimalloc/) for
-  security-critical memory allocation (Optional)
+| Package                                                           | Version | Required or optional | Build-time or run-time | Description                                                                                                                           |
+| ----                                                              | ----    | ----                 | ----                   | ----                                                                                                                                  |
+| autoconf                                                          |         | Required             | Build-time             | For build system tools to build the project                                                                                           |
+| automake                                                          |         | Required             | Build-time             | For build system tools to build the project                                                                                           |
+| Bash                                                              | >= 4    | Required             | Both                   | For Bear, Ninja, YCM-generator support                                                                                                |
+| [Bear](https://github.com/rizsotto/Bear)                          |         | Optional             | Run-time               | For C, C++, Objective-C, or Objective-C++ support to generate a compile_commands.json.                                                |
+| Clang                                                             | [3]     | Optional             | Both                   | For C, C++, Objective-C, or Objective-C++ code completion support either bundled with ycmd or the system package                      |
+| [compdb](https://github.com/Sarcasm/compdb)                       |         | Optional             | Run-time               | For Ninja build system support                                                                                                        |
+| [Curl](https://curl.se/)                                          |         | Required             | Run-time               | For security-critical communication with ycmd                                                                                         |
+| GCC                                                               |         | Required             | Build-time             | For building the project                                                                                                              |
+| GLib                                                              |         | Required             | Run-time               | For libgcrypt support                                                                                                                 |
+| GNU findutils                                                     |         | Required             | Both                   | For finding build files (Makefile, configure, *.ninja, *.pro)                                                                         |
+| GNU Make                                                          |         | Required             | Both                   | For building the project and cleaning project files post install                                                                      |
+| [hardened_malloc](https://github.com/GrapheneOS/hardened_malloc)  |         | Optional             | Run-time               | For security-critical memory allocator                                                                                                |
+| [Jansson](https://github.com/akheron/jansson)                     |         | Required             | Run-time               | For security-critical parsing of ycmd messages                                                                                        |
+| [jq](https://stedolan.github.io/jq/)                              |         | Optional             | Run-time               | For DiagnosticResponse, FixIt, Display All FixIts                                                                                     |
+| libgcrypt [1]                                                     |         | Required             | Run-time               | For message authentication from/to ycmd                                                                                               |
+| [mimalloc-secure](https://github.com/microsoft/mimalloc/)         |         | Optional             | Run-time               | For security-critical memory allocator                                                                                                |
+| Ncurses                                                           |         | Required             | Runtime                | For nano's UI toolkit                                                                                                                 |
+| Nettle [1]                                                        |         | Required             | Run-time               | For message authentication from/to ycmd                                                                                               |
+| OpenSSL [1]                                                       | >= 3    | Required             | Run-time               | For message authentication from/to ycmd                                                                                               |
+| Python                                                            | 3.x     | Required             | Run-time               | For Python support and running ycmd                                                                                                   |
+| [Safe C Library](https://github.com/rurban/safeclib) [2]          |         | Optional             | Run-time               | For security-critical string/memory operations                                                                                        |
+| Sed                                                               |         | Required             | Both                   | For patching .ycm_extra_conf.py                                                                                                       |
+| [YCM-Generator](https://github.com/rdnetto/YCM-Generator)         |         | Optional             | Run-time               | For C, C++, Objective-C, or Objective-C++ support to generate a .ycm_extra_conf.py.  It requires YCM-Generator patched for Python 3.  |
+
+ [1] You must choose at least one cryptographic library.
+ [2] The package must be built with --enable-strmax=131072 (128 KiB) or higher.
+ [3] See the ycmd core versions table
 
 If you are using nano-ycmd for passwords or untrusted data (e.g. opening files
 from the web or without file extension), it is recommended to install hardened
 libraries.
 
-##### Older builds
-* AVX512, AVX2, SSE2, MMX (Optional.  AVX2/AVX512 support is untested) for
-  string_replace and escape_json.
-* OpenMP (Optional) via --with-openmp for multicore
-  string_replace and escape_json.
+##### Older builds/commits (Pre June 21, 2025)
+
+| Dependency                                                        | Version | Required or optional | Build-time or run-time | Description                                                                                                                           |
+| ----                                                              | ----    | ----                 | ----                   | ----                                                                                                                                  |
+| AVX512, AVX2, SSE2, MMX                                           |         | Optional             | Run-time               | For performance-critical SIMD string_replace, escape_json.  AVX2/AVX512 untested.                                                     |
+| GNU coreutils                                                     |         | Optional             | Both                   | For tac to reverse the clang system includes order for SIMD headers                                                                   |
+| HTTP Neon                                                         |         | Required             | Run-time               | For communicating between nano and ycmd                                                                                               |
+| [NXJSON](https://github.com/yarosla/nxjson) [1]                   |         | Required             | Run-time               | For parsing ycmd responses                                                                                                            |
+| OpenMP                                                            |         | Optional             | Run-time               | For performance-critical Multicore string_replace, escape_json                                                                        |
 
 #### My distribution doesn't have the required dependencies
 
