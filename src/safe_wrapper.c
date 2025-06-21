@@ -44,6 +44,7 @@
  */
 
 #include "safe_wrapper.h"
+#include "prototypes.h"
 #include <limits.h>
 #if USE_SAFECLIB
 #include <safeclib/safec.h>
@@ -54,7 +55,7 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MAX_FILESIZE_LIMIT ( 10 * 1024 * 1024 ) /* 10 MB */
+#define MAX_FILESIZE_LIMIT ( 10 * 1024 * 1024 ) /* 10 MB limit for ycmd requests. */
 #define DEFAULT_JSON_SIZE (PATH_MAX * 16 + 44 * 10 + 80 * 50) /* 69976 */
 
 #if defined(__GLIBC__) && __GLIBC_PREREQ(2, 25)
@@ -394,17 +395,42 @@ errno_t wrap_secure_zero(void *dest, size_t n) {
 
 char *wrap_strstr(const char *haystack, const char *needle) {
 #ifdef USE_SAFECLIB
-    char *result = NULL;
-    errno_t err = strstr_s((char *)haystack, strlen(haystack) + 1, needle, strlen(needle) + 1, &result);
-    if (err != EOK) {
-        return NULL;
-    }
-    return result;
+	char *result = NULL;
+	errno_t err = strstr_s((char *)haystack, strlen(haystack) + 1, needle, strlen(needle) + 1, &result);
+	if (err != EOK) {
+		return NULL;
+	}
+	return result;
 #else
-    return strstr(haystack, needle);
+	return strstr(haystack, needle);
 #endif
 }
 
+size_t get_smax(void) {
+	static size_t smax = 0;
+	if (smax == 0) {
+		/* Adjustable buffer overflow limiter. */
+		const char *env = getenv("NANO_YCMD_SMAX");
+		if (env) {
+			char *endptr;
+			unsigned long val = strtoul(env, &endptr, 10);
+			if (*endptr == '\0' && val >= 1024 && val <= MAX_FILESIZE_LIMIT) { /* 1KB to 10MB */
+				smax = val;
+			} else {
+				statusline(HUSH, "Invalid NANO_YCMD_SMAX (must be 1 KB to 10 MB), using default 1 MB");
+				smax = 1048576; /* 1MB default */
+			}
+		} else {
+			smax = 1048576; /* 1 MB default */
+		}
+#ifdef DEBUG
+		char msg[256];
+		snprintf(msg, sizeof(msg), "smax set to %zu bytes. Large values may slow down nano.", smax);
+		fprintf(stderr, msg);
+#endif
+	}
+	return smax;
+}
 
 size_t wrap_strlen(const char *s) {
 	if (!s) {
@@ -413,9 +439,9 @@ size_t wrap_strlen(const char *s) {
 #endif
 		return 0;
 	}
+	size_t smax = get_smax();
 #ifdef USE_SAFECLIB
 	/* Validate input for file contents (allow control chars) */
-	size_t smax = MAX_FILESIZE_LIMIT; /* 10 MB */
 	for (size_t i = 0; i < smax; i++) { // Reasonable limit
 		if (s[i] == '\0') break;
 		unsigned char c = (unsigned char)s[i];
@@ -445,7 +471,7 @@ size_t wrap_strlen(const char *s) {
 	}
 #else
 	size_t len = strlen(s);
-	if (len >= MAX_FILESIZE_LIMIT) {
+	if (len >= smax) {
 #ifdef DEBUG
 		fprintf(stderr, "%s: string exceeds 10 MB", __func__);
 #endif
@@ -462,8 +488,10 @@ size_t wrap_strnlen(const char *s, size_t maxlen) {
 #endif
 		return 0;
 	}
+	size_t smax = get_smax();
+	size_t effective_max = maxlen < smax ? maxlen : smax;
 #ifdef USE_SAFECLIB
-	rsize_t len = strnlen_s(s, maxlen);
+	rsize_t len = strnlen_s(s, effective_max);
 	if (len == 0 && s[0] != '\0') {
 		char msg[256];
 #ifdef DEBUG
@@ -473,7 +501,7 @@ size_t wrap_strnlen(const char *s, size_t maxlen) {
 		return 0;
 	}
 #else
-	size_t len = strnlen(s, maxlen);
+	size_t len = strnlen(s, effective_max);
 #endif
 	return len;
 }
