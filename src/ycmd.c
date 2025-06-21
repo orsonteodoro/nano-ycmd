@@ -98,9 +98,9 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  * Mitigations (curl):  DF, DP, DoS, ID, DT, HO, IO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF				# Security: 9, Performance: 8, Overall: 9
  * Mitigations (glibc malloc/free):  RC										# Security: 3, Performance: 8, Overall: 5
  * Mitigations (glibc str/mem functions):  RC, SO								# Security: 3, Performance: 9, Overall: 5
- * Mitigations (jansson):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF			# Security: 9, Performance: 7, Overall: 8
  * Mitigations (hardened_malloc):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 10, Performance: 6, Overall: 9
  * Mitigations (http neon):  NPD, SO										# Security: 3, Performance: 7, Overall: 5; Removed support
+ * Mitigations (jansson):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF			# Security: 9, Performance: 7, Overall: 8
  * Mitigations (mimalloc-secure):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 9, Performance: 8, Overall: 9
  * Mitigations (musl malloc/free):  DF, DoS, DP, DT, HO, ID, IO, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 8, Performance: 6, Overall: 7
  * Mitigations (musl str/mem functions): RC, SO									# Security: 4, Performance: 9, Overall: 6
