@@ -73,8 +73,8 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 #endif
 
 #include <curl/curl.h>
+#include <jansson.h>
 #include <netinet/ip.h>
-#include <nxjson.h>
 #include <string.h>
 #include <sys/wait.h>
 #include <unistd.h>
@@ -1314,44 +1314,52 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 			/* Buggy for ne_get_response_header and response_code */
 			int found_cc_entry = 0;
 			if (wrap_strstr(response_body, "completion_start_column")) {
-				/* nx_json_parse_utf8 is destructive on response_body as intended */
-				const nx_json *pjson = nx_json_parse_utf8(response_body);
+				json_error_t error;
+				json_t *root = json_loads(response_body, 0, &error);
+				if (root && json_is_object(root)) {
+					json_t *completions = json_object_get(root, "completions");
+					if (completions && json_is_array(completions)) {
+						int i = 0;
+						int j = 0;
+						size_t maximum = (((COLS + HALF_LINE_LENGTH) / QUARTER_LINE_LENGTH) * 2);
 
-				const nx_json *completions = nx_json_get(pjson, "completions");
-				int i = 0;
-				int j = 0;
-				size_t maximum = (((COLS + HALF_LINE_LENGTH) / QUARTER_LINE_LENGTH) * 2);
-
-				for (i = 0; i < completions->length && j < maximum && j < 6 && func; i++, j++) {
-					/* 6 for letters A-F */
-					const nx_json *candidate = nx_json_item(completions, i);
-					const nx_json *insertion_text = nx_json_get(candidate, "insertion_text");
-					if (insertion_text != NX_JSON_NULL) {
-						if (func->tag != NULL) {
-							wrap_secure_zero(func->tag, strlen(func->tag));
-							wrap_free((void **)&func->tag);
+						size_t completions_size = json_array_size(completions);
+						for (i = 0; i < completions_size && j < maximum && j < 6 && func; i++, j++) {
+							/* 6 for letters A-F */
+							json_t *candidate = json_array_get(completions, i);
+							json_t *insertion_text_value = json_object_get(candidate, "insertion_text");
+							if (insertion_text_value && json_is_string(insertion_text_value)) {
+								if (func->tag != NULL) {
+									wrap_secure_zero(func->tag, strlen(func->tag));
+									wrap_free((void **)&func->tag);
+								}
+								func->tag = strdup(json_string_value(insertion_text_value));
+								/* Sanitize json_string_value(insertion_text_value)? */
+								found_cc_entry = 1;
+							}
+							func = func->next;
 						}
-						func->tag = strdup(insertion_text->text_value);
-						/* Sanitize insertion_text->text_value? */
-						found_cc_entry = 1;
+						for (i = j; i < completions_size && i < maximum && i < 6 && func; i++, func = func->next) {
+							if (func->tag != NULL) {
+								wrap_secure_zero(func->tag, strlen(func->tag));
+								wrap_free((void **)&func->tag);
+							}
+							func->tag = strdup("");
+						}
+						json_t *completion_start_column_value = json_object_get(root, "completion_start_column");
+						if (completion_start_column_value && json_is_integer(completion_start_column_value)) {
+							ycmd_globals.apply_column = json_integer_value(completion_start_column_value);
+						}
 					}
-					func = func->next;
-				}
-				for (i = j; i < completions->length && i < maximum && i < 6 && func; i++, func = func->next) {
-					if (func->tag != NULL) {
-						wrap_secure_zero(func->tag, strlen(func->tag));
-						wrap_free((void **)&func->tag);
-					}
-					func->tag = strdup("");
-				}
-				ycmd_globals.apply_column = nx_json_get(pjson, "completion_start_column")->int_value;
-				/* Sanitize pjson? */
-				nx_json_free(pjson);
-			}
 
-			if (found_cc_entry) {
-				bottombars(MCODECOMPLETION);
-				statusline(HUSH, "Code completion triggered, ^X to cancel");
+					/* Sanitize root? */
+					json_decref(root);
+				}
+
+				if (found_cc_entry) {
+					bottombars(MCODECOMPLETION);
+					statusline(HUSH, "Code completion triggered, ^X to cancel");
+				}
 			}
 		}
 	}
@@ -1416,32 +1424,33 @@ void parse_run_completer_command_result(run_completer_command_result_struct *rcc
 	char *json; /* nxjson does inplace edits so back it up. */
 	json = strdup(rccr->json);
 
-	const nx_json *json_parsed = nx_json_parse_utf8(rccr->json);
+	json_error_t error;
+	json_t *root = json_loads(rccr->json, 0, &error);
 
-	if (json_parsed && rccr->usable) {
-		const nx_json *n;
-		n = nx_json_get(json_parsed, "message");
-		if (n->type != NX_JSON_NULL)
-			rccr->message = strdup(n->text_value);
+	if (root && json_is_object(root) && rccr->usable) {
+		json_t *value;
+		value = json_object_get(root, "message");
+		if (value && json_is_string(value))
+			rccr->message = strdup(json_string_value(value));
 
-		n = nx_json_get(json_parsed, "filepath");
-		if (n->type != NX_JSON_NULL)
-			rccr->filepath = strdup(n->text_value);
+		value = json_object_get(root, "filepath");
+		if (value && json_is_string(value))
+			rccr->filepath = strdup(json_string_value(value));
 
-		n = nx_json_get(json_parsed, "line_num");
-		if (n->type != NX_JSON_NULL)
-			rccr->line_num = n->int_value;
+		value = json_object_get(root, "line_num");
+		if (value && json_is_integer(value))
+			rccr->line_num = json_integer_value(value);
 
-		n = nx_json_get(json_parsed, "column_num");
-		if (n->type != NX_JSON_NULL)
-			rccr->column_num = n->int_value;
+		value = json_object_get(root, "column_num");
+		if (value && json_is_integer(value))
+			rccr->column_num = json_integer_value(value);
 
-		n = nx_json_get(json_parsed, "detailed_info");
-		if (n->type != NX_JSON_NULL)
-			rccr->detailed_info = strdup(n->text_value);
+		value = json_object_get(root, "detailed_info");
+		if (value && json_is_string(value))
+			rccr->detailed_info = strdup(json_string_value(value));
 
-		/* Sanitize json_parsed? */
-		nx_json_free(json_parsed);
+		/* Sanitize root? */
+		json_decref(root);
 	}
 
 	rccr->json = json;
@@ -1551,25 +1560,31 @@ void do_completer_command_goto(void)
 	if (!rccr.usable || rccr.response_code != HTTP_OK) {
 		statusline(HUSH, "Completer command failed.");
 	} else {
-		const nx_json *json = nx_json_parse_utf8(rccr.json);
+		json_error_t error;
+		json_t *root = json_loads(rccr.json, 0, &error);
 
-		if (json) {
-			const nx_json *a = json;
+		if (root && json_is_array(root)) {
+			json_t *a = root;
 			int i;
 
-			for (i = 0; i < a->length; i++) {
-				const nx_json *item = nx_json_item(a, i);
-				const char *description = nx_json_get(item, "description")->text_value;
-				if (i == 0) {
-					wrap_strncat(display_text, description, DOUBLE_LINE_LENGTH);
-				} else {
-					wrap_strncat(display_text, ", ", DOUBLE_LINE_LENGTH);
-					wrap_strncat(display_text, description, DOUBLE_LINE_LENGTH);
+			size_t size = json_array_size(a);
+			for (i = 0; i < size; i++) {
+				json_t *item = json_array_get(a, i);
+				json_t *description_value = json_object_get(item, "description");
+				const char *description_str = NULL;
+				if (description_value && json_is_string(description_value)) {
+					description_str = json_string_value(description_value);
+					if (i == 0) {
+						wrap_strncat(display_text, description_str, DOUBLE_LINE_LENGTH);
+					} else {
+						wrap_strncat(display_text, ", ", DOUBLE_LINE_LENGTH);
+						wrap_strncat(display_text, description_str, DOUBLE_LINE_LENGTH);
+					}
 				}
 			}
 
-			/* Sanitize json? */
-			nx_json_free(json);
+			/* Sanitize root? */
+			json_decref(root);
 		}
 		statusline(HUSH, display_text);
 	}
@@ -1607,22 +1622,41 @@ void do_completer_command_gotoreferences(void)
 		statusline(HUSH, "Completer command failed.");
 	} else {
 		/* TODO: Finish implementation
-		const nx_json *json = nx_json_parse_utf8(rccr.json);
+		json_error_t error;
+		json_t *root = json_loads(rccr.json, 0, &error);
 
-		if (json) {
-			const nx_json *a = json;
+		if (root && json_is_array(root)) {
+			json_t *a = json;
 			int i;
 
-			for (i = 0; i < a->length; i++) {
-				const nx_json *item = nx_json_item(a, i);
-				const char *description = nx_json_get(item, "description")->text_value;
-				const char *filepath = nx_json_get(item, "filepath")->text_value;
-				int column_num = nx_json_get(item, "column_num")->int_value;
-				int line_num = nx_json_get(item, "line_num")->int_value;
+			size_t size = json_array_size(a);
+			for (i = 0; i < size; i++) {
+				json_t *item = json_array_get(a, i);
+				json_t *value;
+				const char *description;
+				const char *filepath;
+				int column_num;
+				int line_num
+
+				value = json_object_get(item, "description");
+				if (value && json_is_string(value))
+					description = json_string_value(value);
+
+				value = json_object_get(item, "filepath");
+				if (value && json_is_string(value))
+					filepath = json_string_value(value);
+
+				value = json_object_get(item, "column_num");
+				if (value && json_is_integer(value))
+					column_num = json_integer_value(value);
+
+				value = json_object_get(item, "line_num");
+				if (value && json_is_integer(value))
+					line_num = json_integer_value(value);
 			}
 
-			// Sanitize json?
-			nx_json_free(json);
+			// Sanitize root?
+			json_decref(root);
 		}
 		*/
 	}
@@ -1679,89 +1713,134 @@ void do_completer_command_fixit(void)
 	if (!rccr.usable || rccr.response_code != HTTP_OK) {
 		statusline(HUSH, "Completer command failed.");
 	} else {
-		const nx_json *json = nx_json_parse_utf8(rccr.json);
+		json_error_t error;
+		json_t *root = json_loads(rccr.json, 0, &error);
 
 		/* The server can only handle one at a time.  After that, it bombs out. */
-
-		if (json) {
-			const nx_json *a_fixits = nx_json_get(json, "fixits");
+		if (root && json_is_object(root)) {
+			json_t *a_fixits = json_object_get(root, "fixits");
 			int i = 0, j = 0;
 
-			/* for (i = 0; i < a_fixits->length; i++) */
-			/* 1 array element only supported. */
-			if (a_fixits->length == 1) {
-				const nx_json *item_fixit = nx_json_item(a_fixits, i);
-				const nx_json *a_chunks = nx_json_get(item_fixit, "chunks");
+			if (a_fixits && json_is_array(a_fixits)) {
+				size_t a_fixits_size = json_array_size(a_fixits);
+				/* Only 1 array element supported. */
+				if (a_fixits_size) {
+					json_t *item_fixit = json_array_get(a_fixits, i);
+					json_t *a_chunks = json_object_get(item_fixit, "chunks");
+					size_t a_chunks_size = json_array_size(a_chunks);
 
+					json_t *item_chunk_value, *range_value, *range_start_value, *range_end_value;
+					const char *replacement_text = NULL;
+					/* const char *fcrs_filepath; */
+					int fcrs_column_num, fcrs_line_num;
 
-				const nx_json *item_chunk, *range, *range_start, *range_end;
-				const char *replacement_text = NULL;
-				/* const char *fcrs_filepath; */
-				int fcrs_column_num, fcrs_line_num;
+					/* const char *fcre_filepath; */
+					int fcre_column_num, fcre_line_num;
+					json_t *value;
 
-				/* const char *fcre_filepath; */
-				int fcre_column_num, fcre_line_num;;
+					if (a_chunks && a_chunks_size >= 1) {
+						/* Only 1 array element supported. */
+						if (a_chunks_size == 1) {
+							item_chunk_value = json_array_get(a_chunks, j);
+							if (item_chunk_value && json_is_object(item_chunk_value)) {
+								value = json_object_get(item_chunk_value, "replacement_text");
+								if (value && json_is_string(value))
+									replacement_text = json_string_value(value);
 
-				if (a_chunks != NX_JSON_NULL && a_chunks->length >= 1) {
-					/* See tag:1 on format. */
-					/* for (j = 0; j < a_chunks->length; j++) */
-					/* 1 array element only supported. */
-					if (a_chunks->length == 1) {
-						item_chunk = nx_json_item(a_chunks, j);
-						range = nx_json_get(item_chunk, "range");
-						range_start = nx_json_get(range, "start");
-						range_end = nx_json_get(range, "end");
-						replacement_text = nx_json_get(item_chunk, "replacement_text")->text_value;
+								range_value = json_object_get(item_chunk_value, "range");
+								if (range_value && json_is_object(range_value)) {
+									range_start_value = json_object_get(range_value, "start");
+									if (range_start_value && json_is_object(range_start_value)) {
+										/*
+										value = json_object_get(range_start_value, "filepath");
+										if (value && json_is_string(value))
+											fcrs_filepath = json_string_value(value);
+										*/
 
-						/* fcrs_filepath = nx_json_get(range_start, "filepath")->text_value; */
-						fcrs_column_num = nx_json_get(range_start, "column_num")->int_value;
-						fcrs_line_num = nx_json_get(range_start, "line_num")->int_value;
+										value = json_object_get(range_start_value, "column_num");
+										if (value && json_is_integer(value))
+											fcrs_column_num = json_integer_value(value);
 
-						/* fcre_filepath = nx_json_get(range_end, "filepath")->text_value; */
-						fcre_column_num = nx_json_get(range_end, "column_num")->int_value;
-						fcre_line_num = nx_json_get(range_end, "line_num")->int_value;
+										value = json_object_get(range_start_value, "line_num");
+										if (value && json_is_integer(value))
+											fcrs_line_num = json_integer_value(value);
+									}
+
+									range_end_value = json_object_get(range_value, "end");
+									if (range_end_value && json_is_object(range_end_value)) {
+										/*
+										value = json_object_get(range_end_value, "filepath");
+										if (value && json_is_string(value))
+											fcre_filepath = json_string_value(value);
+										*/
+
+										value = json_object_get(range_end_value, "column_num");
+										if (value && json_is_integer(value))
+											fcre_column_num = json_integer_value(value);
+
+										value = json_object_get(range_end_value, "line_num");
+										if (value && json_is_integer(value))
+											fcre_line_num = json_integer_value(value);
+									}
+								}
+							}
+						}
+					}
+
+					const char *text = json_string_value(json_object_get(item_fixit, "text"));
+					char prompt_msg[QUARTER_LINE_LENGTH];
+					snprintf(prompt_msg, QUARTER_LINE_LENGTH, "Apply fix It? %s", text);
+
+					/* TODO:  Finish implementation or remove deadcode
+					const char *fl_filepath;
+					int fl_column_num;
+					int fl_line_num;
+					json_t *location_value = json_object_get(item_fixit, "location");
+					if (location_value && json_is_object(location_value)) {
+						value = json_object_get(location, "filepath");
+						if (value && json_is_string(value))
+							fl_filepath = json_string_value(value);
+
+						value = json_object_get(location, "column_num");
+						if (value && json_is_integer(value))
+							fl_column_num = json_integer_value(value);
+
+						value = json_object_get(location, "line_num");
+						if (value && json_is_integer(value))
+							fl_line_num = json_integer_value(value);
+					}
+					*/
+
+					/* Present the user dialog prompt for the FixIt. */
+					int ret = ask_user(YESORNO, prompt_msg);
+					if (ret == YES) {
+						if (replacement_text && strlen(replacement_text)) {
+							/* Assumes that the flag was previously set. */
+							/* openfile->mark_set = 1; */
+
+							/* nano column num means distance within a tab character. */
+							/* ycmd column num means treat tabs as indivisible. */
+							goto_line_and_column(fcrs_line_num, 1, FALSE, FALSE);
+
+							openfile->current_x = fcrs_column_num - 1; /* nano treats current_x as 0 based and linenum as 1 based. */
+							do_mark(); /* Flip flag and unset marker. */
+							do_mark(); /* Flip flag and sets marker. */
+							goto_line_and_column(fcre_line_num, 1, FALSE, FALSE);
+							openfile->current_x = fcre_column_num - 1;
+							cut_text(); /* It serves the same function as (cut character) ^K in global.c. */
+							/* Sanitize replacement_text? */
+							inject((char*)replacement_text, strlen(replacement_text));
+							statusline(HUSH, "Applied FixIt.");
+						}
+					} else {
+						statusline(HUSH, "Canceled FixIt.");
 					}
 				}
 
-				const char *text = nx_json_get(item_fixit, "text")->text_value;
-				char prompt_msg[QUARTER_LINE_LENGTH];
-				snprintf(prompt_msg, QUARTER_LINE_LENGTH, "Apply fix It? %s", text);
-				/* TODO:  Finish implementation or remove deadcode
-				const nx_json *location = nx_json_get(item_fixit, "location");
-				const char *fl_filepath = nx_json_get(location, "filepath")->text_value;
-				int fl_column_num = nx_json_get(location, "column_num")->int_value;
-				int fl_line_num = nx_json_get(location, "line_num")->int_value; */
-
-				/* Present the user dialog prompt for the FixIt. */
-				int ret = ask_user(YESORNO, prompt_msg);
-				if (ret == YES) {
-					if (replacement_text && strlen(replacement_text)) {
-						/* Assumes that the flag was previously set. */
-						/* openfile->mark_set = 1; */
-
-						/* nano column num means distance within a tab character. */
-						/* ycmd column num means treat tabs as indivisible. */
-						goto_line_and_column(fcrs_line_num, 1, FALSE, FALSE);
-
-						openfile->current_x = fcrs_column_num - 1; /* nano treats current_x as 0 based and linenum as 1 based. */
-						do_mark(); /* Flip flag and unset marker. */
-						do_mark(); /* Flip flag and sets marker. */
-						goto_line_and_column(fcre_line_num, 1, FALSE, FALSE);
-						openfile->current_x = fcre_column_num - 1;
-						cut_text(); /* It serves the same function as (cut character) ^K in global.c. */
-						/* Sanitize replacement_text? */
-						inject((char*)replacement_text, strlen(replacement_text));
-						statusline(HUSH, "Applied FixIt.");
-					}
-				} else {
-					statusline(HUSH, "Canceled FixIt.");
-				}
+				/* Sanitize root? */
+				json_decref(root);
 			}
-
-			/* Sanitize json? */
-			nx_json_free(json);
 		}
-
 	}
 
 	bottombars(MMAIN);
@@ -2210,12 +2289,6 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 	return response_code == HTTP_OK && !compromised;
 }
 
-/* Preconditon:  The server must be up and initalized. */
-int ycmd_rsp_is_healthy_simple()
-{
-	return ycmd_rsp_is_healthy(2);
-}
-
 int ycmd_rsp_is_healthy(int include_subservers)
 {
 #if defined(DEBUG)
@@ -2248,7 +2321,7 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	char url[LINE_LENGTH];
 	snprintf(path, sizeof(path), "/healthy");
 	if (include_subservers == 2) {
-		sprintf(req_buffer, "");
+		req_buffer[0] = '\0';
 	} else if (include_subservers) {
 		sprintf(req_buffer, "include_subservers=1");
 	} else {
@@ -2268,7 +2341,7 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG: %s(): HMAC inputs: method=%s, path=%s, body='%s', body_size=%zu\n",
-		__func__, method, path, req_buffer && strlen(req_buffer) ? req_buffer : "NULL", req_buffer && strlen(req_buffer) ? strlen(req_buffer) : 0);
+		__func__, method, path, strlen(req_buffer) ? req_buffer : "NULL", strlen(req_buffer) ? strlen(req_buffer) : 0);
 	fprintf(stderr, "DEBUG: %s(): X-Ycm-Hmac: %s\n", __func__, req_hmac_base64);
 #endif
 	headers = curl_slist_append(headers, "Keep-Alive: ");
@@ -2346,6 +2419,12 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	return response_code == HTTP_OK && !compromised;
 }
 
+/* Preconditon:  The server must be up and initalized. */
+int ycmd_rsp_is_healthy_simple()
+{
+	return ycmd_rsp_is_healthy(2);
+}
+
 /* include_subservers refers to checking the OmniSharp server or other completer servers. */
 int ycmd_rsp_is_server_ready(char *filetype)
 {
@@ -2376,7 +2455,7 @@ int ycmd_rsp_is_server_ready(char *filetype)
 
 	curl_easy_reset(ycmd_globals.curl);
 	char url[LINE_LENGTH];
-	snprintf(path, sizeof(path), "/ready", filetype);
+	snprintf(path, sizeof(path), "/ready");
 	sprintf(req_buffer, "subserver=%s", filetype);
 	sprintf(url, "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
 #if defined(DEBUG)
@@ -2392,7 +2471,7 @@ int ycmd_rsp_is_server_ready(char *filetype)
 	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG: %s(): HMAC inputs: method=%s, path=%s, body='%s', body_size=%zu\n",
-		__func__, method, path, req_buffer && strlen(req_buffer) ? req_buffer : "NULL", req_buffer && strlen(req_buffer) ? strlen(req_buffer) : 0);
+		__func__, method, path, strlen(req_buffer) ? req_buffer : "NULL", strlen(req_buffer) ? strlen(req_buffer) : 0);
 	fprintf(stderr, "DEBUG: %s(): X-Ycm-Hmac: %s\n", __func__, req_hmac_base64);
 #endif
 	headers = curl_slist_append(headers, "Keep-Alive: ");

@@ -430,6 +430,8 @@ if test "x$with_safeclib" = xyes; then
 		CPPFLAGS="$SAFECLIB_CFLAGS $CPPFLAGS"
 		SAFECLIB_LIB_NAME=safec
 	], [:])
+	AC_SUBST(SAFECLIB_CFLAGS)
+	AC_SUBST(SAFECLIB_LIBS)
 	have_safeclib=yes
 	AC_MSG_CHECKING([for safeclib])
 	AC_MSG_RESULT([yes])
@@ -580,24 +582,40 @@ if test "x$enable_ycmd" = xyes; then
 	], [
 		AC_MSG_ERROR([glib not found])
 	])
+	AC_SUBST(GLIB_CFLAGS)
+	AC_SUBST(GLIB_LIBS)
 
-	AC_SEARCH_LIBS([nx_json_get], [nxjson], [], [
-		AC_MSG_ERROR([unable to find the nx_json_get() function])
+	PKG_CHECK_MODULES([JANSSON], [jansson], [
+		JANSSON_LIB=$JANSSON_LIBS
+		CPPFLAGS="$JANSSON_CFLAGS $CPPFLAGS"
+		JANSSON_LIB_NAME=jansson
+	], [
+		AC_MSG_ERROR([Jansson not found])
 	])
+	AC_SUBST(JANSSON_CFLAGS)
+	AC_SUBST(JANSSON_LIBS)
 
 	if test "x$with_openssl" = xyes; then
 		PKG_CHECK_MODULES([OPENSSL], [openssl >= 3], [
 			OPENSSL_LIB=$OPENSSL_LIBS
 			CPPFLAGS="$OPENSSL_CFLAGS $CPPFLAGS"
 			OPENSSL_LIB_NAME=openssl
-		], [:])
+		], [
+			AC_MSG_ERROR([OpenSSL not found])
+		])
+		AC_SUBST(OPENSSL_CFLAGS)
+		AC_SUBST(OPENSSL_LIBS)
 		have_openssl=yes
 	elif test "x$with_nettle" = xyes; then
 		PKG_CHECK_MODULES([NETTLE], [nettle], [
 			NETTLE_LIB=$NETTLE_LIBS
 			CPPFLAGS="$NETTLE_CFLAGS $CPPFLAGS"
 			NETTLE_LIB_NAME=nettle
-		], [:])
+		], [
+			AC_MSG_ERROR([Nettle not found])
+		])
+		AC_SUBST(NETTLE_CFLAGS)
+		AC_SUBST(NETTLE_LIBS)
 		have_nettle=yes
 	elif test "x$with_libgcrypt" = xyes; then
 		AC_SEARCH_LIBS([gcry_mac_open], [gcrypt], [], [
@@ -613,9 +631,10 @@ if test "x$enable_ycmd" = xyes; then
 		CPPFLAGS="$CURL_CFLAGS $CPPFLAGS"
 		CURL_LIB_NAME=curl
 	], [
-		AC_MSG_ERROR([libcurl not found])
+		AC_MSG_ERROR([Curl not found])
 	])
-
+	AC_SUBST(CURL_CFLAGS)
+	AC_SUBST(CURL_LIBS)
 
 	AC_CHECK_LIB([curl], [curl_easy_init], [],
 		[AC_MSG_ERROR([libcurl not found])])
