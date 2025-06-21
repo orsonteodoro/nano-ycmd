@@ -104,6 +104,8 @@ libraries.
 | [NXJSON](https://github.com/yarosla/nxjson) [1]                   |         | Required             | Run-time               | For parsing ycmd responses                                                                                                            |
 | OpenMP                                                            |         | Optional             | Run-time               | For performance-critical Multicore string_replace, escape_json                                                                        |
 
+* [1] A shared library Makefile [patch](https://github.com/orsonteodoro/oiledmachine-overlay/blob/master/dev-libs/nxjson/files/nxjson-9999.20141019-create-libs.patch) is required for NXJSON.
+
 #### My distribution doesn't have the required dependencies
 
 You can look at my gentoo package overlay
