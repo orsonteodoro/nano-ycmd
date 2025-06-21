@@ -72,8 +72,32 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 #error "You must choose a cryptographic library to use ycmd code completion support.  Currently Libgcrypt, Nettle, OpenSSL 3.x are supported."
 #endif
 
+/*
+ * CE = Code Execution
+ * DF = Double Free
+ * DoS = Denial of Service
+ * DP = Dangling Pointer
+ * DT = Data Tampering
+ * HO = Heap Overflow
+ * ID = Information Disclosure
+ * NPD = Null Pointer Dereference
+ * OOBA = Out of Bounds Access
+ * OOBR = Out of Bounds Read
+ * OOBW = Out of Bounds Write
+ * PF = Poison Free
+ * RC = Race Condition
+ * SO = Stack Overflow
+ * UAF = Use After Free
+ * ZF = Zero Free
+ *
+ * Mitigations (nxjson):  NPD								# Security: 3, Performance: 5, Overall 4; Removed support
+ * Mitigations (yyjson):  DF, DP, DoS, ID, DT HO, NPD, OOBA, OOBR, OOBW, SO, UAF	# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation, not widely adopted in distros, faster alternative
+ * Mitigations (curl):  DF, DP, DoS, ID, DT, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF	# Security: 9, Performance: 8, Overall: 9
+ * Mitigations (http neon):  NPD, SO							# Security: 4, Performance: 7, Overall: 5; Removed support
+ */
+
 #include <curl/curl.h>
-#include <jansson.h>
+#include <jansson.h> /* Mitigations:  DF, DP, DoS, DT, ID, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF; Security: 9, Performance: 7, Overall: 8  */
 #include <netinet/ip.h>
 #include <string.h>
 #include <sys/wait.h>
