@@ -506,6 +506,32 @@ AC_DEFUN([AC_CHECK_YCMD_CORE_VERSION],[
 	fi
 ])
 
+AC_ARG_WITH([protocol],
+  AS_HELP_STRING([--with-protocol=http|https], [Choose the protocol to use for ycmd.  For files with passwords use https. (default: http)]),
+  [case "$withval" in
+    http) YCMD_PROTOCOL="http" ;;
+    https) YCMD_PROTOCOL="https" ;;
+    *) AC_MSG_ERROR([Invalid protocol. Choose http or https.]) ;;
+  esac],
+  [YCMD_PROTOCOL="http"])
+
+AC_ARG_WITH([host],
+  AS_HELP_STRING([--with-host=HOST], [Specify the host to use (default: 127.0.0.1)]),
+  [YCMD_HOST="$withval"],
+  [YCMD_HOST="127.0.0.1"])
+
+AC_ARG_WITH([port],
+  AS_HELP_STRING([--with-port=PORT], [Specify the port to use (default: 8080)]),
+  [YCMD_PORT="$withval"],
+  [YCMD_PORT="0"])
+
+AC_DEFINE_UNQUOTED([YCMD_PROTOCOL], ["$YCMD_PROTOCOL"], [The chosen protocol for ycmd])
+AC_DEFINE_UNQUOTED([YCMD_HOST], ["$YCMD_HOST"], [The host to use for ycmd])
+AC_DEFINE_UNQUOTED([YCMD_PORT], [$YCMD_PORT], [The port to use for ycmd])
+AC_SUBST(YCMD_PROTOCOL)
+AC_SUBST(YCMD_HOST)
+AC_SUBST(YCMD_PORT)
+
 if test "x$enable_ycmd" = xyes; then
 	AC_CHECK_YCMD_CORE_VERSION([$YCMD_PATH])
 	AC_MSG_CHECKING([for BEAR_PATH])
@@ -551,17 +577,21 @@ if test "x$enable_ycmd" = xyes; then
 		GLIB_LIB=$GLIB_LIBS
 		CPPFLAGS="$GLIB_CFLAGS $CPPFLAGS"
 		GLIB_LIB_NAME=glib-2.0
-	], [:])
+	], [
+		AC_MSG_ERROR([glib not found])
+	])
 
 	AC_SEARCH_LIBS([nx_json_get], [nxjson], [], [
 		AC_MSG_ERROR([unable to find the nx_json_get() function])
 	])
 
-	if test "x$with_libgcrypt" = xyes; then
-		AC_SEARCH_LIBS([gcry_mac_open], [gcrypt], [], [
-			AC_MSG_ERROR([unable to find the gcry_mac_open() function])
-		])
-		have_libgcrypt=yes
+	if test "x$with_openssl" = xyes; then
+		PKG_CHECK_MODULES([OPENSSL], [openssl >= 3], [
+			OPENSSL_LIB=$OPENSSL_LIBS
+			CPPFLAGS="$OPENSSL_CFLAGS $CPPFLAGS"
+			OPENSSL_LIB_NAME=openssl
+		], [:])
+		have_openssl=yes
 	elif test "x$with_nettle" = xyes; then
 		PKG_CHECK_MODULES([NETTLE], [nettle], [
 			NETTLE_LIB=$NETTLE_LIBS
@@ -569,21 +599,33 @@ if test "x$enable_ycmd" = xyes; then
 			NETTLE_LIB_NAME=nettle
 		], [:])
 		have_nettle=yes
-	elif test "x$with_openssl" = xyes; then
-		PKG_CHECK_MODULES([OPENSSL], [openssl >= 3], [
-			OPENSSL_LIB=$OPENSSL_LIBS
-			CPPFLAGS="$OPENSSL_CFLAGS $CPPFLAGS"
-			OPENSSL_LIB_NAME=openssl
-		], [:])
-		have_openssl=yes
+	elif test "x$with_libgcrypt" = xyes; then
+		AC_SEARCH_LIBS([gcry_mac_open], [gcrypt], [], [
+			AC_MSG_ERROR([unable to find the gcry_mac_open() function])
+		])
+		have_libgcrypt=yes
 	else
 		AC_MSG_ERROR([You must choose a crypto library: libgcrypt, nettle, openssl])
 	fi
-	PKG_CHECK_MODULES([NEON], [neon], [
-		NEON_LIB=$NEON_LIBS
-		CPPFLAGS="$NEON_CFLAGS $CPPFLAGS"
-		NEON_LIB_NAME=neon
-	], [:])
+
+	PKG_CHECK_MODULES([CURL], [libcurl], [
+		CURL_LIB=$CURL_LIBS
+		CPPFLAGS="$CURL_CFLAGS $CPPFLAGS"
+		CURL_LIB_NAME=curl
+	], [
+		AC_MSG_ERROR([libcurl not found])
+	])
+
+
+	AC_CHECK_LIB([curl], [curl_easy_init], [],
+		[AC_MSG_ERROR([libcurl not found])])
+
+	AC_CHECK_LIB([curl], [curl_global_sslset], [HAVE_CURL_SSL=yes], [HAVE_CURL_SSL=no])
+
+	if test "$PROTOCOL" = "https" && test "$HAVE_CURL_SSL" = "no"; then
+		AC_MSG_ERROR([https protocol requires libcurl with SSL/TLS support])
+	fi
+
 	AC_CHECK_FILE([$YCMD_PATH/hmac_utils.py], [ycmd_found=yes], [ycmd_found=no])
 	AC_MSG_CHECKING([for YCMD_PATH/hmac_utils.py])
 	if test "x$ycmd_found" = xno ; then

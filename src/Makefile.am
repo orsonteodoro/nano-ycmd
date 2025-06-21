@@ -191,12 +191,7 @@ nano_LDADD += -lmimalloc-secure
 endif
 
 if USE_YCMD
-nano_LDADD += @NEON_LIBS@
-endif
-
-if HAVE_LIBGCRYPT
-nano_LDADD += @GLIB_LIBS@
-nano_LDFLAGS += $(LIBGCRYPT_LIBS)
+nano_LDADD += @CURL_LIBS@
 endif
 
 if HAVE_NETTLE
@@ -205,6 +200,11 @@ endif
 
 if HAVE_OPENSSL
 nano_LDADD += @OPENSSL_LIBS@
+endif
+
+if HAVE_LIBGCRYPT
+nano_LDADD += @GLIB_LIBS@
+nano_LDFLAGS = $(LIBGCRYPT_LIBS)
 endif
 
 if HAVE_SAFECLIB

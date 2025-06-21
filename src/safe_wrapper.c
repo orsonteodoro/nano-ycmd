@@ -20,6 +20,29 @@
  * SOFTWARE.
  */
 
+/*
+ * Me:  what is the license of the wrapper examples?
+ * Llama 4:  The wrapper examples I provided are considered public domain or, if that's not possible in your jurisdiction, licensed under the most permissive terms possible.
+ * You can use, modify, and distribute these examples freely without any restrictions or attribution requirements.
+ * In other words, consider them to be:
+ * Public Domain (CC0 1.0 Universal)
+ * or Permissive License (MIT License or similar)
+ * Feel free to use them as you see fit in your projects.
+ *
+ * Me:  i will add them to nano-ycmd which is based on gnu nano.
+ * Llama 4:  In that case, the wrapper examples I provided should be compatible with the GPL (General Public License) used by GNU nano.
+ * Since I'm not specifying any particular license for the examples, they're essentially public domain, which means you can use them in your GPL-licensed project without any issues.
+ * Just make sure to follow the GPL guidelines and requirements for your project, and you're good to go! If you have any questions or concerns about licensing or GPL compliance, feel free to ask.
+ *
+ */
+
+/*
+ * Some of the license header, skeleton functions, and wrapper implementations are provided by Grok 3.
+ * Grok 3 originally added the license header with name 多彩 (Colorful).
+ * Llama 4 wrote the malloc/free section, some wrappers.
+ * Grok 3 made the fixed compatibility wrapper classes for wrap_vsnprintf, wrap_strncat.
+ */
+
 #include "safe_wrapper.h"
 #include <limits.h>
 #if USE_SAFECLIB
@@ -105,14 +128,11 @@ char *wrap_strncpy(char *dest, const char *src, size_t n) {
 }
 
 void *wrap_memcpy(void *dest, const void *src, size_t n) {
-#ifdef DEBUG
-	char *function_name = "wrap_memcpy";
-#endif
 #ifdef USE_SAFECLIB
 	errno_t err = memcpy_s(dest, n, src, n);
 	if (err != EOK) {
 #ifdef DEBUG
-		fprintf(stderr, "%s:  Error:  %s\n", function_name, strerror(err));
+		fprintf(stderr, "%s:  Error:  %s\n", __func__, strerror(err));
 #endif
 	}
 	return dest;
@@ -127,9 +147,6 @@ void *wrap_memcpy(void *dest, const void *src, size_t n) {
 
 #define DUMMY_BUFFER_SIZE 1024
 int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
-#ifdef DEBUG
-	char *function_name = "wrap_vsnprintf";
-#endif
 #ifdef USE_SAFECLIB
 	/* There is an inconsistency in the safeclib implementation.  So rewrite. */
 	if (str == NULL && size != 0) return -1;
@@ -142,14 +159,14 @@ int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 		va_end(ap_copy);
 		if (res < 0) {
 #ifdef DEBUG
-			fprintf(stderr, "%s: vsnprintf_s failed in dummy case (res=%d)\n", function_name, res);
+			fprintf(stderr, "%s: vsnprintf_s failed in dummy case (res=%d)\n", __func__, res);
 			return -1;
 #endif
 		}
 		if (res >= DUMMY_BUFFER_SIZE) {
 #ifdef DEBUG
 			fprintf(stderr, "%s: Warning: Format string may exceed %d bytes (res=%d)\n",
-				function_name, DUMMY_BUFFER_SIZE, res);
+				__func__, DUMMY_BUFFER_SIZE, res);
 #endif
 		}
 		return res;
@@ -157,7 +174,7 @@ int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 	if (size > DEFAULT_JSON_SIZE) {
 #ifdef DEBUG
 		fprintf(stderr, "%s: size capped (input=%zu, max=%d)\n",
-			function_name, size, DEFAULT_JSON_SIZE);
+			__func__, size, DEFAULT_JSON_SIZE);
 #endif
 		size = DEFAULT_JSON_SIZE;
 	}
@@ -175,25 +192,27 @@ int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 }
 
 char *wrap_strncat(char *dest, const char *src, size_t n) {
-#ifdef DEBUG
-	char *function_name = "wrap_strncat";
-#endif
 #ifdef USE_SAFECLIB
 	/* There is an inconsistency in the safeclib implementation.  So rewrite. */
 	/* Validate inputs */
 	if (dest == NULL || src == NULL || n == 0) {
 #ifdef DEBUG
 		fprintf(stderr, "%s: Invalid input (dest=%p, src=%p, n=%zu)\n",
-			function_name, (void *)dest, (void *)src, n);
+			__func__, (void *)dest, (void *)src, n);
 #endif
 		return NULL;
 	}
 
-	/* Cap n at DEFAULT_JSON_SIZE */
+	/* Cap n at DEFAULT_JSON_SIZE because the safeclib limits on
+	 * --enable-strmax= will cause strlen_s and other safeclib string
+	 * functions to break.  It is assumed that safeclib is built with
+	 * >= 128K strmax. */
 	if (n > DEFAULT_JSON_SIZE) {
 #ifdef DEBUG
+		/*
 		fprintf(stderr, "%s: n capped (input=%zu, max=%d)\n",
-			function_name, n, DEFAULT_JSON_SIZE);
+			__func__, n, DEFAULT_JSON_SIZE);
+		*/
 #endif
 		n = DEFAULT_JSON_SIZE;
 	}
@@ -204,7 +223,7 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	if (dest_len >= n - 1) {
 #ifdef DEBUG
 		fprintf(stderr, "%s: No space in dest (dest_len=%zu, n=%zu)\n",
-			function_name, dest_len, n);
+			__func__, dest_len, n);
 #endif
 		return NULL;
 	}
@@ -218,7 +237,7 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	if (src_len >= max_src_len && (src_len < n && src[src_len] != '\0')) {
 #ifdef DEBUG
 		fprintf(stderr, "%s: src too long (src_len=%zu, max_src_len=%zu)\n",
-			function_name, src_len, max_src_len);
+			__func__, src_len, max_src_len);
 #endif
 		return NULL;
 	}
@@ -228,7 +247,7 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	if (res != 0) {
 #ifdef DEBUG
 		fprintf(stderr, "%s: strncat_s failed (res=%d, n=%zu, src_len=%zu)\n",
-			function_name, res, n, src_len);
+			__func__, res, n, src_len);
 #endif
 		return NULL;
 	}
@@ -370,7 +389,7 @@ errno_t wrap_secure_zero(void *dest, size_t n) {
 }
 
 char *wrap_strstr(const char *haystack, const char *needle) {
-#ifdef HAVE_STRSTR_S
+#ifdef USE_SAFECLIB
     char *result = NULL;
     errno_t err = strstr_s((char *)haystack, strlen(haystack) + 1, needle, strlen(needle) + 1, &result);
     if (err != EOK) {
@@ -380,4 +399,27 @@ char *wrap_strstr(const char *haystack, const char *needle) {
 #else
     return strstr(haystack, needle);
 #endif
+}
+
+size_t wrap_strlen(const char *s) {
+#ifdef USE_SAFECLIB
+	return strnlen_s(s, RSIZE_MAX);
+#else
+	return strlen(s);
+#endif
+}
+
+int wrap_sprintf(char *str, size_t size, const char *format, ...) {
+	va_list args;
+	va_start(args, format);
+	int result;
+
+#ifdef USE_SAFECLIB
+	result = vsnprintf_s(str, size, format, args);
+#else
+	result = vsnprintf(str, size, format, args);
+#endif
+
+	va_end(args);
+	return result;
 }

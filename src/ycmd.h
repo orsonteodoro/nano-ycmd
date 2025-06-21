@@ -25,7 +25,7 @@
 #ifndef YCMD_H
 #define YCMD_H
 
-#include <ne_session.h>
+#include <curl/curl.h>
 
 /* Buffer sizes */
 #define QUARTER_LINE_LENGTH 20
@@ -120,7 +120,7 @@ typedef struct default_settings_struct {
 	int auto_stop_csharp_server;
 	int use_ultisnips_completer;
 	int csharp_server_port;
-	char hmac_secret[SECRET_KEY_LENGTH * 2];								/* As base64 encoded */
+	char hmac_secret[SECRET_KEY_LENGTH * 2 + 1];								/* As base64 encoded */
 	int server_keep_logfiles;
 	char gocode_binary_path[PATH_MAX]; /* PATH_MAX includes null */
 	char godef_binary_path[PATH_MAX];
@@ -151,7 +151,7 @@ typedef struct file_ready_to_parse_results_struct
 {
 	int usable;
 	char *json; /* Diagnostic data for FileReadyToParse */
-	int status_code;
+	long response_code;
 } file_ready_to_parse_results_struct;
 
 typedef struct ycmd_globals_struct {
@@ -159,13 +159,13 @@ typedef struct ycmd_globals_struct {
 	char *hostname;
 	int port;
 	int tcp_socket;
-	ne_session *session;
+	CURL *curl;
 	char json[DEFAULT_JSON_SIZE];
 	int running;
 	int connected;
-	char secret_key_base64[SECRET_KEY_LENGTH * 2];
+	char secret_key_base64[SECRET_KEY_LENGTH * 2 + 1];
 	uint8_t secret_key_raw[SECRET_KEY_LENGTH];
-	char tmp_options_filename[PATH_MAX];
+	char default_settings_json_path[PATH_MAX];
 	pid_t child_pid;
 	size_t apply_column;
 
@@ -180,6 +180,9 @@ typedef struct ycmd_globals_struct {
 	int max_entries;
 
 	default_settings_struct default_settings;
+
+	pthread_mutex_t mutex;
+
 } ycmd_globals_struct;
 
 extern void ycmd_constructor();
