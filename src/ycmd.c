@@ -3008,7 +3008,6 @@ void ycmd_start_server()
 	} else if (YCMD_PORT > 0) {
 		ycmd_globals.port = YCMD_PORT;
 	}
-	ycmd_globals.port = 44835;
 
 	if (ycmd_globals.port < 0) {
 #if defined(DEBUG)
