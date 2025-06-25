@@ -31,8 +31,10 @@
 #define COMMAND_LINE_COMMAND_NUM 21
 #define COMMAND_LINE_WIDTH 34
 
-/* GH line width: 147 chars at 1080p */
-//2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456
+/* GH line width (hard limit):  147 chars at 1080p */
+/* Mod default (soft limit):  120 chars */
+//2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456 // 147 chars
+//2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789 // 120 chars
 
 char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 	"ClearCompilationFlagCache",
@@ -73,7 +75,8 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 #include <openssl/rand.h>
 #define CRYPTO_LIB "OPENSSL"
 #else
-#error "You must choose a cryptographic library to use ycmd code completion support.  Currently Libgcrypt, Nettle, OpenSSL 3.x are supported."
+#error "You must choose a cryptographic library to use ycmd code completion support.  " \
+	"Currently Libgcrypt, Nettle, OpenSSL 3.x are supported."
 #endif
 
 /*
@@ -99,19 +102,34 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  *
  * The scores are 1-10.
  *
- * Mitigations (curl):  DF, DP, DoS, ID, DT, HO, IO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF				# Security: 9, Performance: 8, Overall: 9
- * Mitigations (glibc malloc/free):  RC										# Security: 3, Performance: 8, Overall: 5
- * Mitigations (glibc str/mem functions):  RC, SO								# Security: 3, Performance: 9, Overall: 5
- * Mitigations (hardened_malloc):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 10, Performance: 6, Overall: 9
- * Mitigations (http neon):  NPD, SO										# Security: 3, Performance: 7, Overall: 5; Removed support
- * Mitigations (jansson):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF			# Security: 9, Performance: 7, Overall: 8
- * Mitigations (mimalloc-secure):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 9, Performance: 8, Overall: 9
- * Mitigations (musl malloc/free):  DF, DoS, DP, DT, HO, ID, IO, OOBA, OOBR, OOBW, PF, RC, SO, UAF		# Security: 8, Performance: 6, Overall: 7
- * Mitigations (musl str/mem functions): RC, SO									# Security: 4, Performance: 9, Overall: 6
- * Mitigations (nxjson):  NPD											# Security: 2, Performance: 5, Overall 3; Removed support
- * Mitigations (safeclib):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF			# Security: 9, Performance: 7, Overall: 8
- * Mitigations (scudo):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF			# Security: 8, Performance: 7, Overall: 8; Available via LD_PRELOAD
- * Mitigations (yyjson): DF, DP, DoS, ID, IO, DT HO, NPD, OOBA, OOBR, OOBW, SO, UAF				# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation, not widely adopted in distros, faster alternative
+ * Mitigations (curl):  DF, DP, DoS, ID, DT, HO, IO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF
+ * Mitigations (glibc malloc/free):  RC
+ * Mitigations (glibc str/mem functions):  RC, SO
+ * Mitigations (hardened_malloc):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF
+ * Mitigations (http neon):  NPD, SO
+ * Mitigations (jansson):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF
+ * Mitigations (mimalloc-secure):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF
+ * Mitigations (musl malloc/free):  DF, DoS, DP, DT, HO, ID, IO, OOBA, OOBR, OOBW, PF, RC, SO, UAF
+ * Mitigations (musl str/mem functions): RC, SO
+ * Mitigations (nxjson):  NPD
+ * Mitigations (safeclib):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF
+ * Mitigations (scudo):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF
+ * Mitigations (yyjson): DF, DP, DoS, ID, IO, DT HO, NPD, OOBA, OOBR, OOBW, SO, UAF
+
+ * curl:			# Security: 9, Performance: 8, Overall: 9
+ * glibc malloc/free:		# Security: 3, Performance: 8, Overall: 5
+ * glibc str/mem functions:	# Security: 3, Performance: 9, Overall: 5
+ * hardened_malloc:		# Security: 10, Performance: 6, Overall: 9
+ * http neon:			# Security: 3, Performance: 7, Overall: 5; Removed support
+ * jansson:			# Security: 9, Performance: 7, Overall: 8
+ * mimalloc-secure:		# Security: 9, Performance: 8, Overall: 9
+ * musl malloc/free:		# Security: 8, Performance: 6, Overall: 7
+ * musl str/mem functions:	# Security: 4, Performance: 9, Overall: 6
+ * nxjson:			# Security: 2, Performance: 5, Overall 3; Removed support
+ * safeclib:			# Security: 9, Performance: 7, Overall: 8
+ * scudo:			# Security: 8, Performance: 7, Overall: 8; Available via LD_PRELOAD
+ * yyjson:			# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation,
+ *				# not widely adopted in distros, faster alternative
  */
 
 #include <curl/curl.h>
@@ -171,8 +189,10 @@ char *_curl_read_response_body_full(CURL *curl, struct memory_struct *chunk);
 char *_ycmd_get_filetype(char *filepath);
 int ycmd_is_hmac_valid(const char *hmac_rsp_header, char *rsp_hmac_base64);
 int ycmd_rsp_is_server_ready(char *filetype);
-int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget, defined_subcommands_results_struct *dsr);
-int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget, char *completercommand, run_completer_command_result_struct *rccr);
+int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget,
+	defined_subcommands_results_struct *dsr);
+int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, linestruct *filetop,
+	char *completertarget, char *completercommand, run_completer_command_result_struct *rccr);
 size_t _req_file(char *req_buffer, size_t req_buffer_size, linestruct *filetop);
 size_t _req_sprintf(char *req_buffer, size_t req_buffer_size, const char *format, ...);
 size_t ycmd_escape_json(char *unescaped, char *escaped);
@@ -183,7 +203,8 @@ void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64);
 void ycmd_generate_secret_key_raw(uint8_t *secret);
 void ycmd_get_extra_conf_path(char *path_project, char *path_extra_conf);
 void ycmd_get_project_path(char *path_project);
-void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char *body, size_t body_len /* strlen based */);
+void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char *body,
+	size_t body_len /* strlen based */);
 void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body);
 void ycmd_restart_server();
 void ycmd_req_load_extra_conf_file(char *filepath);
@@ -221,7 +242,11 @@ struct curl_slist *_curl_sprintf_header(struct curl_slist *headers, const char *
 }
 
 void ycmd_send_to_server(int signum) {
-	ycmd_event_file_ready_to_parse(openfile->current_x, (long)openfile->current->lineno, openfile->filename, openfile->filetop);
+	ycmd_event_file_ready_to_parse(
+		openfile->current_x,
+		(long)openfile->current->lineno,
+		openfile->filename,
+		openfile->filetop);
 }
 
 #ifdef USE_SAFECLIB
@@ -266,7 +291,8 @@ static size_t header_callbackB(char *buffer, size_t size, size_t nitems, void *u
 			char *end = strpbrk(value, "\r\n");
 			if (end) {
 				size_t value_len = end - value;
-				strncpy(hd->value, value, value_len < sizeof(hd->value) - 1 ? value_len : sizeof(hd->value) - 1);
+				strncpy(hd->value, value, value_len < sizeof(hd->value) - 1
+					? value_len : sizeof(hd->value) - 1);
 				hd->value[value_len < sizeof(hd->value) - 1 ? value_len : sizeof(hd->value) - 1] = '\0';
 			} else {
 				strncpy(hd->value, value, sizeof(hd->value) - 1);
@@ -477,13 +503,17 @@ int ycm_generate(void) {
 	} else {
 #ifdef ENABLE_YCM_GENERATOR
 		statusline(HUSH, "Please wait.  Generating a .ycm_extra_conf.py file.");
-		snprintf(command, PATH_MAX * 3 + LINE_LENGTH, "'%s' '%s' -f %s '%s' >/dev/null", YCMG_PYTHON_PATH, YCMG_PATH, flags, path_project);
+		snprintf(command, PATH_MAX * 3 + LINE_LENGTH, "'%s' '%s' -f %s '%s' >/dev/null", YCMG_PYTHON_PATH,
+			YCMG_PATH, flags, path_project);
 		int ret = system(command);
 		if (ret == 0) {
 			statusline(HUSH, "Sucessfully generated a .ycm_extra_conf.py file.");
 
 #if defined(ENABLE_BEAR) || defined(ENABLE_NINJA)
-			snprintf(command, PATH_MAX * 2 + LINE_LENGTH, "sed -i -e \"s|compilation_database_folder = ''|compilation_database_folder = '%s'|g\" \"%s\"", path_project, path_extra_conf);
+			char* sed_cmd = "s|compilation_database_folder = ''|compilation_database_folder = '%s'|g";
+			snprintf(command, PATH_MAX * 2 + LINE_LENGTH,
+				"sed -i -e \"%s" \"%s\"",
+				sed_cmd, path_project, path_extra_conf);
 			int ret2 = system(command);
 			if (ret2 == 0)
 				statusline(HUSH, "Patching .ycm_extra_conf.py file with compile_commands.json was a success.");
@@ -504,13 +534,23 @@ int ycm_generate(void) {
 			has_objcxx = system(command);
 			snprintf(command, PATH_MAX + LINE_LENGTH, "find '%s' -name '*.m'", path_project);
 			has_objc = system(command);
-			snprintf(command, PATH_MAX + LINE_LENGTH, "find '%s' -name '*.cpp' -o -name '*.C' -o -name '*.cxx' -o -name '*.cc'", path_project);
+			snprintf(command, PATH_MAX + LINE_LENGTH,
+				"find '%s' -name '*.cpp' -o -name '*.C' -o -name '*.cxx' -o -name '*.cc'",
+				path_project);
 			has_cxx = system(command);
 			snprintf(command, PATH_MAX + LINE_LENGTH, "find '%s' -name '*.c'", path_project);
 			has_c = system(command);
 			snprintf(command, PATH_MAX + LINE_LENGTH, "find '%s' -name '*.c'", path_project);
 			has_h = system(command);
-			snprintf(command, PATH_MAX + LINE_LENGTH, "grep -r -e 'using namespace' -e 'iostream' -e '\tclass ' -e ' class ' -e 'private:' -e 'public:' -e 'protected:' '%s'", path_project);
+			snprintf(command, PATH_MAX + LINE_LENGTH,
+				"grep -r -e 'using namespace' "
+					"-e 'iostream' "
+					"-e '\tclass ' "
+					"-e ' class ' "
+					"-e 'private:' "
+					"-e 'public:' "
+					"-e 'protected:' '%s'",
+				path_project);
 			has_cxx_code = system(command);
 #endif
 
@@ -534,12 +574,41 @@ int ycm_generate(void) {
 			/* Inject Clang includes to find stdio.h and other headers. */
 			/* Caching disabled because of problems */
 			/* Here is the unescaped version for testing in Bash.
-			V=$(echo | clang -v -E -x c - |& sed  -r  -e ':a' -e 'N' -e '$!ba' -e "s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g" -e "s|[ \\n]+|\\n|g" | tac); \
-			V=$(echo -e $V | sed -r -e "s|[ \\n]+|\',\\n    \'-isystem\','|g"); sed -e "s|'do_cache': True|'do_cache': False|g" -e "s|'-I.'|'-isystem','$(echo $V)','-I.'|g" ../.ycm_extra_conf.py
+			V=$(echo \
+				| clang -v -E -x c - \
+					|& \
+					sed \
+						-r  \
+						-e ':a' \
+						-e 'N' \
+						-e '$!ba' \
+						-e "s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g" \
+						-e "s|[ \\n]+|\\n|g" | tac); \
+			V=$(echo -e ${V} \
+				| \
+				sed \
+					-r \
+					-e "s|[ \\n]+|\',\\n    \'-isystem\','|g");
+				sed \
+					-e "s|'do_cache': True|'do_cache': False|g" \
+					-e "s|'-I.'|'-isystem','$(echo $V)','-I.'|g" \
+			../.ycm_extra_conf.py
 			*/
 			snprintf(command, PATH_MAX + LINE_LENGTH * 4,
-				 "V=$(echo | clang -v -E -x %s - |& sed  -r  -e ':a' -e 'N' -e '$!ba' -e \"s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g\" -e \"s|[ \\n]+|\\n|g\" | tac);"
-				 "V=$(echo -e $V | sed -r -e \"s|[ \\n]+|\',\\n    \'-isystem\','|g\");sed -i -e \"s|'do_cache': True|'do_cache': False|g\" -e \"s|'-I.'|'-isystem','$(echo -e $V)','-I.'|g\" \"%s\"",
+				"V=$(echo | clang -v -E -x %s - |& "
+				"sed "
+					"-r "
+					"-e ':a' "
+					"-e 'N' "
+					"-e '$!ba' "
+					"-e \"s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g\" "
+					"-e \"s|[ \\n]+|\\n|g\" "
+					"| tac);"
+				"V=$(echo -e ${V} |"
+					"sed -r -e \"s|[ \\n]+|\',\\n    \'-isystem\','|g\");"
+					"sed -i -e \"s|'do_cache': True|'do_cache': False|g\" "
+						"-e \"s|'-I.'|'-isystem','$(echo -e $V)','-I.'|g\" "
+				"\"%s\"",
 				 language, path_extra_conf);
 			ret = 0;
 		} else
@@ -558,7 +627,8 @@ semantic_triggers_struct json_default_set_semantic_trigger(char *lang, char trig
 	return row;
 }
 
-filetype_specific_completion_to_disable_struct json_default_set_filetype_specific_completion_to_disable(char *filetype, int off) {
+filetype_specific_completion_to_disable_struct
+json_default_set_filetype_specific_completion_to_disable(char *filetype, int off) {
 	filetype_specific_completion_to_disable_struct row;
 	wrap_secure_zero(&row, sizeof(filetype_specific_completion_to_disable_struct));
 	wrap_strncpy(row.filetype, filetype, NAME_MAX);
@@ -593,7 +663,8 @@ void default_settings_constructor(default_settings_struct *settings) {
 
 	settings->semantic_triggers_num = 0;
 
-	settings->filetype_specific_completion_to_disable[0] = json_default_set_filetype_specific_completion_to_disable("gitcommit", 1);
+	settings->filetype_specific_completion_to_disable[0] =
+		json_default_set_filetype_specific_completion_to_disable("gitcommit", 1);
 	settings->filetype_specific_completion_to_disable_num = 1;
 
 	if (ycmd_globals.core_version < 43) {
@@ -726,10 +797,13 @@ void default_settings_json_constructor(char *json) {
 #pragma GCC diagnostic ignored "-Wmisleading-indentation"
 
 	_req_sprintf(json, json_size, "{\n");
-	_req_sprintf(json, json_size, "\"filepath_completion_use_working_dir\": %d,\n", settings->filepath_completion_use_working_dir);
+	_req_sprintf(json, json_size, "\"filepath_completion_use_working_dir\": %d,\n",
+		settings->filepath_completion_use_working_dir);
 	_req_sprintf(json, json_size, "\"auto_trigger\": %d,\n", settings->auto_trigger);
-	_req_sprintf(json, json_size, "\"min_num_of_chars_for_completion\": %d,\n", settings->min_num_of_chars_for_completion);
-	_req_sprintf(json, json_size, "\"min_num_identifier_candidate_chars\": %d,\n", settings->min_num_identifier_candidate_chars);
+	_req_sprintf(json, json_size, "\"min_num_of_chars_for_completion\": %d,\n",
+		settings->min_num_of_chars_for_completion);
+	_req_sprintf(json, json_size, "\"min_num_identifier_candidate_chars\": %d,\n",
+		settings->min_num_identifier_candidate_chars);
 	_req_sprintf(json, json_size, "\"semantic_triggers\": {\n");
 
 	for (i = 0; i < settings->semantic_triggers_num; i++) {
@@ -745,7 +819,8 @@ void default_settings_json_constructor(char *json) {
 				wrap_strncpy(comma2, ",", 1);
 			else
 				wrap_strncpy(comma2, "", 1);
-			_req_sprintf(json, json_size, "\"%s\"%s", settings->semantic_triggers[i].lang, settings->semantic_triggers[i].triggers[j], comma2);
+			_req_sprintf(json, json_size, "\"%s\"%s", settings->semantic_triggers[i].lang,
+				settings->semantic_triggers[i].triggers[j], comma2);
 		}
 		_req_sprintf(json, json_size, "]%s\n", comma1);
 	}
@@ -762,22 +837,30 @@ void default_settings_json_constructor(char *json) {
 			wrap_strncpy(comma, ",", 1);
 		else
 			wrap_strncpy(comma, "", 1);
-		_req_sprintf(json, json_size, "\"%s\": %d%s\n",	settings->filetype_specific_completion_to_disable[i].filetype,settings->filetype_specific_completion_to_disable[i].off, comma);
+		_req_sprintf(json, json_size, "\"%s\": %d%s\n",
+			settings->filetype_specific_completion_to_disable[i].filetype,
+			settings->filetype_specific_completion_to_disable[i].off, comma);
 	}
 
 	_req_sprintf(json, json_size, "},\n");
 
 	if (ycmd_globals.core_version < 43) {
-		_req_sprintf(json, json_size, "\"seed_identifiers_with_syntax\": %d,\n", settings->seed_identifiers_with_syntax);
+		_req_sprintf(json, json_size, "\"seed_identifiers_with_syntax\": %d,\n",
+			settings->seed_identifiers_with_syntax);
 	}
-	_req_sprintf(json, json_size, "\"collect_identifiers_from_comments_and_strings\": %d,\n", settings->collect_identifiers_from_comments_and_strings);
+	_req_sprintf(json, json_size, "\"collect_identifiers_from_comments_and_strings\": %d,\n",
+		settings->collect_identifiers_from_comments_and_strings);
 	if (ycmd_globals.core_version < 43) {
-		_req_sprintf(json, json_size, "\"collect_identifiers_from_tags_files\": %d,\n", settings->collect_identifiers_from_tags_files);
+		_req_sprintf(json, json_size, "\"collect_identifiers_from_tags_files\": %d,\n",
+			settings->collect_identifiers_from_tags_files);
 	}
-	_req_sprintf(json, json_size, "\"max_num_identifier_candidates\": %d,\n", settings->max_num_identifier_candidates);
-	_req_sprintf(json, json_size, "\"max_num_candidates\": %d,\n", settings->max_num_candidates);
+	_req_sprintf(json, json_size, "\"max_num_identifier_candidates\": %d,\n",
+		settings->max_num_identifier_candidates);
+	_req_sprintf(json, json_size, "\"max_num_candidates\": %d,\n",
+		settings->max_num_candidates);
 	if (ycmd_globals.core_version >= 45) {
-		_req_sprintf(json, json_size, "\"max_num_candidates_to_detail\": %d,\n", settings->max_num_candidates_to_detail);
+		_req_sprintf(json, json_size, "\"max_num_candidates_to_detail\": %d,\n",
+			settings->max_num_candidates_to_detail);
 	}
 
 	_req_sprintf(json, json_size, "\"extra_conf_globlist\": [");
@@ -820,7 +903,9 @@ void default_settings_json_constructor(char *json) {
 			wrap_strncpy(comma, ",", 1);
 		else
 			wrap_strncpy(comma, "", 1);
-		_req_sprintf(json, json_size, "\"%s\": %d%s\n", settings->filetype_blacklist[i].filetype, settings->filetype_blacklist[i].blacklisted, comma);
+		_req_sprintf(json, json_size, "\"%s\": %d%s\n",
+			settings->filetype_blacklist[i].filetype,
+			settings->filetype_blacklist[i].blacklisted, comma);
 	}
 
 	_req_sprintf(json, json_size, "},\n");
@@ -1072,7 +1157,8 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 		if (!response_body) {
 			; /* Invalid */
 		} else if (!ycmd_is_hmac_valid(hmac_rsp_header, rsp_hmac_base64)) {
-			debug_log("Response HMAC validation failed:  expected=%s, received=%s",	rsp_hmac_base64, header_data.value);
+			debug_log("Response HMAC validation failed:  expected=%s, received=%s",	rsp_hmac_base64,
+				header_data.value);
 			compromised = 1;
 		} else {
 			ycmd_get_hmac_response(rsp_hmac_base64, response_body);
@@ -1226,7 +1312,9 @@ int ycmd_is_hmac_valid(const char *hmac_rsp_header, char *rsp_hmac_base64) {
 }
 
 /* Gets the list of possible completions. */
-int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget, int event, json_t **completions_out) {
+int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath, linestruct *filetop,
+	char *completertarget, int event, json_t **completions_out) {
+
 	char *filetype = _ycmd_get_filetype(filepath);
 	char *method = "POST";
 	char *path = "/completions";
@@ -1733,7 +1821,9 @@ void do_completer_command_gotoimplementationelsedeclaration(void) {
 	bottombars(MMAIN);
 }
 
-void fixit_refresh(void) { refresh_needed = FALSE; }
+void fixit_refresh(void) {
+	refresh_needed = FALSE;
+}
 
 void do_completer_command_fixit(void) {
 	run_completer_command_result_struct rccr;
@@ -1806,8 +1896,7 @@ void do_completer_command_fixit(void) {
 												json_integer_value(value);
 									}
 
-									range_end_value =
-										json_object_get(range_value, "end");
+									range_end_value = json_object_get(range_value, "end");
 									if (range_end_value &&
 										json_is_object(range_end_value)) {
 										/*
@@ -1830,11 +1919,9 @@ void do_completer_command_fixit(void) {
 						}
 					}
 
-					const char *text =
-						json_string_value(json_object_get(item_fixit, "text"));
+					const char *text = json_string_value(json_object_get(item_fixit, "text"));
 					char prompt_msg[QUARTER_LINE_LENGTH];
-					snprintf(prompt_msg, QUARTER_LINE_LENGTH,
-							 "Apply fix It? %s", text);
+					snprintf(prompt_msg, QUARTER_LINE_LENGTH, "Apply fix It? %s", text);
 
 					/* TODO:  Finish implementation or remove deadcode
 					const char *fl_filepath;
@@ -2166,7 +2253,9 @@ void do_completer_command_getparent(void) {
 	bottombars(MMAIN);
 }
 
-int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget, char *completercommand, run_completer_command_result_struct *rccr) {
+int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, linestruct *filetop,
+	char *completertarget, char *completercommand, run_completer_command_result_struct *rccr) {
+
 	debug_log("Called function");
 	char *filetype = _ycmd_get_filetype(filepath);
 	char *method = "POST";
@@ -2287,7 +2376,8 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 		if (!response_body) {
 			; /* Invalid */
 		} else if (!ycmd_is_hmac_valid(hmac_rsp_header, rsp_hmac_base64)) {
-			debug_log("Response HMAC validation failed:  expected=%s, received=%s",	rsp_hmac_base64, header_data.value);
+			debug_log("Response HMAC validation failed:  expected=%s, received=%s",	rsp_hmac_base64,
+				header_data.value);
 			compromised = 1;
 		} else {
 			ycmd_get_hmac_response(rsp_hmac_base64, response_body);
@@ -2401,7 +2491,8 @@ int ycmd_rsp_is_healthy(int include_subservers) {
 		if (!response_body) {
 			; /* Invalid */
 		} else if (!ycmd_is_hmac_valid(hmac_rsp_header, rsp_hmac_base64)) {
-			debug_log("Response HMAC validation failed:  expected=%s, received=%s",	rsp_hmac_base64, header_data.value);
+			debug_log("Response HMAC validation failed:  expected=%s, received=%s",	rsp_hmac_base64,
+				header_data.value);
 			compromised = 1;
 		}
 	}
@@ -2501,7 +2592,8 @@ int ycmd_rsp_is_server_ready(char *filetype) {
 		if (!response_body) {
 			; /* Invalid */
 		} else if (!ycmd_is_hmac_valid(hmac_rsp_header, rsp_hmac_base64)) {
-			debug_log("Response HMAC validation failed:  expected=%s, received=%s",	rsp_hmac_base64, header_data.value);
+			debug_log("Response HMAC validation failed:  expected=%s, received=%s",	rsp_hmac_base64,
+				header_data.value);
 			compromised = 1;
 		}
 	}
@@ -2518,7 +2610,9 @@ int ycmd_rsp_is_server_ready(char *filetype) {
 	return response_code == HTTP_OK && !compromised;
 }
 
-int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnum, char *filepath, linestruct *filetop) {
+int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnum, char *filepath,
+	linestruct *filetop) {
+
 	debug_log("Called function");
 	char *filetype = _ycmd_get_filetype(filepath);
 	char abspath[PATH_MAX];
@@ -2646,7 +2740,8 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 		if (!response_body) {
 			; /* Invalid */
 		} else if (!ycmd_is_hmac_valid(hmac_rsp_header, rsp_hmac_base64)) {
-			debug_log("Response HMAC validation failed:  expected=%s, received=%s",	rsp_hmac_base64, header_data.value);
+			debug_log("Response HMAC validation failed:  expected=%s, received=%s",	rsp_hmac_base64,
+				header_data.value);
 			compromised = 1;
 		}
 	}
@@ -2674,7 +2769,8 @@ typedef struct defined_subcommands {
 } defined_subcommands;
 
 /* Get the list completer commands available for the completer target. */
-int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget, defined_subcommands_results_struct *dsr) {
+int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget,
+	defined_subcommands_results_struct *dsr) {
 	debug_log("Called function");
 	char *filetype = _ycmd_get_filetype(filepath);
 	char *method = "POST";
@@ -2787,7 +2883,8 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 		if (!response_body) {
 			; /* Invalid */
 		} else if (!ycmd_is_hmac_valid(hmac_rsp_header, rsp_hmac_base64)) {
-			debug_log("Response HMAC validation failed:  expected=%s, received=%s", rsp_hmac_base64, header_data.value);
+			debug_log("Response HMAC validation failed:  expected=%s, received=%s", rsp_hmac_base64,
+				header_data.value);
 			compromised = 1;
 		} else {
 			ycmd_get_hmac_response(rsp_hmac_base64, response_body);
@@ -2923,8 +3020,7 @@ void ycmd_start_server() {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-overflow"
 	char default_settings_json_path[PATH_MAX];
-	sprintf(default_settings_json_path, "%s/tmpXXXXXX",
-			cache_dir); /* Do not add .txt suffix */
+	sprintf(default_settings_json_path, "%s/tmpXXXXXX", cache_dir); /* Do not add .txt suffix */
 #pragma GCC diagnostic pop
 	int fd3 = mkstemp(default_settings_json_path);
 	if (fd3 == -1) {
@@ -2952,10 +3048,13 @@ void ycmd_start_server() {
 		snprintf(ycmd_path, PATH_MAX, "%s", YCMD_PATH);
 
 		/* After execl executes, the server will delete the tmpfile. */
-		/* For inspecting for changes: python /usr/lib/python3.11/site-packages/ycmd/48/ycmd --port 0 --options_file $(pwd)"/default_settings.json" --idle_suicide_seconds 10800 */
+		/* For inspecting for changes:
+		 * python /usr/lib/python3.11/site-packages/ycmd/48/ycmd --port 0 --options_file $(pwd)"/default_settings.json" --idle_suicide_seconds 10800
+		 */
+		/* The port is obtained with find_unused_localhost_port() or via --with-port=PORT with configure */
 		execl(YCMD_PYTHON_PATH, YCMD_PYTHON_PATH,
 			ycmd_path,
-			"--port", port_value, /* Already found empty port with find_unused_localhost_port() or via --with-port=PORT with configure */
+			"--port", port_value,
 			"--options_file", options_file_value,
 			"--idle_suicide_seconds", idle_suicide_seconds_value,
 			"--stdout", combined_output_file,
@@ -3034,7 +3133,8 @@ void ycmd_start_server() {
 				 * if opening files in web browser's download folder or
 				 * unattended computer's home folder. */
 				snprintf(display_text, DOUBLE_LINE_LENGTH,
-					 "SECURITY:  Load and execute the project's .ycm_extra_conf.py for ycmd support?  Does it look clean and uncompromised?");
+					"SECURITY:  Load and execute the project's .ycm_extra_conf.py for ycmd "
+					"support?  Does it look clean and uncompromised?");
 				statusline(HUSH, display_text);
 				full_refresh();
 				bottombars(MYCMEXTRACONF);
@@ -3279,7 +3379,8 @@ void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64) {
  * base64 encoded HMAC
  */
 
-void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char *body, size_t body_len /* strlen based */) {
+void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char *body,
+	size_t body_len /* strlen based */) {
 	wrap_secure_zero(req_hmac_base64, HMAC_SIZE * 2);
 #if defined(USE_NETTLE)
 	char join[HMAC_SIZE * 3];
@@ -3434,7 +3535,8 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body) {
 
 	base64_encode_raw(rsp_hmac_base64, HMAC_SIZE, (const uint8_t *)hmac_response);
 #elif defined(USE_OPENSSL)
-	unsigned char *response_digest = HMAC(EVP_sha256(), ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, (unsigned char *)response_body, strlen(response_body), NULL, NULL);
+	unsigned char *response_digest = HMAC(EVP_sha256(), ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH,
+		(unsigned char *)response_body,	strlen(response_body), NULL, NULL);
 
 	BIO *b, *append;
 	BUF_MEM *pp;
@@ -3503,10 +3605,11 @@ size_t ycmd_escape_json(char *unescaped, char *escaped) {
 			/* C escape sequences */
 			*(escaped + j) = '\\';
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-			uint64_t chars = 0x7266766e7462; /* 0x72 = r, 0x66 = f, 0x76 = v, 0x6e = n, 0x74 = t, 0x62 = b */
+			/* 0x72 = r, 0x66 = f, 0x76 = v, 0x6e = n, 0x74 = t, 0x62 = b */
+			uint64_t chars = 0x7266766e7462;
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
-			uint64_t chars =
-				0x62746e76667272; /* 0x62 = b, 0x74 = t, 0x6e = n, 0x76 = v, 0x66 = f, 0x72 = r, 0x72 = r */
+			/* 0x62 = b, 0x74 = t, 0x6e = n, 0x76 = v, 0x66 = f, 0x72 = r, 0x72 = r */
+			uint64_t chars = 0x62746e76667272;
 #endif
 			char val = (chars >> YCMD_ESCAPE_JSON_SHIFT_AMOUNT(c)) & 0xff;
 			*(escaped + j + 1) = val;
@@ -3665,9 +3768,7 @@ char *_ycmd_get_filetype(char *filepath) {
 	}
 
 	if (!filepath) {
-		wrap_strncpy(type,
-			main_filetype[0] ? main_filetype : "identifier",
-			QUARTER_LINE_LENGTH);
+		wrap_strncpy(type, main_filetype[0] ? main_filetype : "identifier", QUARTER_LINE_LENGTH);
 	} else if (strstr(filepath, ".cs")) {
 		wrap_strncpy(type, "cs", QUARTER_LINE_LENGTH);
 	} else if (strstr(filepath, ".go")) {
@@ -3687,9 +3788,7 @@ char *_ycmd_get_filetype(char *filepath) {
 	} else if (strstr(filepath, ".hpp")
 		|| strstr(filepath, ".hh")
 		|| strstr(filepath, ".h")) {
-		wrap_strncpy(type,
-			main_filetype[0] ? main_filetype : "c",
-			QUARTER_LINE_LENGTH);
+		wrap_strncpy(type, main_filetype[0] ? main_filetype : "c", QUARTER_LINE_LENGTH);
 	} else if (strstr(filepath, ".js")) {
 		wrap_strncpy(type, "javascript", QUARTER_LINE_LENGTH);
 	} else if (strstr(filepath, ".py")) {
@@ -3715,7 +3814,8 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 
 	if (ycmd_globals.running && ready) {
 		ycmd_json_event_notification(columnnum, linenum, filepath, "FileReadyToParse", filetop);
-		ycmd_req_completions_suggestions(linenum, columnnum, filepath, filetop, "filetype_default", YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_FILE_READY_TO_PARSE, NULL);
+		ycmd_req_completions_suggestions(linenum, columnnum, filepath, filetop, "filetype_default",
+			YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_FILE_READY_TO_PARSE, NULL);
 	}
 }
 
@@ -3868,47 +3968,68 @@ void do_completer_command_show(void) {
 	if (dsr.usable && dsr.response_code == HTTP_OK) {
 		for (s = sclist; s != NULL; s = s->next) {
 			/* The order matters because of collision.  Do not sort. */
-			if (s->func == do_completer_command_clearcompliationflagcache && wrap_strstr(dsr.json, "\"ClearCompilationFlagCache\""))
+			if (s->func == do_completer_command_clearcompliationflagcache
+				&& wrap_strstr(dsr.json, "\"ClearCompilationFlagCache\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_fixit && wrap_strstr(dsr.json, "\"FixIt\""))
+			else if (s->func == do_completer_command_fixit
+				&& wrap_strstr(dsr.json, "\"FixIt\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gotodeclaration && wrap_strstr(dsr.json, "\"GoToDeclaration\""))
+			else if (s->func == do_completer_command_gotodeclaration
+				&& wrap_strstr(dsr.json, "\"GoToDeclaration\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gotodefinitionelsedeclaration && wrap_strstr(dsr.json, "\"GoToDefinitionElseDeclaration\""))
+			else if (s->func == do_completer_command_gotodefinitionelsedeclaration
+				&& wrap_strstr(dsr.json, "\"GoToDefinitionElseDeclaration\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gotodefinition && wrap_strstr(dsr.json, "\"GoToDefinition\""))
+			else if (s->func == do_completer_command_gotodefinition
+				&& wrap_strstr(dsr.json, "\"GoToDefinition\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_getdocimprecise && wrap_strstr(dsr.json, "\"GetDocImprecise\""))
+			else if (s->func == do_completer_command_getdocimprecise
+				&& wrap_strstr(dsr.json, "\"GetDocImprecise\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gotoimprecise && wrap_strstr(dsr.json, "\"GoToImprecise\""))
+			else if (s->func == do_completer_command_gotoimprecise
+				&& wrap_strstr(dsr.json, "\"GoToImprecise\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gotoimplementationelsedeclaration && wrap_strstr(dsr.json, "\"GoToImplementationElseDeclaration\""))
+			else if (s->func == do_completer_command_gotoimplementationelsedeclaration
+				&& wrap_strstr(dsr.json, "\"GoToImplementationElseDeclaration\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gotoimplementation && wrap_strstr(dsr.json, "\"GoToImplementation\""))
+			else if (s->func == do_completer_command_gotoimplementation
+				&& wrap_strstr(dsr.json, "\"GoToImplementation\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gotoinclude && wrap_strstr(dsr.json, "\"GoToInclude\""))
+			else if (s->func == do_completer_command_gotoinclude
+				&& wrap_strstr(dsr.json, "\"GoToInclude\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gotoreferences && wrap_strstr(dsr.json, "\"GoToReferences\""))
+			else if (s->func == do_completer_command_gotoreferences
+				&& wrap_strstr(dsr.json, "\"GoToReferences\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_getdoc && wrap_strstr(dsr.json, "\"GetDoc\""))
+			else if (s->func == do_completer_command_getdoc
+				&& wrap_strstr(dsr.json, "\"GetDoc\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_getparent && wrap_strstr(dsr.json, "\"GetParent\""))
+			else if (s->func == do_completer_command_getparent
+				&& wrap_strstr(dsr.json, "\"GetParent\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gettypeimprecise && wrap_strstr(dsr.json, "\"GetTypeImprecise\""))
+			else if (s->func == do_completer_command_gettypeimprecise
+				&& wrap_strstr(dsr.json, "\"GetTypeImprecise\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gettype && wrap_strstr(dsr.json, "\"GetType\""))
+			else if (s->func == do_completer_command_gettype
+				&& wrap_strstr(dsr.json, "\"GetType\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_gototype && wrap_strstr(dsr.json, "\"GoToType\""))
+			else if (s->func == do_completer_command_gototype
+				&& wrap_strstr(dsr.json, "\"GoToType\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_goto && wrap_strstr(dsr.json, "\"GoTo\""))
+			else if (s->func == do_completer_command_goto
+				&& wrap_strstr(dsr.json, "\"GoTo\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_refactorrename && wrap_strstr(dsr.json, "\"RefactorRename\""))
+			else if (s->func == do_completer_command_refactorrename
+				&& wrap_strstr(dsr.json, "\"RefactorRename\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_reloadsolution && wrap_strstr(dsr.json, "\"ReloadSolution\""))
+			else if (s->func == do_completer_command_reloadsolution
+				&& wrap_strstr(dsr.json, "\"ReloadSolution\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_restartserver && wrap_strstr(dsr.json, "\"RestartServer\""))
+			else if (s->func == do_completer_command_restartserver
+				&& wrap_strstr(dsr.json, "\"RestartServer\""))
 				s->visibility = 1;
-			else if (s->func == do_completer_command_stopserver && wrap_strstr(dsr.json, "\"StopServer\""))
+			else if (s->func == do_completer_command_stopserver
+				&& wrap_strstr(dsr.json, "\"StopServer\""))
 				s->visibility = 1;
 
 			if (s->func == ycmd_display_parse_results)
@@ -4067,9 +4188,9 @@ void do_n_entries() {
 	snprintf(max_str, 2, "%d", max);
 	int ret = do_prompt(MNUMSUGGEST, max_str,
 #ifndef DISABLE_HISTORIES
-			NULL,
+		NULL,
 #endif
-			n_entries_refresh, _("Max number of suggestions"));
+		n_entries_refresh, _("Max number of suggestions"));
 	if (ret == 0) {
 		ycmd_globals.max_entries = atoi(answer);
 
@@ -4091,7 +4212,8 @@ json_t *request_completions(const char *filename, int line, int column,	linestru
 	int event_result = ycmd_json_event_notification(column, line, (char *)filename, "FileReadyToParse", filetop);
 	debug_log("ycmd_json_event_notification(FileReadyToParse) returned %d", event_result);
 
-	int result = ycmd_req_completions_suggestions(line, column, (char *)filename, filetop, completer_target, event, &completions);
+	int result = ycmd_req_completions_suggestions(line, column, (char *)filename, filetop, completer_target, event,
+		&completions);
 
 	if (!completions || !json_is_array(completions)) {
 		debug_log("Invalid completions, returning empty array");
