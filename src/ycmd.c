@@ -633,6 +633,7 @@ int ycm_generate(void) {
 	char command[PATH_MAX * 3 + LINE_LENGTH * 4];
 	char flags[PATH_MAX];
 	int ret = -1;
+	int ret2 = -1;
 
 	ycmd_get_project_path(path_project);
 	if (wrap_strncmp(path_project, "(null)", PATH_MAX) != 0 &&
@@ -680,9 +681,9 @@ int ycm_generate(void) {
 #if defined(ENABLE_BEAR) || defined(ENABLE_NINJA)
 			char* sed_cmd = "s|compilation_database_folder = ''|compilation_database_folder = '%s'|g";
 			snprintf(command, PATH_MAX * 2 + LINE_LENGTH,
-				"sed -i -e \"%s" \"%s\"",
+				"sed -i -e \"%s\" \"%s\"",
 				sed_cmd, path_project, path_extra_conf);
-			int ret2 = system(command);
+			ret2 = system(command);
 			if (ret2 == 0)
 				statusline(HUSH, "Patching .ycm_extra_conf.py file with compile_commands.json was a success.");
 			else
@@ -739,7 +740,7 @@ int ycm_generate(void) {
 					sprintf(language, "c");
 			}
 
-			int ret2 = _ycm_inject_clang_includes(language, path_extra_conf);
+			ret2 = _ycm_inject_clang_includes(language, path_extra_conf);
 
 			/* Check for potential ACE in the Python file */
 			if (check_ace(path_extra_conf) != 0) {
