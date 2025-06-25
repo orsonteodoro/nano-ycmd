@@ -478,7 +478,7 @@ void ycmd_constructor() {
 	file_ready_to_parse_results_constructor(
 		&ycmd_globals.file_ready_to_parse_results);
 
-	if (is_popup_active()) {
+	if (is_popup_mode) {
 		struct sigaction sa;
 		sa.sa_handler = ycmd_signal_handler;
 		sigemptyset(&sa.sa_mask);
@@ -1705,7 +1705,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 								ycmd_globals.apply_column = json_integer_value(completion_start_column_value);
 							}
 							json_decref(root);
-							if (j > 0 && !is_popup_active()) {
+							if (j > 0 && !is_popup_mode) {
 								bottombars(MCODECOMPLETION);
 								statusline(HUSH, "Code completion triggered, ^X to cancel");
 							}

@@ -2133,7 +2133,7 @@ void process_a_keystroke_vanilla(void)
 
 	if (!function) {
 #ifdef ENABLE_YCMD
-		if (!is_popup_active()) {
+		if (!is_popup_mode) {
 			ualarm(SEND_TO_SERVER_DELAY, 0);
 		}
 #endif
@@ -2215,7 +2215,7 @@ void process_a_keystroke_vanilla(void)
 void process_a_keystroke(void)
 {
 #ifdef ENABLE_YCMD
-	if (is_popup_active()) {
+	if (is_popup_mode) {
 		process_a_keystroke_popup();
 	} else {
 		process_a_keystroke_vanilla();
@@ -3176,8 +3176,12 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ENABLE_YCMD
-		if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS && currmenu != MYCMEXTRACONF)
-			bottombars(MMAIN);
+		if (is_popup_mode) {
+			;
+		} else {
+			if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS && currmenu != MYCMEXTRACONF)
+				bottombars(MMAIN);
+		}
 #else
 		if (currmenu != MMAIN)
 			bottombars(MMAIN);

@@ -141,7 +141,7 @@ void do_delete(void)
 #endif
 
 #ifdef ENABLE_YCMD
-		if (!is_popup_active()) {
+		if (!is_popup_mode) {
 			ualarm(SEND_TO_SERVER_DELAY, 0);
 			debug_log("Scheduled SIGALRM for bottom bar");
 		}
@@ -173,7 +173,7 @@ void do_backspace(void)
 		do_left();
 		expunge(BACK);
 #ifdef ENABLE_YCMD
-		if (!is_popup_active()) {
+		if (!is_popup_mode) {
 			ualarm(SEND_TO_SERVER_DELAY, 0);
 			debug_log("Scheduled SIGALRM for bottom bar");
 		}

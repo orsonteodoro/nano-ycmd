@@ -3665,7 +3665,7 @@ void full_refresh(void) {
 		wnoutrefresh(midwin);
 	}
 	if (footwin) wnoutrefresh(footwin);
-	if (is_popup_active() && get_popup()) {
+	if (is_popup_mode && get_popup()) {
 		wnoutrefresh(get_popup());
 	}
 	if (doupdate() == ERR) {
