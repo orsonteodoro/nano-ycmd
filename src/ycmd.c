@@ -128,6 +128,7 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 #include <string.h>
 #endif
 #include <assert.h>
+#include <ctype.h>
 #include <limits.h>
 #include <pthread.h>
 
@@ -186,8 +187,14 @@ void ycmd_req_load_extra_conf_file(char *filepath);
 void ycmd_req_ignore_extra_conf_file(char *filepath);
 void ycmd_start_server();
 void ycmd_stop_server();
+extern int is_popup_active(void);
+extern bool is_popup_mode;
 
 ycmd_globals_struct ycmd_globals;
+bool need_bottombar_update = FALSE;
+const char *ycmd_filename = NULL;
+int ycmd_line_num = 0, ycmd_column_num = 0;
+linestruct *ycmd_filetop = NULL; /* Store filetop for deferred updates */
 
 struct curl_slist* _curl_sprintf_header(struct curl_slist* headers, const char* format, ...) {
     char buffer[LINE_LENGTH];
@@ -227,7 +234,7 @@ typedef struct header_data_struct {
 static size_t header_callback(char *buffer, size_t size, size_t nitems, void *userdata) {
 	struct header_data_struct *hd = (struct header_data_struct *)userdata;
 	size_t len = size * nitems;
-	if (len > 0 && strncasecmp(buffer, hd->name, wrap_strlen(hd->name)) == 0) {
+	if (len > 0 && strncasecmp(buffer, hd->name, strlen(hd->name)) == 0) {
 		char *value = strchr(buffer, ':');
 		if (value) {
 			value++;
@@ -245,7 +252,7 @@ static size_t header_callback(char *buffer, size_t size, size_t nitems, void *us
 static size_t header_callbackB(char *buffer, size_t size, size_t nitems, void *userdata) {
 	header_data_struct *hd = (header_data_struct *)userdata;
 	size_t len = size * nitems;
-	if (len > 0 && strncasecmp(buffer, hd->name, wrap_strlen(hd->name)) == 0) {
+	if (len > 0 && strncasecmp(buffer, hd->name, strlen(hd->name)) == 0) {
 		char *value = strchr(buffer, ':');
 		if (value) {
 			value++;
@@ -265,6 +272,14 @@ static size_t header_callbackB(char *buffer, size_t size, size_t nitems, void *u
 		}
 	}
 	return len;
+}
+
+static void ycmd_signal_handler(int signum) {
+    char msg[256];
+    snprintf(msg, sizeof(msg), "ycmd_signal_handler: Setting need_bottombar_update, filename=%s, line=%d, col=%d\n",
+             ycmd_filename ? ycmd_filename : "null", ycmd_line_num, ycmd_column_num);
+    fprintf(stderr, "%s\n", msg);
+    need_bottombar_update = TRUE;
 }
 
 void ycmd_constructor()
@@ -288,7 +303,16 @@ void ycmd_constructor()
 
 	file_ready_to_parse_results_constructor(&ycmd_globals.file_ready_to_parse_results);
 
-	signal(SIGALRM, ycmd_send_to_server);
+	char *ui_mode = getenv("NANO_YCMD_UI_MODE");
+	if (strcmp(ui_mode, "popup") == 0) {
+		struct sigaction sa;
+		sa.sa_handler = ycmd_signal_handler;
+		sigemptyset(&sa.sa_mask);
+		sa.sa_flags = 0;
+		sigaction(SIGALRM, &sa, NULL);
+	} else {
+		signal(SIGALRM, ycmd_send_to_server);
+	}
 
 #if defined(USE_LIBGCRYPT)
 	gcry_control(GCRYCTL_SUSPEND_SECMEM_WARN);
@@ -912,18 +936,11 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	int compromised = 0;
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-	int ret;
-#pragma GCC diagnostic pop
 	long response_code = -1;
 
-	/* Lock mutex for thread safety */
-	pthread_mutex_lock(&ycmd_globals.mutex);
 	if (!ycmd_globals.curl) {
 		ycmd_globals.curl = curl_easy_init();
 		if (!ycmd_globals.curl) {
-			pthread_mutex_unlock(&ycmd_globals.mutex);
 			return -1;
 		}
 	}
@@ -935,7 +952,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	fprintf(stderr, "DEBUG:  %s():  url = %s\n", __func__, url);
 #endif
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 1000L);
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_CUSTOMREQUEST, method);
 
@@ -946,7 +963,6 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	char *req_buffer = wrap_malloc(req_buffer_size);
 	if (!req_buffer) {
 		statusline(HUSH, "Out of Memory");
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 		return -1;
 	}
 	wrap_secure_zero(req_buffer, req_buffer_size);
@@ -967,10 +983,10 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
-	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, wrap_strlen(req_buffer));
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG: %s(): HMAC inputs: method=%s, path=%s, body='%s', body_size=%zu\n",
-		__func__, method, path, req_buffer && wrap_strlen(req_buffer) ? req_buffer : "NULL", req_buffer && wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
+		__func__, method, path, req_buffer && strlen(req_buffer) ? req_buffer : "NULL", req_buffer && strlen(req_buffer) ? strlen(req_buffer) : 0);
 	fprintf(stderr, "DEBUG: %s(): X-Ycm-Hmac: %s\n", __func__, req_hmac_base64);
 #endif
 	headers = curl_slist_append(headers, "Keep-Alive: ");
@@ -985,7 +1001,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POST, 1L);
 		if (req_buffer && req_buffer_size > 0) {
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
+			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
 		} else {
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, "");
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, 0L);
@@ -995,7 +1011,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	}
 
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
 	memory_struct chunk;
 	curl_setup_request(ycmd_globals.curl, &chunk);
 
@@ -1015,7 +1031,6 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 
 		curl_slist_free_all(headers);
 		wrap_free((void **)&req_buffer);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 
 		return -1;
 	}
@@ -1027,7 +1042,6 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 
 		curl_slist_free_all(headers);
 		wrap_free((void **)&req_buffer);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 
 		return -1;
 	}
@@ -1042,7 +1056,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	}
 
 #if defined(DEBUG)
-	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, ret = %d\n", __func__, response_code, ret);
+	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, req_ret = %d\n", __func__, response_code, req_ret);
 	fprintf(stderr, "DEBUG:  %s():  response_body: %s\n", __func__, response_body);
 	fprintf(stderr, "DEBUG:  %s():  Response X-Ycm-Hmac: %s\n", __func__, header_data.value);
 #endif
@@ -1072,13 +1086,12 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	wrap_secure_zero(rsp_hmac_base64, sizeof(rsp_hmac_base64));
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	if (response_body) {
-		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
 
 	curl_slist_free_all(headers);
 	wrap_free((void **)&req_buffer);
-	pthread_mutex_unlock(&ycmd_globals.mutex);
 
 	return response_code == HTTP_OK && !compromised;
 }
@@ -1207,215 +1220,210 @@ int ycmd_is_hmac_valid(const char *hmac_rsp_header, char *rsp_hmac_base64)
 }
 
 /* Gets the list of possible completions. */
-int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget)
-{
-#if defined(DEBUG)
-	fprintf(stderr, "DEBUG:  Called %s()\n", __func__);
-#endif
-	char *filetype = _ycmd_get_filetype(filepath);
-	char *method = "POST";
-	char *path = "/completions";
-	char abspath[PATH_MAX];
-	char req_hmac_base64[HMAC_SIZE * 2];
-	char rsp_hmac_base64[HMAC_SIZE * 2];
-	int compromised = 0;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-	int ret;
-#pragma GCC diagnostic pop
-	long response_code = -1;
-	struct funcstruct *func = allfuncs;
+int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget, int event, json_t **completions_out) {
+    char msg[256];
+    char *filetype = _ycmd_get_filetype(filepath);
+    char *method = "POST";
+    char *path = "/completions";
+    char abspath[PATH_MAX];
+    char req_hmac_base64[HMAC_SIZE * 2];
+    char rsp_hmac_base64[HMAC_SIZE * 2];
+    int compromised = 0;
+    int ret = -1;
+    long response_code = -1;
 
-	while(func) {
-		if (func && (func->menus == MCODECOMPLETION))
-			break;
-		func = func->next;
-	}
+    if (!ycmd_globals.curl) {
+        ycmd_globals.curl = curl_easy_init();
+        if (!ycmd_globals.curl) {
+            snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: curl_easy_init failed\n");
+            fprintf(stderr, "%s\n", msg);
+            return -1;
+        }
+    }
 
-	/* Lock mutex for thread safety */
-	pthread_mutex_lock(&ycmd_globals.mutex);
-	if (!ycmd_globals.curl) {
-		ycmd_globals.curl = curl_easy_init();
-		if (!ycmd_globals.curl) {
-			pthread_mutex_unlock(&ycmd_globals.mutex);
-			return -1;
-		}
-	}
+    curl_easy_reset(ycmd_globals.curl);
+    char url[LINE_LENGTH];
+    snprintf(url, sizeof(url), "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
+    snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: url=%s\n", url);
+    fprintf(stderr, "%s\n", msg);
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L); // Increased timeout
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_CUSTOMREQUEST, method);
 
-	curl_easy_reset(ycmd_globals.curl);
-	char url[LINE_LENGTH];
-	sprintf(url, "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
-#if defined(DEBUG)
-	fprintf(stderr, "DEBUG:  %s():  url = %s\n", __func__, url);
-#endif
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 1000L);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_CUSTOMREQUEST, method);
+    get_abs_path(filepath, abspath);
 
-	get_abs_path(filepath, abspath);
+    size_t req_buffer_size = MAX_FILESIZE_LIMIT;
+    char *req_buffer = wrap_malloc(req_buffer_size);
+    if (!req_buffer) {
+        snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: Out of memory\n");
+        fprintf(stderr, "%s\n", msg);
+        statusline(ALERT, "Out of Memory");
+        return -1;
+    }
+    wrap_secure_zero(req_buffer, req_buffer_size);
+    _req_sprintf(req_buffer, req_buffer_size, "{\n");
+    _req_sprintf(req_buffer, req_buffer_size, "  \"line_num\": %d,\n", linenum);
+    _req_sprintf(req_buffer, req_buffer_size, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
+    _req_sprintf(req_buffer, req_buffer_size, "  \"filepath\": \"%s\",\n", abspath);
+    _req_sprintf(req_buffer, req_buffer_size, "  \"file_data\": {\n");
+    _req_sprintf(req_buffer, req_buffer_size, "    \"%s\": {\n", abspath);
+    _req_sprintf(req_buffer, req_buffer_size, "      \"contents\": \"");
+    _req_file(req_buffer, req_buffer_size, filetop);
+    _req_sprintf(req_buffer, req_buffer_size, "\",\n");
+    _req_sprintf(req_buffer, req_buffer_size, "      \"filetypes\": [\"%s\"]\n", filetype);
+    _req_sprintf(req_buffer, req_buffer_size, "    }\n");
+    _req_sprintf(req_buffer, req_buffer_size, "  },\n");
+    _req_sprintf(req_buffer, req_buffer_size, "  \"completer_target\": \"%s\"\n", completertarget);
+    _req_sprintf(req_buffer, req_buffer_size, "}\n");
 
-	/* We send the data directly skipping the json and string lib because we need to stream the file it. */
-	size_t req_buffer_size = MAX_FILESIZE_LIMIT;
-	char *req_buffer = wrap_malloc(req_buffer_size);
-	if (!req_buffer) {
-		statusline(HUSH, "Out of Memory");
-		pthread_mutex_unlock(&ycmd_globals.mutex);
-		return -1;
-	}
-	wrap_secure_zero(req_buffer, req_buffer_size);
-	_req_sprintf(req_buffer, req_buffer_size, "{\n");
-	_req_sprintf(req_buffer, req_buffer_size, "  \"line_num\": %d,\n", linenum);
-	_req_sprintf(req_buffer, req_buffer_size, "  \"column_num\": %d,\n", columnnum + (ycmd_globals.clang_completer ? 0 : 1));
-	_req_sprintf(req_buffer, req_buffer_size, "  \"filepath\": \"%s\",\n", abspath);
-	_req_sprintf(req_buffer, req_buffer_size, "  \"file_data\": {\n");
-	_req_sprintf(req_buffer, req_buffer_size, "    \"%s\": {\n", abspath);
-	_req_sprintf(req_buffer, req_buffer_size, "      \"contents\": \"");
-		_req_file(req_buffer, req_buffer_size, filetop);
-		_req_sprintf(req_buffer, req_buffer_size, "\",\n");
-	_req_sprintf(req_buffer, req_buffer_size, "      \"filetypes\": [\"%s\"]\n", filetype);
-	_req_sprintf(req_buffer, req_buffer_size, "    }\n");
-	_req_sprintf(req_buffer, req_buffer_size, "  },\n");
-	_req_sprintf(req_buffer, req_buffer_size, "  \"completer_target\": \"%s\"\n", completertarget);
-	_req_sprintf(req_buffer, req_buffer_size, "}\n");
+    struct curl_slist *headers = NULL;
+    ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
+    headers = curl_slist_append(headers, "Keep-Alive: ");
+    headers = curl_slist_append(headers, "Connection: TE, Keep-Alive");
+    headers = curl_slist_append(headers, "content-type: application/json");
+    headers = curl_slist_append(headers, "Accept:");
+    headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
+    memory_struct chunk = {0};
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_WRITEFUNCTION, write_callback);
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_WRITEDATA, &chunk);
 
-	/* Set headers to match HTTP Neon */
-	struct curl_slist *headers = NULL;
-	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, wrap_strlen(req_buffer));
-#if defined(DEBUG)
-	fprintf(stderr, "DEBUG: %s(): HMAC inputs: method=%s, path=%s, body='%s', body_size=%zu\n",
-		__func__, method, path, req_buffer && wrap_strlen(req_buffer) ? req_buffer : "NULL", req_buffer && wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
-	fprintf(stderr, "DEBUG: %s(): X-Ycm-Hmac: %s\n", __func__, req_hmac_base64);
-#endif
-	headers = curl_slist_append(headers, "Keep-Alive: ");
-	headers = curl_slist_append(headers, "Connection: TE, Keep-Alive");
-	headers = curl_slist_append(headers, "content-type: application/json");
-	headers = curl_slist_append(headers, "Accept:");
-	headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
-	memory_struct chunk;
-	curl_setup_request(ycmd_globals.curl, &chunk);
+    struct header_data_struct header_data;
+    wrap_secure_zero(&header_data, sizeof(struct header_data_struct));
+    snprintf(header_data.name, sizeof(header_data.name), "%s", HTTP_HEADER_YCM_HMAC);
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERFUNCTION, header_callback);
+    curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERDATA, &header_data);
 
-	header_data_struct header_data;
-	wrap_secure_zero(&header_data, sizeof(header_data_struct));
-	sprintf(header_data.name, "%s", HTTP_HEADER_YCM_HMAC);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERFUNCTION, header_callback);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERDATA, &header_data);
+    snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: Before curl_easy_perform\n");
+    fprintf(stderr, "%s\n", msg);
+    struct timespec start, now;
+    clock_gettime(CLOCK_MONOTONIC, &start);
+    CURLcode req_ret = curl_easy_perform(ycmd_globals.curl);
+    clock_gettime(CLOCK_MONOTONIC, &now);
+    double elapsed = (now.tv_sec - start.tv_sec) + (now.tv_nsec - start.tv_nsec) / 1e9;
+    snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: After curl_easy_perform, ret=%d, elapsed=%.2fs\n",
+             req_ret, elapsed);
+    fprintf(stderr, "%s\n", msg);
 
-	CURLcode req_ret = curl_easy_perform(ycmd_globals.curl);				/* Synchronous */
-	if (req_ret != CURLE_OK) {
-#if defined(DEBUG)
-		fprintf(stderr, "DEBUG:  %s():  error %s\n", __func__, curl_easy_strerror(req_ret));
-#endif
-		wrap_secure_zero(req_buffer, HALF_LINE_LENGTH);
-		wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
+    if (req_ret != CURLE_OK) {
+        snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: CURL error: %s (%.2fs)\n", curl_easy_strerror(req_ret), elapsed);
+        fprintf(stderr, "%s\n", msg);
+        wrap_secure_zero(req_buffer, req_buffer_size);
+        curl_slist_free_all(headers);
+        wrap_free((void **)&req_buffer);
+        free(chunk.memory);
+        return -1;
+    }
 
-		curl_slist_free_all(headers);
-		wrap_free((void **)&req_buffer);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
+    curl_easy_getinfo(ycmd_globals.curl, CURLINFO_RESPONSE_CODE, &response_code);
+    snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: response_code=%ld, req_ret=%d\n", response_code, req_ret);
+    fprintf(stderr, "%s\n", msg);
 
-		return -1;
-	}
-	char *response_body = _curl_read_response_body_full(ycmd_globals.curl, &chunk);
-	if (response_body == NULL) {
-		/* Sanitize sensitive data */
-		wrap_secure_zero(req_buffer, req_buffer_size);
-		wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
+    if (response_code == HTTP_OK) {
+        const char *hmac_rsp_header = header_data.value;
+        ycmd_get_hmac_response(rsp_hmac_base64, chunk.memory);
+        if (!chunk.memory) {
+            snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: Empty response body\n");
+            fprintf(stderr, "%s\n", msg);
+        } else if (!ycmd_is_hmac_valid(hmac_rsp_header, rsp_hmac_base64)) {
+            snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: Response HMAC validation failed: expected=%s, received=%s\n",
+                     rsp_hmac_base64, header_data.value);
+            fprintf(stderr, "%s\n", msg);
+            compromised = 1;
+        } else {
+            if (event == YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_FILE_READY_TO_PARSE) {
+                snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: EVENT YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_FILE_READY_TO_PARSE\n");
+                fprintf(stderr, "%s\n", msg);
+                if (chunk.memory && strstr(chunk.memory, "completion_start_column")) {
+                    json_error_t error;
+                    json_t *root = json_loads(chunk.memory, 0, &error);
+                    if (root && json_is_object(root)) {
+                        json_t *completions = json_object_get(root, "completions");
+                        if (completions && json_is_array(completions)) {
+                            struct funcstruct *func = allfuncs;
+                            while (func && func->menus != MCODECOMPLETION) func = func->next;
+                            int i = 0, j = 0;
+                            size_t maximum = (((COLS + HALF_LINE_LENGTH) / QUARTER_LINE_LENGTH) * 2);
+                            size_t completions_size = json_array_size(completions);
+                            for (i = 0; i < completions_size && j < maximum && j < 6 && func; i++, j++) {
+                                json_t *candidate = json_array_get(completions, i);
+                                json_t *insertion_text_value = json_object_get(candidate, "insertion_text");
+                                if (insertion_text_value && json_is_string(insertion_text_value)) {
+                                    if (func->tag) {
+                                        wrap_secure_zero(func->tag, strlen(func->tag));
+                                        wrap_free((void **)&func->tag);
+                                    }
+                                    func->tag = strdup(json_string_value(insertion_text_value));
+                                    func = func->next;
+                                }
+                            }
+                            for (; i < completions_size && i < maximum && i < 6 && func; i++, func = func->next) {
+                                if (func->tag) {
+                                    wrap_secure_zero(func->tag, strlen(func->tag));
+                                    wrap_free((void **)&func->tag);
+                                }
+                                func->tag = strdup("");
+                            }
+                            json_t *completion_start_column_value = json_object_get(root, "completion_start_column");
+                            if (completion_start_column_value && json_is_integer(completion_start_column_value)) {
+                                ycmd_globals.apply_column = json_integer_value(completion_start_column_value);
+                            }
+                            json_decref(root);
+                            if (j > 0 && !is_popup_active()) {
+                                bottombars(MCODECOMPLETION);
+                                statusline(HUSH, "Code completion triggered, ^X to cancel");
+                            }
+                        } else {
+                            snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: No valid completions array\n");
+                            fprintf(stderr, "%s\n", msg);
+                        }
+                    } else {
+                        snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: json_loads failed: %s\n", error.text);
+                        fprintf(stderr, "%s\n", msg);
+                    }
+                }
+            } else if (event == YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_REQUEST_COMPLETIONS) {
+                json_error_t error;
+                json_t *root = json_loads(chunk.memory, 0, &error);
+                if (root && json_is_object(root)) {
+                    json_t *completions = json_object_get(root, "completions");
+                    if (completions && json_is_array(completions)) {
+                        *completions_out = json_incref(completions);
+                        ret = 0;
+                        json_t *completion_start_column = json_object_get(root, "completion_start_column");
+                        if (completion_start_column && json_is_integer(completion_start_column)) {
+                            ycmd_globals.apply_column = json_integer_value(completion_start_column);
+                            snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: Set apply_column=%zu\n",
+                                     ycmd_globals.apply_column);
+                            fprintf(stderr, "%s\n", msg);
+                        }
+                    } else {
+                        snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: No valid completions array\n");
+                        fprintf(stderr, "%s\n", msg);
+                    }
+                    json_decref(root);
+                } else {
+                    snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: json_loads failed: %s\n", error.text);
+                    fprintf(stderr, "%s\n", msg);
+                }
+            }
+        }
+    } else {
+        snprintf(msg, sizeof(msg), "ycmd_req_completions_suggestions: Invalid response code: %ld\n", response_code);
+        fprintf(stderr, "%s\n", msg);
+    }
 
-		curl_slist_free_all(headers);
-		wrap_free((void **)&req_buffer);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
+    wrap_secure_zero(req_buffer, req_buffer_size);
+    wrap_secure_zero(rsp_hmac_base64, sizeof(rsp_hmac_base64));
+    wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
+    if (chunk.memory) free(chunk.memory);
+    curl_slist_free_all(headers);
+    wrap_free((void **)&req_buffer);
 
-		return -1;
-	}
-
-	curl_easy_getinfo(ycmd_globals.curl, CURLINFO_RESPONSE_CODE, &response_code);
-#if defined(DEBUG)
-	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, ret = %d\n", __func__, response_code, ret);
-	fprintf(stderr, "DEBUG:  %s():  response_body: %s\n", __func__, response_body);
-	fprintf(stderr, "DEBUG:  %s():  Response X-Ycm-Hmac: %s\n", __func__, header_data.value);
-#endif
-	if (response_code == HTTP_OK) {
-		const char *hmac_rsp_header = header_data.value;
-		ycmd_get_hmac_response(rsp_hmac_base64, response_body);
-		if (!response_body) {
-			; /* Invalid */
-		} else if (!ycmd_is_hmac_valid(hmac_rsp_header, rsp_hmac_base64)) {
-#if defined(DEBUG)
-			fprintf(stderr, "DEBUG: %s(): Response HMAC validation failed: expected=%s, received=%s\n",
-				__func__, rsp_hmac_base64, header_data.value);
-#endif
-			compromised = 1;
-		} else {
-			/* Buggy for ne_get_response_header and response_code */
-			int found_cc_entry = 0;
-			if (wrap_strstr(response_body, "completion_start_column")) {
-				json_error_t error;
-				json_t *root = json_loads(response_body, 0, &error);
-				if (root && json_is_object(root)) {
-					json_t *completions = json_object_get(root, "completions");
-					if (completions && json_is_array(completions)) {
-						int i = 0;
-						int j = 0;
-						size_t maximum = (((COLS + HALF_LINE_LENGTH) / QUARTER_LINE_LENGTH) * 2);
-
-						size_t completions_size = json_array_size(completions);
-						for (i = 0; i < completions_size && j < maximum && j < 6 && func; i++, j++) {
-							/* 6 for letters A-F */
-							json_t *candidate = json_array_get(completions, i);
-							json_t *insertion_text_value = json_object_get(candidate, "insertion_text");
-							if (insertion_text_value && json_is_string(insertion_text_value)) {
-								if (func->tag != NULL) {
-									wrap_secure_zero(func->tag, wrap_strlen(func->tag));
-									wrap_free((void **)&func->tag);
-								}
-								func->tag = strdup(json_string_value(insertion_text_value));
-								/* Sanitize json_string_value(insertion_text_value)? */
-								found_cc_entry = 1;
-							}
-							func = func->next;
-						}
-						for (i = j; i < completions_size && i < maximum && i < 6 && func; i++, func = func->next) {
-							if (func->tag != NULL) {
-								wrap_secure_zero(func->tag, wrap_strlen(func->tag));
-								wrap_free((void **)&func->tag);
-							}
-							func->tag = strdup("");
-						}
-						json_t *completion_start_column_value = json_object_get(root, "completion_start_column");
-						if (completion_start_column_value && json_is_integer(completion_start_column_value)) {
-							ycmd_globals.apply_column = json_integer_value(completion_start_column_value);
-						}
-					}
-
-					/* Sanitize root? */
-					json_decref(root);
-				}
-
-				if (found_cc_entry) {
-					bottombars(MCODECOMPLETION);
-					statusline(HUSH, "Code completion triggered, ^X to cancel");
-				}
-			}
-		}
-	}
-
-	/* Sanitize sensitive data */
-	wrap_secure_zero(req_buffer, req_buffer_size);
-	wrap_secure_zero(rsp_hmac_base64, sizeof(rsp_hmac_base64));
-	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
-	if (response_body) {
-		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
-		wrap_free((void **)&response_body);
-	}
-
-	curl_slist_free_all(headers);
-	wrap_free((void **)&req_buffer);
-	pthread_mutex_unlock(&ycmd_globals.mutex);
-
-	return response_code == HTTP_OK && !compromised;
+    return response_code == HTTP_OK && !compromised ? 0 : -1;
 }
 
 void _run_completer_command_execute_command(char *completercommand, run_completer_command_result_struct *rccr)
@@ -1770,10 +1778,10 @@ void do_completer_command_fixit(void)
 					json_t *item_chunk_value, *range_value, *range_start_value, *range_end_value;
 					const char *replacement_text = NULL;
 					/* const char *fcrs_filepath; */
-					int fcrs_column_num, fcrs_line_num;
+					int fcrs_column_num = -1, fcrs_line_num = -1; /* Start point */
 
 					/* const char *fcre_filepath; */
-					int fcre_column_num, fcre_line_num;
+					int fcre_column_num = -1, fcre_line_num = -1; /* End point */
 					json_t *value;
 
 					if (a_chunks && a_chunks_size >= 1) {
@@ -1851,23 +1859,30 @@ void do_completer_command_fixit(void)
 
 					/* Present the user dialog prompt for the FixIt. */
 					int ret = ask_user(YESORNO, prompt_msg);
-					if (ret == YES) {
-						if (replacement_text && wrap_strlen(replacement_text)) {
+					if (ret == YES && fcrs_column_num >= 0 && fcre_column_num >= 0 && fcrs_column_num >= 0 && fcre_line_num >= 0) {
+						if (replacement_text && strlen(replacement_text)) {
 							/* Assumes that the flag was previously set. */
 							/* openfile->mark_set = 1; */
 
 							/* nano column num means distance within a tab character. */
 							/* ycmd column num means treat tabs as indivisible. */
+							/* Move cursor to start */
 							goto_line_and_column(fcrs_line_num, 1, FALSE, FALSE);
-
 							openfile->current_x = fcrs_column_num - 1; /* nano treats current_x as 0 based and linenum as 1 based. */
 							do_mark(); /* Flip flag and unset marker. */
 							do_mark(); /* Flip flag and sets marker. */
+
+							/* Move cursor to end */
 							goto_line_and_column(fcre_line_num, 1, FALSE, FALSE);
 							openfile->current_x = fcre_column_num - 1;
+
+							/* Delete selection */
 							cut_text(); /* It serves the same function as (cut character) ^K in global.c. */
+
 							/* Sanitize replacement_text? */
-							inject((char*)replacement_text, wrap_strlen(replacement_text));
+
+							/* Insert the fix */
+							inject((char*)replacement_text, strlen(replacement_text));
 							statusline(HUSH, "Applied FixIt.");
 						}
 					} else {
@@ -1904,8 +1919,11 @@ void _run_completer_command_execute_command_getdoc(char *command)
 #endif
 		mkdir(cache_dir, 0700); /* Create the cache directory if it doesn't exist */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-overflow"
 		char doc_filename[PATH_MAX];
 		sprintf(doc_filename, "%s/tmpXXXXXX", cache_dir);
+#pragma GCC diagnostic pop
 		int fdtemp = mkstemp(doc_filename);
 		FILE *f = fdopen(fdtemp, "w+");
 		fprintf(f, "%s", rccr.detailed_info);
@@ -2174,19 +2192,12 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-	int ret;
-#pragma GCC diagnostic pop
 	long response_code = -1;
 	int tabsize = 4;
 
-	/* Lock mutex for thread safety */
-	pthread_mutex_lock(&ycmd_globals.mutex);
 	if (!ycmd_globals.curl) {
 		ycmd_globals.curl = curl_easy_init();
 		if (!ycmd_globals.curl) {
-			pthread_mutex_unlock(&ycmd_globals.mutex);
 			return -1;
 		}
 	}
@@ -2198,7 +2209,7 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 	fprintf(stderr, "DEBUG:  %s():  url = %s\n", __func__, url);
 #endif
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 1000L);
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_CUSTOMREQUEST, method);
 
@@ -2209,7 +2220,6 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 	char *req_buffer = wrap_malloc(req_buffer_size);
 	if (!req_buffer) {
 		statusline(HUSH, "Out of Memory");
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 		return -1;
 	}
 	wrap_secure_zero(req_buffer, req_buffer_size);
@@ -2235,10 +2245,10 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
-	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, wrap_strlen(req_buffer));
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG: %s(): HMAC inputs: method=%s, path=%s, body='%s', body_size=%zu\n",
-		__func__, method, path, req_buffer && wrap_strlen(req_buffer) ? req_buffer : "NULL", req_buffer && wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
+		__func__, method, path, req_buffer && strlen(req_buffer) ? req_buffer : "NULL", req_buffer && strlen(req_buffer) ? strlen(req_buffer) : 0);
 	fprintf(stderr, "DEBUG: %s(): X-Ycm-Hmac: %s\n", __func__, req_hmac_base64);
 #endif
 	headers = curl_slist_append(headers, "Keep-Alive: ");
@@ -2248,7 +2258,7 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 	headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
 	memory_struct chunk;
 	curl_setup_request(ycmd_globals.curl, &chunk);
 
@@ -2268,7 +2278,6 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 
 		curl_slist_free_all(headers);
 		wrap_free((void **)&req_buffer);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 
 		return -1;
 	}
@@ -2282,14 +2291,13 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 
 		curl_slist_free_all(headers);
 		wrap_free((void **)&req_buffer);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 
 		return -1;
 	}
 
 	curl_easy_getinfo(ycmd_globals.curl, CURLINFO_RESPONSE_CODE, &response_code);
 #if defined(DEBUG)
-	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, ret = %d\n", __func__, response_code, ret);
+	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, req_ret = %d\n", __func__, response_code, req_ret);
 	fprintf(stderr, "DEBUG:  %s():  response_body: %s\n", __func__, response_body);
 	fprintf(stderr, "DEBUG:  %s():  Response X-Ycm-Hmac: %s\n", __func__, header_data.value);
 #endif
@@ -2316,13 +2324,12 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 	wrap_secure_zero(rsp_hmac_base64, sizeof(rsp_hmac_base64));
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	if (response_body) {
-		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
 
 	curl_slist_free_all(headers);
 	wrap_free((void **)&req_buffer);
-	pthread_mutex_unlock(&ycmd_globals.mutex);
 
 	return response_code == HTTP_OK && !compromised;
 }
@@ -2332,32 +2339,23 @@ int ycmd_rsp_is_healthy(int include_subservers)
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  %s()\n", __func__);
 #endif
-	/* This function doesn't work */
 	char *method = "GET";
-	char path[LINE_LENGTH];
+	char *path = "/healthy";
 	char req_buffer[LINE_LENGTH];
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-	int ret;
-#pragma GCC diagnostic pop
 	long response_code = -1;
 
-	/* Lock mutex for thread safety */
-	pthread_mutex_lock(&ycmd_globals.mutex);
 	if (!ycmd_globals.curl) {
 		ycmd_globals.curl = curl_easy_init();
 		if (!ycmd_globals.curl) {
-			pthread_mutex_unlock(&ycmd_globals.mutex);
 			return -1;
 		}
 	}
 
 	curl_easy_reset(ycmd_globals.curl);
 	char url[LINE_LENGTH];
-	snprintf(path, sizeof(path), "/healthy");
 	if (include_subservers == 2) {
 		req_buffer[0] = '\0';
 	} else if (include_subservers) {
@@ -2370,16 +2368,16 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	fprintf(stderr, "DEBUG:  %s():  url = %s\n", __func__, url);
 #endif
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 1000L);
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_CUSTOMREQUEST, "GET");
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
 
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
-	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, wrap_strlen(req_buffer));
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG: %s(): HMAC inputs: method=%s, path=%s, body='%s', body_size=%zu\n",
-		__func__, method, path, wrap_strlen(req_buffer) ? req_buffer : "NULL", wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
+		__func__, method, path, strlen(req_buffer) ? req_buffer : "NULL", strlen(req_buffer) ? strlen(req_buffer) : 0);
 	fprintf(stderr, "DEBUG: %s(): X-Ycm-Hmac: %s\n", __func__, req_hmac_base64);
 #endif
 	headers = curl_slist_append(headers, "Keep-Alive: ");
@@ -2387,14 +2385,14 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	headers = curl_slist_append(headers, "Accept:");
 	headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	headers = curl_slist_append(headers, "Content-Type:");
-	if (wrap_strlen(req_buffer)) {
-		headers = _curl_sprintf_header(headers, "Content-Length: %d", wrap_strlen(req_buffer));
+	if (strlen(req_buffer)) {
+		headers = _curl_sprintf_header(headers, "Content-Length: %d", strlen(req_buffer));
 	}
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 
-	if (wrap_strlen(req_buffer)) {
+	if (strlen(req_buffer)) {
 		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
+		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
 	}
 
 	memory_struct chunk;
@@ -2413,7 +2411,6 @@ int ycmd_rsp_is_healthy(int include_subservers)
 #endif
 		wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 		curl_slist_free_all(headers);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 		return -1;
 	}
 	char *response_body = _curl_read_response_body_full(ycmd_globals.curl, &chunk);
@@ -2421,13 +2418,12 @@ int ycmd_rsp_is_healthy(int include_subservers)
 		/* Sanitize sensitive data */
 		wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 		curl_slist_free_all(headers);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 		return -1;
 	}
 
 	curl_easy_getinfo(ycmd_globals.curl, CURLINFO_RESPONSE_CODE, &response_code);
 #if defined(DEBUG)
-	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, ret = %d\n", __func__, response_code, ret);
+	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, req_ret = %d\n", __func__, response_code, req_ret);
 	fprintf(stderr, "DEBUG:  %s():  response_body: %s\n", __func__, response_body);
 	fprintf(stderr, "DEBUG:  %s():  Response X-Ycm-Hmac: %s\n", __func__, header_data.value);
 #endif
@@ -2449,10 +2445,9 @@ int ycmd_rsp_is_healthy(int include_subservers)
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	curl_slist_free_all(headers);
 	if (response_body) {
-		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
-	pthread_mutex_unlock(&ycmd_globals.mutex);
 
 	return response_code == HTTP_OK && !compromised;
 }
@@ -2469,47 +2464,40 @@ int ycmd_rsp_is_server_ready(char *filetype)
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  Called %s()\n", __func__);
 #endif
+
 	char *method = "GET";
-	char path[LINE_LENGTH];
+	char *path = "/ready";
 	char req_buffer[LINE_LENGTH];
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-	int ret;
-#pragma GCC diagnostic pop
 	long response_code = -1;
 
-	/* Lock mutex for thread safety */
-	pthread_mutex_lock(&ycmd_globals.mutex);
 	if (!ycmd_globals.curl) {
 		ycmd_globals.curl = curl_easy_init();
 		if (!ycmd_globals.curl) {
-			pthread_mutex_unlock(&ycmd_globals.mutex);
 			return -1;
 		}
 	}
 
 	curl_easy_reset(ycmd_globals.curl);
 	char url[LINE_LENGTH];
-	snprintf(path, sizeof(path), "/ready");
 	sprintf(req_buffer, "subserver=%s", filetype);
 	sprintf(url, "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  %s():  url = %s\n", __func__, url);
 #endif
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 1000L);
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_CUSTOMREQUEST, "GET");
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
 
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
-	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, wrap_strlen(req_buffer));
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG: %s(): HMAC inputs: method=%s, path=%s, body='%s', body_size=%zu\n",
-		__func__, method, path, wrap_strlen(req_buffer) ? req_buffer : "NULL", wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
+		__func__, method, path, strlen(req_buffer) ? req_buffer : "NULL", strlen(req_buffer) ? strlen(req_buffer) : 0);
 	fprintf(stderr, "DEBUG: %s(): X-Ycm-Hmac: %s\n", __func__, req_hmac_base64);
 #endif
 	headers = curl_slist_append(headers, "Keep-Alive: ");
@@ -2520,7 +2508,7 @@ int ycmd_rsp_is_server_ready(char *filetype)
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
 
 	memory_struct chunk;
 	curl_setup_request(ycmd_globals.curl, &chunk);
@@ -2538,7 +2526,6 @@ int ycmd_rsp_is_server_ready(char *filetype)
 #endif
 		wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 		curl_slist_free_all(headers);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 		return -1;
 	}
 	char *response_body = _curl_read_response_body_full(ycmd_globals.curl, &chunk);
@@ -2546,13 +2533,12 @@ int ycmd_rsp_is_server_ready(char *filetype)
 		/* Sanitize sensitive data */
 		wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 		curl_slist_free_all(headers);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 		return -1;
 	}
 
 	curl_easy_getinfo(ycmd_globals.curl, CURLINFO_RESPONSE_CODE, &response_code);
 #if defined(DEBUG)
-	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, ret = %d\n", __func__, response_code, ret);
+	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, req_ret = %d\n", __func__, response_code, req_ret);
 	fprintf(stderr, "DEBUG:  %s():  response_body: %s\n", __func__, response_body);
 	fprintf(stderr, "DEBUG:  %s():  Response X-Ycm-Hmac: %s\n", __func__, header_data.value);
 #endif
@@ -2575,10 +2561,9 @@ int ycmd_rsp_is_server_ready(char *filetype)
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	curl_slist_free_all(headers);
 	if (response_body) {
-		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
-	pthread_mutex_unlock(&ycmd_globals.mutex);
 
 	return response_code == HTTP_OK && !compromised;
 }
@@ -2588,24 +2573,16 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG:  Called %s()\n", __func__);
 #endif
-
 	char *filetype = _ycmd_get_filetype(filepath);
 	char abspath[PATH_MAX];
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-	int ret;
-#pragma GCC diagnostic pop
 	long response_code = -1;
 
-	/* Lock mutex for thread safety */
-	pthread_mutex_lock(&ycmd_globals.mutex);
 	if (!ycmd_globals.curl) {
 		ycmd_globals.curl = curl_easy_init();
 		if (!ycmd_globals.curl) {
-			pthread_mutex_unlock(&ycmd_globals.mutex);
 			return -1;
 		}
 	}
@@ -2617,7 +2594,7 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	fprintf(stderr, "DEBUG:  %s():  url = %s\n", __func__, url);
 #endif
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 1000L);
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_CUSTOMREQUEST, method);
 
@@ -2628,7 +2605,6 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	char *req_buffer = wrap_malloc(req_buffer_size);
 	if (!req_buffer) {
 		statusline(HUSH, "Out of Memory");
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 		return -1;
 	}
 	wrap_secure_zero(req_buffer, req_buffer_size);
@@ -2653,10 +2629,10 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
-	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, wrap_strlen(req_buffer));
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG: %s(): HMAC inputs: method=%s, path=%s, body='%s', body_size=%zu\n",
-		__func__, method, path, req_buffer && wrap_strlen(req_buffer) ? req_buffer : "NULL", req_buffer && wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
+		__func__, method, path, req_buffer && strlen(req_buffer) ? req_buffer : "NULL", req_buffer && strlen(req_buffer) ? strlen(req_buffer) : 0);
 	fprintf(stderr, "DEBUG: %s(): X-Ycm-Hmac: %s\n", __func__, req_hmac_base64);
 #endif
 	headers = curl_slist_append(headers, "Keep-Alive: ");
@@ -2670,7 +2646,7 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POST, 1L);
 		if (req_buffer && req_buffer_size > 0) {
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
+			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
 		} else {
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, "");
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, 0L);
@@ -2698,7 +2674,6 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 
 		curl_slist_free_all(headers);
 		wrap_free((void **)&req_buffer);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 
 		return -1;
 	}
@@ -2710,14 +2685,13 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 
 		curl_slist_free_all(headers);
 		wrap_free((void **)&req_buffer);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 
 		return -1;
 	}
 
 	curl_easy_getinfo(ycmd_globals.curl, CURLINFO_RESPONSE_CODE, &response_code);
 #if defined(DEBUG)
-	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, ret = %d\n", __func__, response_code, ret);
+	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, req_ret = %d\n", __func__, response_code, req_ret);
 	fprintf(stderr, "DEBUG:  %s():  response_body: %s\n", __func__, response_body);
 	fprintf(stderr, "DEBUG:  %s():  Response X-Ycm-Hmac: %s\n", __func__, header_data.value);
 #endif
@@ -2740,13 +2714,12 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	wrap_secure_zero(rsp_hmac_base64, sizeof(rsp_hmac_base64));
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	if (response_body) {
-		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
 
 	curl_slist_free_all(headers);
 	wrap_free((void **)&req_buffer);
-	pthread_mutex_unlock(&ycmd_globals.mutex);
 
 	return response_code == HTTP_OK && !compromised;
 }
@@ -2771,18 +2744,11 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
-	int ret;
-#pragma GCC diagnostic pop
 	long response_code = -1;
 
-	/* Lock mutex for thread safety */
-	pthread_mutex_lock(&ycmd_globals.mutex);
 	if (!ycmd_globals.curl) {
 		ycmd_globals.curl = curl_easy_init();
 		if (!ycmd_globals.curl) {
-			pthread_mutex_unlock(&ycmd_globals.mutex);
 			return -1;
 		}
 	}
@@ -2794,7 +2760,7 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 	fprintf(stderr, "DEBUG:  %s():  url = %s\n", __func__, url);
 #endif
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 1000L);
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTP_VERSION, CURL_HTTP_VERSION_NONE);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_CUSTOMREQUEST, method);
 
@@ -2805,7 +2771,6 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 	char *req_buffer = wrap_malloc(req_buffer_size);
 	if (!req_buffer) {
 		statusline(HUSH, "Out of Memory");
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 		return -1;
 	}
 	wrap_secure_zero(req_buffer, req_buffer_size);
@@ -2826,10 +2791,10 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
-	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, wrap_strlen(req_buffer));
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
 #if defined(DEBUG)
 	fprintf(stderr, "DEBUG: %s(): HMAC inputs: method=%s, path=%s, body='%s', body_size=%zu\n",
-		__func__, method, path, req_buffer && wrap_strlen(req_buffer) ? req_buffer : "NULL", req_buffer && wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
+		__func__, method, path, req_buffer && strlen(req_buffer) ? req_buffer : "NULL", req_buffer && strlen(req_buffer) ? strlen(req_buffer) : 0);
 	fprintf(stderr, "DEBUG: %s(): X-Ycm-Hmac: %s\n", __func__, req_hmac_base64);
 #endif
 	headers = curl_slist_append(headers, "Keep-Alive: ");
@@ -2839,7 +2804,7 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 	headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
 	memory_struct chunk;
 	curl_setup_request(ycmd_globals.curl, &chunk);
 
@@ -2859,7 +2824,6 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 
 		curl_slist_free_all(headers);
 		wrap_free((void **)&req_buffer);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 
 		return -1;
 	}
@@ -2872,14 +2836,13 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 
 		curl_slist_free_all(headers);
 		wrap_free((void **)&req_buffer);
-		pthread_mutex_unlock(&ycmd_globals.mutex);
 
 		return -1;
 	}
 
 	curl_easy_getinfo(ycmd_globals.curl, CURLINFO_RESPONSE_CODE, &response_code);
 #if defined(DEBUG)
-	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, ret = %d\n", __func__, response_code, ret);
+	fprintf(stderr, "DEBUG:  %s():  response_code = %ld, req_ret = %d\n", __func__, response_code, req_ret);
 	fprintf(stderr, "DEBUG:  %s():  response_body: %s\n", __func__, response_body);
 	fprintf(stderr, "DEBUG:  %s():  Response X-Ycm-Hmac: %s\n", __func__, header_data.value);
 #endif
@@ -2906,13 +2869,12 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 	wrap_secure_zero(rsp_hmac_base64, sizeof(rsp_hmac_base64));
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	if (response_body) {
-		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
 
 	curl_slist_free_all(headers);
 	wrap_free((void **)&req_buffer);
-	pthread_mutex_unlock(&ycmd_globals.mutex);
 
 	return response_code == HTTP_OK && !compromised;
 }
@@ -3049,8 +3011,11 @@ void ycmd_start_server()
 	sprintf(combined_output_file, "/dev/null");
 #endif
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-overflow"
 	char default_settings_json_path[PATH_MAX];
 	sprintf(default_settings_json_path, "%s/tmpXXXXXX", cache_dir); /* Do not add .txt suffix */
+#pragma GCC diagnostic pop
 	int fd3 = mkstemp(default_settings_json_path);
 	if (fd3 == -1) {
 		fprintf(stderr, "%s:  mkstemp creation failed for default_settings_json_path\n", __func__);
@@ -3395,7 +3360,7 @@ void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64)
 #elif defined(USE_LIBGCRYPT)
         gchar *_secret_base64 = g_base64_encode((unsigned char *)secret, SECRET_KEY_LENGTH);
 	wrap_strncpy(secret_base64, _secret_base64, SECRET_KEY_LENGTH * 2 - 1);
-	wrap_secure_zero(_secret_base64, wrap_strlen(_secret_base64));
+	wrap_secure_zero(_secret_base64, strlen(_secret_base64));
 	g_free (_secret_base64);
 #else
 #error "You need to define a crypto library to use."
@@ -3413,7 +3378,7 @@ void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64)
  * GET_BASE64(B) -> base64 encoded HMAC
  */
 
-void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char *body, size_t body_len /* wrap_strlen based */)
+void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char *body, size_t body_len /* strlen based */)
 {
 	wrap_secure_zero(req_hmac_base64, HMAC_SIZE * 2);
 #if defined(USE_NETTLE)
@@ -3422,10 +3387,10 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	struct hmac_sha256_ctx hmac_ctx;
 
 	hmac_sha256_set_key(&hmac_ctx, SECRET_KEY_LENGTH, (unsigned char *)ycmd_globals.secret_key_raw);
-	hmac_sha256_update(&hmac_ctx, wrap_strlen(method), (const uint8_t *)method);
+	hmac_sha256_update(&hmac_ctx, strlen(method), (const uint8_t *)method);
 	hmac_sha256_digest(&hmac_ctx, HMAC_SIZE, (unsigned char *)join);
 
-	hmac_sha256_update(&hmac_ctx, wrap_strlen(path), (const uint8_t *)path);
+	hmac_sha256_update(&hmac_ctx, strlen(path), (const uint8_t *)path);
 	hmac_sha256_digest(&hmac_ctx, HMAC_SIZE, (unsigned char *)(join + HMAC_SIZE));
 
 	hmac_sha256_update(&hmac_ctx, body_len, (const uint8_t *)body);
@@ -3454,13 +3419,13 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	EVP_MAC_init(ctx, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, params);
 
 	/* Calculate HMAC for method */
-	EVP_MAC_update(ctx, (unsigned char *)method, wrap_strlen(method));
+	EVP_MAC_update(ctx, (unsigned char *)method, strlen(method));
 	size_t hmac_method_len = EVP_MAX_MD_SIZE;
 	EVP_MAC_final(ctx, hmac_method, &hmac_method_len, EVP_MAX_MD_SIZE);
 	EVP_MAC_init(ctx, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, params); /* Reset ctx */
 
 	/* Calculate HMAC for path */
-	EVP_MAC_update(ctx, (unsigned char *)path, wrap_strlen(path));
+	EVP_MAC_update(ctx, (unsigned char *)path, strlen(path));
 	size_t hmac_path_len = EVP_MAX_MD_SIZE;
 	EVP_MAC_final(ctx, hmac_path, &hmac_path_len, EVP_MAX_MD_SIZE);
 	EVP_MAC_init(ctx, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, params); /* Reset ctx */
@@ -3509,13 +3474,13 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	gcry_mac_open(&hd, GCRY_MAC_HMAC_SHA256, 0/*GCRY_MAC_FLAG_SECURE*/, NULL);
 	gcry_mac_setkey(hd, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH);
 
-	gcry_mac_write(hd, method, wrap_strlen(method));
+	gcry_mac_write(hd, method, strlen(method));
 	length = HMAC_SIZE;
 	gcry_mac_read(hd, join, &length);
 
 	gcry_mac_reset(hd);
 
-	gcry_mac_write(hd, path, wrap_strlen(path));
+	gcry_mac_write(hd, path, strlen(path));
 	length = HMAC_SIZE;
 	gcry_mac_read(hd, join + HMAC_SIZE, &length);
 
@@ -3538,9 +3503,9 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	wrap_strncpy(req_hmac_base64, _req_hmac_base64, HMAC_SIZE * 2 - 1);
 
 	/* Sanitize sensitive data */
-	wrap_secure_zero(_req_hmac_base64, wrap_strlen(_req_hmac_base64));
+	wrap_secure_zero(_req_hmac_base64, strlen(_req_hmac_base64));
 
-	wrap_free (&_req_hmac_base64);
+	wrap_free ((void **)&_req_hmac_base64);
 #else
 #error "You need to define a crypto library to use."
 #endif
@@ -3564,12 +3529,12 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 	struct hmac_sha256_ctx hmac_ctx;
 
 	hmac_sha256_set_key(&hmac_ctx, SECRET_KEY_LENGTH, (unsigned char *)ycmd_globals.secret_key_raw);
-	hmac_sha256_update(&hmac_ctx, wrap_strlen(response_body), (const uint8_t *)response_body);
+	hmac_sha256_update(&hmac_ctx, strlen(response_body), (const uint8_t *)response_body);
 	hmac_sha256_digest(&hmac_ctx, HMAC_SIZE, (unsigned char *)hmac_response);
 
 	base64_encode_raw(rsp_hmac_base64, HMAC_SIZE, (const uint8_t *)hmac_response);
 #elif defined(USE_OPENSSL)
-        unsigned char *response_digest = HMAC(EVP_sha256(), ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, (unsigned char *) response_body, wrap_strlen(response_body), NULL, NULL);
+        unsigned char *response_digest = HMAC(EVP_sha256(), ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, (unsigned char *) response_body, strlen(response_body), NULL, NULL);
 
 	BIO *b, *append;
 	BUF_MEM *pp;
@@ -3591,7 +3556,7 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 	gcry_mac_setkey(hd, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH);
 
 	char response_digest[HMAC_SIZE];
-	gcry_mac_write(hd, response_body, wrap_strlen(response_body));
+	gcry_mac_write(hd, response_body, strlen(response_body));
 	size_t length = HMAC_SIZE;
 	gcry_mac_read(hd, response_digest, &length);
 
@@ -3601,7 +3566,7 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 	wrap_strncpy(rsp_hmac_base64, _rsp_hmac_base64, HMAC_SIZE * 2 - 1);
 
 	/* Sanitize sensitive data */
-	wrap_secure_zero(_rsp_hmac_base64, wrap_strlen(_rsp_hmac_base64));
+	wrap_secure_zero(_rsp_hmac_base64, strlen(_rsp_hmac_base64));
 
 	g_free (_rsp_hmac_base64);
 #else
@@ -3621,7 +3586,7 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body)
 /* We use the naive version because it is more secure. */
 size_t ycmd_escape_json(char *unescaped, char *escaped)
 {
-	int before_len = wrap_strlen(unescaped);
+	int before_len = strlen(unescaped);
 	size_t after_len = 0;
 
 	int j = 0;
@@ -3716,7 +3681,7 @@ size_t _req_file(char *req_buffer, size_t req_buffer_size, linestruct *filetop)
 	size_t total_len = 0;
 	size_t expanded_len = 0;
 
-	size_t base_offset = wrap_strlen(req_buffer);
+	size_t base_offset = strlen(req_buffer);
 
 	linestruct *node;
 	node = filetop;
@@ -3777,40 +3742,60 @@ size_t _req_file(char *req_buffer, size_t req_buffer_size, linestruct *filetop)
 	return total_len;
 }
 
-char *_ycmd_get_filetype(char *filepath)
-{
-	static char type[QUARTER_LINE_LENGTH];
-	type[0] = 0;
-	if (wrap_strstr(filepath, ".cs")) {
-		wrap_strncpy(type, "cs", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".go")) {
-		wrap_strncpy(type, "go", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".rs")) {
-		wrap_strncpy(type, "rust", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".mm")) {
-		wrap_strncpy(type, "objcpp", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".m")) {
-		wrap_strncpy(type, "objc", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".cpp") || wrap_strstr(filepath, ".C") || wrap_strstr(filepath, ".cxx") || wrap_strstr(filepath, ".cc") ) {
-		wrap_strncpy(type, "cpp", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".c")) {
-		wrap_strncpy(type, "c", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".hpp") || wrap_strstr(filepath, ".hh") ) {
-		wrap_strncpy(type, "cpp", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".h")) {
-		wrap_strncpy(type, "cpp", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".js")) {
-		wrap_strncpy(type, "javascript", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".py")) {
-		wrap_strncpy(type, "python", QUARTER_LINE_LENGTH);
-	} else if (wrap_strstr(filepath, ".ts")) {
-		wrap_strncpy(type, "typescript", QUARTER_LINE_LENGTH);
-	} else {
-		/* Try to quiet error.  It doesn't accept ''. */
-		wrap_strncpy(type, "filetype_default", QUARTER_LINE_LENGTH);
-	}
 
-	return type;
+char *_ycmd_get_filetype(char *filepath) {
+    static char type[QUARTER_LINE_LENGTH];
+    type[0] = '\0';
+    char msg[PATH_MAX + LINE_LENGTH];
+
+    static char main_filetype[QUARTER_LINE_LENGTH] = "";
+    if (openfile && openfile->filename && main_filetype[0] == '\0') {
+        char *ext = strrchr(openfile->filename, '.');
+        if (ext) {
+            if (strcmp(ext, ".c") == 0) {
+                wrap_strncpy(main_filetype, "c", QUARTER_LINE_LENGTH);
+            } else if (strcmp(ext, ".cpp") == 0 || strcmp(ext, ".cxx") == 0 || strcmp(ext, ".cc") == 0) {
+                wrap_strncpy(main_filetype, "cpp", QUARTER_LINE_LENGTH);
+            } else {
+                wrap_strncpy(main_filetype, "identifier", QUARTER_LINE_LENGTH);
+            }
+            snprintf(msg, sizeof(msg), "_ycmd_get_filetype: Main file %s, set main_filetype=%s\n",
+                     openfile->filename, main_filetype);
+            fprintf(stderr, "%s\n", msg);
+        }
+    }
+
+    if (!filepath) {
+        wrap_strncpy(type, main_filetype[0] ? main_filetype : "identifier", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".cs")) {
+        wrap_strncpy(type, "cs", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".go")) {
+        wrap_strncpy(type, "go", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".rs")) {
+        wrap_strncpy(type, "rust", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".mm")) {
+        wrap_strncpy(type, "objcpp", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".m")) {
+        wrap_strncpy(type, "objc", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".cpp") || strstr(filepath, ".cxx") || strstr(filepath, ".cc")) {
+        wrap_strncpy(type, "cpp", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".c")) {
+        wrap_strncpy(type, "c", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".hpp") || strstr(filepath, ".hh") || strstr(filepath, ".h")) {
+        wrap_strncpy(type, main_filetype[0] ? main_filetype : "c", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".js")) {
+        wrap_strncpy(type, "javascript", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".py")) {
+        wrap_strncpy(type, "python", QUARTER_LINE_LENGTH);
+    } else if (strstr(filepath, ".ts")) {
+        wrap_strncpy(type, "typescript", QUARTER_LINE_LENGTH);
+    } else {
+        wrap_strncpy(type, "identifier", QUARTER_LINE_LENGTH);
+    }
+
+    snprintf(msg, sizeof(msg), "_ycmd_get_filetype: Returning type=%s\n", type);
+    fprintf(stderr, "%s\n", msg);
+    return type;
 }
 
 void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, linestruct *filetop)
@@ -3826,7 +3811,7 @@ void ycmd_event_file_ready_to_parse(int columnnum, int linenum, char *filepath, 
 	if (ycmd_globals.running && ready)
 	{
 		ycmd_json_event_notification(columnnum, linenum, filepath, "FileReadyToParse", filetop);
-		ycmd_req_completions_suggestions(linenum, columnnum, filepath, filetop, "filetype_default");
+		ycmd_req_completions_suggestions(linenum, columnnum, filepath, filetop, "filetype_default", YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_FILE_READY_TO_PARSE, NULL);
 	}
 }
 
@@ -3905,9 +3890,9 @@ void do_code_completion(char letter)
 				openfile->current_x = ycmd_globals.apply_column - 1;
 
 				/* Sanitize func->tag? */
-				inject(func->tag, wrap_strlen(func->tag));
+				inject(func->tag, strlen(func->tag));
 
-				wrap_secure_zero(func->tag, wrap_strlen(func->tag));
+				wrap_secure_zero(func->tag, strlen(func->tag));
 				wrap_free((void **)&func->tag);
 				func->tag = strdup("");
 				blank_statusbar();
@@ -4079,8 +4064,11 @@ void ycmd_display_parse_results()
 #endif
 	mkdir(cache_dir, 0700); /* Create the cache directory if it doesn't exist */
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wformat-overflow"
 	char doc_filename[PATH_MAX];
 	sprintf(doc_filename, "%s/tmpXXXXXX", cache_dir);
+#pragma GCC diagnostic pop
 	int fdtemp = mkstemp(doc_filename);
 	FILE *f = fdopen(fdtemp, "w+");
 	fprintf(f, "%s", ycmd_globals.file_ready_to_parse_results.json);
@@ -4208,4 +4196,34 @@ void do_n_entries()
 		if (ycmd_globals.max_entries < 1)
 			ycmd_globals.max_entries = 1;
 	}
+}
+
+json_t *request_completions(const char *filename, int line, int column, linestruct *filetop, int event) {
+    char msg[256];
+    snprintf(msg, sizeof(msg), "request_completions: filename='%s', line=%d, column=%d, event=%d\n",
+             filename ? filename : "null", line, column, event);
+    fprintf(stderr, "%s\n", msg);
+
+    json_t *completions = NULL;
+    char *completer_target = _ycmd_get_filetype((char *)filename);
+    snprintf(msg, sizeof(msg), "request_completions: completer_target='%s'\n", completer_target);
+    fprintf(stderr, "%s\n", msg);
+
+    int event_result = ycmd_json_event_notification(column, line, (char *)filename, "FileReadyToParse", filetop);
+    snprintf(msg, sizeof(msg), "request_completions: ycmd_json_event_notification(FileReadyToParse) returned %d\n", event_result);
+    fprintf(stderr, "%s\n", msg);
+
+    int result = ycmd_req_completions_suggestions(line, column, (char *)filename, filetop,
+                                                 completer_target, event, &completions);
+
+    if (!completions || !json_is_array(completions)) {
+        snprintf(msg, sizeof(msg), "request_completions: Invalid completions, returning empty array\n");
+        fprintf(stderr, "%s\n", msg);
+        if (completions) json_decref(completions);
+        completions = json_array();
+    }
+
+    snprintf(msg, sizeof(msg), "request_completions: Returning %zu completions\n", json_array_size(completions));
+    fprintf(stderr, "%s\n", msg);
+    return completions;
 }

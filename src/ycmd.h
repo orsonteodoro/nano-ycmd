@@ -27,6 +27,9 @@
 
 #include <curl/curl.h>
 
+#define YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_FILE_READY_TO_PARSE 1
+#define YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_REQUEST_COMPLETIONS 2
+
 /* Buffer sizes */
 #define QUARTER_LINE_LENGTH 20
 #define HALF_LINE_LENGTH 40
@@ -180,9 +183,6 @@ typedef struct ycmd_globals_struct {
 	int max_entries;
 
 	default_settings_struct default_settings;
-
-	pthread_mutex_t mutex;
-
 } ycmd_globals_struct;
 
 extern void ycmd_constructor();
@@ -237,4 +237,8 @@ extern void do_ycm_extra_conf_accept(void);
 extern void do_ycm_extra_conf_reject(void);
 extern void do_ycm_extra_conf_generate(void);
 extern void do_n_entries(void);
+
+#include <jansson.h>
+#include <stdbool.h>
+json_t *request_completions(const char *filename, int line, int column, linestruct *filetop, int event);
 #endif

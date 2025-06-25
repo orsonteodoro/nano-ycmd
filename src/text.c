@@ -33,6 +33,13 @@
 #include <sys/wait.h>
 #ifdef ENABLE_YCMD
 #include "ycmd.h"
+#include "safe_wrapper.h"
+#endif
+
+#ifdef ENABLE_YCMD
+extern bool inserting;
+extern int get_current_y(const openfilestruct *file);
+extern int is_popup_active(void);
 #endif
 
 #if defined(__APPLE__) && !defined(st_mtim)
@@ -3266,3 +3273,49 @@ void complete_a_word(void)
 	free(shard);
 }
 #endif /* ENABLE_WORDCOMPLETION */
+
+#ifdef ENABLE_YCMD
+void do_insert_string(const char *string) {
+    char msg[256];
+    if (inserting) {
+        snprintf(msg, sizeof(msg), "do_insert_string: Reentrant call detected, ignoring string='%s'\n", string);
+        fprintf(stderr, msg);
+        return;
+    }
+    inserting = TRUE;
+    snprintf(msg, sizeof(msg), "do_insert_string: Before insert: string='%s', data='%s', x=%zu\n", 
+             string, openfile->current->data ? openfile->current->data : "null", openfile->current_x);
+    fprintf(stderr, msg);
+
+    size_t string_len = strlen(string);
+    char *data = openfile->current->data;
+    size_t data_len = data ? strlen(data) : 0;
+    char *new_data = malloc(data_len + string_len + 1);
+    if (data) {
+        strncpy(new_data, data, openfile->current_x);
+        strcpy(new_data + openfile->current_x, string);
+        strcpy(new_data + openfile->current_x + string_len, data + openfile->current_x);
+        free(data);
+    } else {
+        strcpy(new_data, string);
+        new_data[string_len] = '\0';
+    }
+    openfile->current->data = new_data;
+    openfile->current_x += string_len;
+
+    snprintf(msg, sizeof(msg), "do_insert_string: After insert: data='%s', x=%zu\n", 
+             openfile->current->data ? openfile->current->data : "null", openfile->current_x);
+    fprintf(stderr, msg);
+
+    wclrtoeol(midwin);
+    mvwprintw(midwin, get_current_y(openfile), 0, "%s", openfile->current->data ? openfile->current->data : "");
+    wmove(midwin, get_current_y(openfile), openfile->current_x);
+    curs_set(2);
+    wnoutrefresh(midwin);
+    doupdate();
+    snprintf(msg, sizeof(msg), "do_insert_string: Refreshed midwin at y=%d, x=%zu, popup_active=%d\n", 
+             get_current_y(openfile), openfile->current_x, is_popup_active());
+    fprintf(stderr, msg);
+    inserting = FALSE;
+}
+#endif

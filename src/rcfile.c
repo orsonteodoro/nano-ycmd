@@ -38,6 +38,10 @@
 #define HOME_RC_NAME  RCFILE_NAME
 #endif
 
+#ifdef ENABLE_YCMD
+extern bool ycmd_handling;
+#endif
+
 static const rcoption rcopts[] = {
 	{"boldtext", BOLD_TEXT},
 #ifdef ENABLE_JUSTIFY
@@ -779,6 +783,13 @@ void parse_binding(char *ptr, bool dobind)
 	}
 
 	keycode = keycode_from_string(keycopy);
+
+#ifdef ENABLE_YCMD
+	if (ycmd_handling && keycode >= 0x20 && keycode <= 0x7E) {
+		fprintf(stderr, "parse_binding: Skipping ASCII key 0x%x due to ycmd_handling\n", keycode);
+		return;
+	}
+#endif
 
 	if (keycode < 0) {
 		jot_error(N_("Key name %s is invalid"), keycopy);

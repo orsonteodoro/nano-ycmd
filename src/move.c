@@ -569,6 +569,43 @@ void do_end(void)
 		update_line(openfile->current, openfile->current_x);
 }
 
+#ifdef ENABLE_YCMD
+void do_up(void) {
+    char msg[256];
+    linestruct *old_current = openfile->current;
+    size_t old_x = openfile->current_x;
+
+    if (openfile->current != openfile->filetop) {
+        openfile->current = openfile->current->prev;
+        openfile->current_x = actual_x(openfile->current->data, openfile->placewewant);
+        snprintf(msg, sizeof(msg), "do_up: Moved to line %zu, x=%zu\n",
+                 openfile->current->lineno, openfile->current_x);
+        fprintf(stderr, msg);
+    }
+
+    adjust_viewport(CENTERING);
+    refresh_needed = TRUE;
+    edit_redraw(old_current, CENTERING);
+}
+
+void do_down(void) {
+    char msg[256];
+    linestruct *old_current = openfile->current;
+    size_t old_x = openfile->current_x;
+
+    if (openfile->current != openfile->filebot) {
+        openfile->current = openfile->current->next;
+        openfile->current_x = actual_x(openfile->current->data, openfile->placewewant);
+        snprintf(msg, sizeof(msg), "do_down: Moved to line %zu, x=%zu\n",
+                 openfile->current->lineno, openfile->current_x);
+        fprintf(stderr, msg);
+    }
+
+    adjust_viewport(CENTERING);
+    refresh_needed = TRUE;
+    edit_redraw(old_current, CENTERING);
+}
+#else
 /* Move the cursor to the preceding line or chunk. */
 void do_up(void)
 {
@@ -616,6 +653,7 @@ void do_down(void)
 	/* <Down> should not change placewewant, so restore it. */
 	openfile->placewewant = leftedge + target_column;
 }
+#endif
 
 #if !defined(NANO_TINY) || defined(ENABLE_HELP)
 /* Scroll up one line or chunk without moving the cursor textwise. */

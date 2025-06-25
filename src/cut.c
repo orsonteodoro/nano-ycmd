@@ -24,8 +24,12 @@
 
 #include <string.h>
 #ifdef ENABLE_YCMD
+#include <signal.h>
+#include <pthread.h>
 #include <unistd.h>
+#include "nano.h"
 #include "ycmd.h"
+extern bool is_popup_mode;
 #endif
 
 /* Delete the character at the current position, and
@@ -127,16 +131,29 @@ void do_delete(void)
 	else
 #endif
 	{
+
 		expunge(DEL);
 #ifdef ENABLE_UTF8
 		while (openfile->current->data[openfile->current_x] != '\0' &&
 				is_zerowidth(openfile->current->data + openfile->current_x))
 			expunge(DEL);
 #endif
-	}
+
+
 #ifdef ENABLE_YCMD
-	ualarm(SEND_TO_SERVER_DELAY,0);
+	char *ui_mode = getenv("NANO_YCMD_UI_MODE");
+        if (strcmp(ui_mode, "popup") != 0) {
+            char msg[256];
+            ualarm(SEND_TO_SERVER_DELAY, 0);
+            snprintf(msg, sizeof(msg), "do_delete: Scheduled SIGALRM for bottom bar\n");
+            fprintf(stderr, "%s\n", msg);
+        }
+        refresh_needed = TRUE;
+        edit_redraw(openfile->current, CENTERING);
 #endif
+
+
+	}
 }
 
 /* Backspace over one character.  That is, move the cursor left one
@@ -150,15 +167,28 @@ void do_backspace(void)
 	else
 #endif
 	if (openfile->current_x > 0) {
+
 		openfile->current_x = step_left(openfile->current->data, openfile->current_x);
 		expunge(BACK);
+#ifdef ENABLE_YCMD
+		refresh_needed = TRUE;
+		edit_redraw(openfile->current, CENTERING);
+#endif
 	} else if (openfile->current != openfile->filetop) {
 		do_left();
 		expunge(BACK);
-	}
 #ifdef ENABLE_YCMD
-	ualarm(SEND_TO_SERVER_DELAY,0);
+		char *ui_mode = getenv("NANO_YCMD_UI_MODE");
+		if (strcmp(ui_mode, "popup") != 0) {
+			char msg[256];
+			ualarm(SEND_TO_SERVER_DELAY, 0);
+			snprintf(msg, sizeof(msg), "do_backspace: Scheduled SIGALRM for bottom bar\n");
+			fprintf(stderr, "%s\n", msg);
+		}
+		refresh_needed = TRUE;
+		edit_redraw(openfile->current, CENTERING);
 #endif
+	}
 }
 
 /* Return FALSE when a cut command would not actually cut anything: when

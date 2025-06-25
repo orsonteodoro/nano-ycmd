@@ -524,3 +524,34 @@ size_t number_of_characters_in(const linestruct *begin, const linestruct *end)
 	/* Do not count the final newline. */
 	return (count - 1);
 }
+
+#ifdef ENABLE_YCMD
+/* Return the 1-based line number of openfile->current relative to filetop. */
+int get_current_line_number(const openfilestruct *file)
+{
+#ifdef DEBUG
+	fprintf(stderr, "DEBUG:  Called %s\n", __func__);
+#endif
+	if (!file || !file->filetop || !file->current) {
+		return 1; /* Fallback */
+	}
+	int line_num = 1;
+	for (linestruct *line = file->filetop; line && line != file->current; line = line->next) {
+		line_num++;
+	}
+	return line_num;
+}
+
+int logical_to_display_x(const char *line_data, int logical_x, int tabsize) {
+	if (!line_data) return logical_x;
+	int display_x = 0;
+	for (int i = 0; i < logical_x && line_data[i]; i++) {
+		if (line_data[i] == '\t') {
+			display_x += tabsize - (display_x % tabsize);
+		} else {
+			display_x++;
+		}
+	}
+	return display_x;
+}
+#endif

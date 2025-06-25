@@ -157,6 +157,7 @@ nano_SOURCES = \
 		prototypes.h \
 		browser.c \
 		chars.c \
+		completion_ui.c \
 		color.c \
 		cut.c \
 		files.c \

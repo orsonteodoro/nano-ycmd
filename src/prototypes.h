@@ -19,6 +19,9 @@
  **************************************************************************/
 
 #include "definitions.h"
+#ifdef ENABLED_YCMD
+#include <ncurses.h>
+#endif
 
 /* All external variables.  See global.c for their descriptions. */
 
@@ -686,3 +689,7 @@ void flip_newbuffer(void);
 #endif
 void discard_buffer(void);
 void do_cancel(void);
+#ifdef ENABLE_YCMD
+void do_insert_string(const char *text);
+int get_current_line_number(const openfilestruct *file);
+#endif
