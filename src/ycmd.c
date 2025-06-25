@@ -3046,9 +3046,12 @@ void ycmd_start_server() {
 		snprintf(idle_suicide_seconds_value, DIGITS_MAX, "%d", IDLE_SUICIDE_SECONDS);
 		snprintf(ycmd_path, PATH_MAX, "%s", YCMD_PATH);
 
-		/* After execl executes, the server will delete the tmpfile. */
+		/* After execl() executes, the server will delete the tmpfile (aka options_file_value). */
 		/* For inspecting for changes:
-		 * python /usr/lib/python3.11/site-packages/ycmd/48/ycmd --port 0 --options_file $(pwd)"/default_settings.json" --idle_suicide_seconds 10800
+		   python /usr/lib/python3.11/site-packages/ycmd/48/ycmd \
+		 	--port 0 \
+			--options_file $(pwd)"/default_settings.json" \
+			--idle_suicide_seconds 10800
 		 */
 		/* The port is obtained with find_unused_localhost_port() or via --with-port=PORT with configure */
 		execl(YCMD_PYTHON_PATH, YCMD_PYTHON_PATH,
