@@ -33,8 +33,8 @@
 
 /* GH line width (hard limit):  147 chars at 1080p */
 /* Mod default (soft limit):  120 chars */
-//2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456 // 147 chars
-//2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789 // 120 chars
+//2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456
+//2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789
 
 char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 	"ClearCompilationFlagCache",
@@ -1880,7 +1880,8 @@ void do_completer_command_fixit(void) {
 										json_is_object(range_start_value)) {
 										/*
 										value =	json_object_get(range_start_value, "filepath");
-										if (value && json_is_string(value)) fcrs_filepath = json_string_value(value);
+										if (value && json_is_string(value))
+											fcrs_filepath =	json_string_value(value);
 										*/
 
 										value = json_object_get(
@@ -1901,7 +1902,8 @@ void do_completer_command_fixit(void) {
 										json_is_object(range_end_value)) {
 										/*
 										value = json_object_get(range_end_value, "filepath");
-										if (value && json_is_string(value)) fcre_filepath = json_string_value(value);
+										if (value && json_is_string(value))
+											fcre_filepath = json_string_value(value);
 										*/
 
 										value = json_object_get(range_end_value, "column_num");
@@ -1956,16 +1958,14 @@ void do_completer_command_fixit(void) {
 							/* nano column num means distance within a tab character. */
 							/* ycmd column num means treat tabs as indivisible. */
 							/* Move cursor to start */
-							goto_line_and_column(fcrs_line_num, 1, FALSE,
-												 FALSE);
+							goto_line_and_column(fcrs_line_num, 1, FALSE, FALSE);
 							/* nano treats current_x as 0 based and linenum as 1 based. */
 							openfile->current_x = fcrs_column_num -	1;
 							do_mark(); /* Flip flag and unset marker. */
 							do_mark(); /* Flip flag and sets marker. */
 
 							/* Move cursor to end */
-							goto_line_and_column(fcre_line_num, 1, FALSE,
-												 FALSE);
+							goto_line_and_column(fcre_line_num, 1, FALSE, FALSE);
 							openfile->current_x = fcre_column_num - 1;
 
 							/* Delete selection */
@@ -2024,8 +2024,7 @@ void _run_completer_command_execute_command_getdoc(char *command) {
 		SET(MULTIBUFFER);
 #endif
 
-		/* do_output doesn't handle \n properly and displays it as ^@ so we do
-		 * it this way. */
+		/* do_output doesn't handle \n properly and displays it as ^@ so we do it this way. */
 		open_buffer(doc_filename, TRUE);
 		prepare_for_display();
 
