@@ -257,6 +257,97 @@ void ycmd_send_to_server(int signum) {
 #include <safe_str_lib.h>
 #endif
 
+
+#define YCM_EXTRA_CONF_PY_LINE_LENGTH 1024
+#define YCM_EXTRA_CONF_PY_NAME_LENGTH 256
+
+/* Whitelist of allowed modules for .ycm_extra_conf.py */
+const char* allowed_imported_modules_for_ycm_extra_conf_py[] = {"sysconfig", "platform", "os", "subprocess"};
+int num_allowed_imported_modules_for_ycm_extra_conf_py = 4;
+
+/* Function to check if a module is in the whitelist */
+int is_module_allowed_for_ycm_extra_conf_py(const char* module_name) {
+	for (int i = 0; i < num_allowed_imported_modules_for_ycm_extra_conf_py; i++) {
+		if (strcmp(module_name, allowed_imported_modules_for_ycm_extra_conf_py[i]) == 0) {
+			return 1; /* Module is allowed */
+		}
+	}
+	return 0; /* Module is not allowed */
+}
+
+/* Function to check a Python script for restricted imports */
+int check_ycm_extra_conf_py_imports(const char* filename) {
+	FILE* file = fopen(filename, "r");
+	if (!file) {
+		printf("Error opening file '%s'\n", filename);
+		return -1;
+	}
+
+	char line[YCM_EXTRA_CONF_PY_LINE_LENGTH];
+	regex_t import_regex;
+	regcomp(&import_regex, "^[[:space:]]*(import|from)[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)", REG_EXTENDED);
+	regex_t from_import_regex;
+	regcomp(&from_import_regex, "^[[:space:]]*from[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]+import", REG_EXTENDED);
+
+	while (fgets(line, sizeof(line), file)) {
+		regex_t match_regex;
+		regmatch_t match[3];
+
+		/* Check for import statements */
+		if (regexec(&import_regex, line, 3, match, 0) == 0) {
+			char module_name[YCM_EXTRA_CONF_PY_NAME_LENGTH];
+			int length = match[2].rm_eo - match[2].rm_so;
+			if (length >= YCM_EXTRA_CONF_PY_NAME_LENGTH) {
+				printf("Error: Module name too long\n");
+				regfree(&import_regex);
+				regfree(&from_import_regex);
+				fclose(file);
+				return -1;
+			}
+			strncpy(module_name, line + match[2].rm_so, length);
+			module_name[length] = '\0';
+
+			/* Check if the module is allowed */
+			if (!is_module_allowed_for_ycm_extra_conf_py(module_name)) {
+				printf("Error: Module '%s' is not allowed\n", module_name);
+				regfree(&import_regex);
+				regfree(&from_import_regex);
+				fclose(file);
+				return -1;
+			}
+		}
+
+		/* Check for from-import statements */
+		if (regexec(&from_import_regex, line, 2, match, 0) == 0) {
+			char module_name[YCM_EXTRA_CONF_PY_NAME_LENGTH];
+			int length = match[1].rm_eo - match[1].rm_so;
+			if (length >= YCM_EXTRA_CONF_PY_NAME_LENGTH) {
+				printf("Error: Module name too long\n");
+				regfree(&import_regex);
+				regfree(&from_import_regex);
+				fclose(file);
+				return -1;
+			}
+			strncpy(module_name, line + match[1].rm_so, length);
+			module_name[length] = '\0';
+
+			/* Check if the module is allowed */
+			if (!is_module_allowed_for_ycm_extra_conf_py(module_name)) {
+				printf("Error: Module '%s' is not allowed\n", module_name);
+				regfree(&import_regex);
+				regfree(&from_import_regex);
+				fclose(file);
+				return -1;
+			}
+		}
+	}
+
+	regfree(&import_regex);
+	regfree(&from_import_regex);
+	fclose(file);
+	return 0; /* No restricted imports found */
+}
+
 /* Function to check for potential ACE (Arbitrary Code Execution) in a Python file. */
 int check_ace(const char* file_path) {
 	FILE* file = fopen(file_path, "r");
@@ -741,15 +832,21 @@ int ycm_generate(void) {
 
 			ret2 = _ycm_inject_clang_includes(language, path_extra_conf);
 
-			/* Check for potential ACE in the Python file */
+			/* Check for potential ACE in the Python file. */
 			if (check_ace(path_extra_conf) != 0) {
-				printf("Error: Potential ACE (Arbitrary Code Execution) detected in '%s'\n", path_extra_conf);
+				debug_log("Error: Potential ACE (Arbitrary Code Execution) detected in '%s'\n", path_extra_conf);
 				return -1;
 			}
 
-			/* Check for obfuscated text in the Python file */
+			/* Check for obfuscated text in the Python file. */
 			if (check_obfuscated_text(path_extra_conf) != 0) {
-				printf("Error: Potential obfuscated text detected in '%s'\n", path_extra_conf);
+				debug_log("Error: Potential obfuscated text detected in '%s'\n", path_extra_conf);
+				return -1;
+			}
+
+			/* Check for ACE check bypass. */
+			if (check_ycm_extra_conf_py_imports(path_extra_conf) != 0) {
+				debug_log("Error: Potential circumvention of ACE (Arbitrary Code Execution) check with untrusted imported module in '%s'\n", path_extra_conf);
 				return -1;
 			}
 
@@ -4273,6 +4370,12 @@ void do_ycm_extra_conf_accept(void) {
 		/* Check for obfuscated text in the Python file */
 		if (check_obfuscated_text(path_extra_conf) != 0) {
 			debug_log("Error: Potential obfuscated text detected in '%s'\n", path_extra_conf);
+			file_safe = 0;
+		}
+
+		/* Check for ACE check bypass. */
+		if (check_ycm_extra_conf_py_imports(path_extra_conf) != 0) {
+			debug_log("Error: Potential circumvention of ACE (Arbitrary Code Execution) check with untrusted imported module in '%s'\n", path_extra_conf);
 			file_safe = 0;
 		}
 
