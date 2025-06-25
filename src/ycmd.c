@@ -372,29 +372,6 @@ int check_ace(const char* file_path) {
 	return 0; /* No potential ACE detected */
 }
 
-int check_ace(const char* file_path) {
-	FILE* file = fopen(file_path, "r");
-	if (!file) {
-		return -1; /* Unable to open file */
-	}
-
-	char line[1024];
-	regex_t ace_regex;
-	regcomp(&ace_regex, "__import__|exec|eval|open\\(|__file__", REG_EXTENDED);
-
-	while (fgets(line, sizeof(line), file)) {
-		if (regexec(&ace_regex, line, 0, NULL, 0) == 0) {
-			regfree(&ace_regex);
-			fclose(file);
-			return 1; // Potential ACE detected
-		}
-	}
-
-	regfree(&ace_regex);
-	fclose(file);
-	return 0; /* No potential ACE detected */
-}
-
 /* Function to check for obfuscated text in a Python file. */
 int check_obfuscated_text(const char* file_path) {
 	FILE* file = fopen(file_path, "r");
