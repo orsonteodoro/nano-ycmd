@@ -322,7 +322,7 @@ fi
 AC_ARG_ENABLE([ycmd-popup],
 	[AS_HELP_STRING([--enable-ycmd-popup], [Enable ycmd popup feature])],
 	[enable_ycmd_popup=$enableval],
-	[enable_ycmd_popup=no])
+	[enable_ycmd_popup=yes])
 
 if test "x$enable_ycmd_popup" = "xyes"; then
 	AC_DEFINE([ENABLE_YCMD_POPUP], [1], [Define to 1 if ycmd popup feature is enabled])
