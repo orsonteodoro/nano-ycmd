@@ -2133,8 +2133,7 @@ void process_a_keystroke_vanilla(void)
 
 	if (!function) {
 #ifdef ENABLE_YCMD
-		char *ui_mode = getenv("NANO_YCMD_UI_MODE");
-		if (strcmp(ui_mode, "popup") != 0) {
+		if (!is_popup_active()) {
 			ualarm(SEND_TO_SERVER_DELAY, 0);
 		}
 #endif
@@ -2216,8 +2215,7 @@ void process_a_keystroke_vanilla(void)
 void process_a_keystroke(void)
 {
 #ifdef ENABLE_YCMD
-	char *ui_mode = getenv("NANO_YCMD_UI_MODE");
-	if (strcmp(ui_mode, "popup") == 0) {
+	if (is_popup_active()) {
 		process_a_keystroke_popup();
 	} else {
 		process_a_keystroke_vanilla();
@@ -3153,6 +3151,7 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ENABLE_YCMD
+	init_completion_ui();
 	ycmd_constructor();
 #endif
 
@@ -3162,8 +3161,6 @@ int main(int argc, char **argv)
 #endif
 
 	we_are_running = TRUE;
-
-	char *ui_mode = getenv("NANO_YCMD_UI_MODE");
 
 	while (TRUE) {
 #ifdef ENABLE_YCMD
@@ -3179,13 +3176,8 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ENABLE_YCMD
-		if (strcmp(ui_mode, "popup") == 0) {
-			if (!is_popup_active())
-				bottombars(MMAIN);
-		} else if (strcmp(ui_mode, "popup") != 0) {
-			if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS && currmenu != MYCMEXTRACONF)
-				bottombars(MMAIN);
-		}
+		if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS && currmenu != MYCMEXTRACONF)
+			bottombars(MMAIN);
 #else
 		if (currmenu != MMAIN)
 			bottombars(MMAIN);

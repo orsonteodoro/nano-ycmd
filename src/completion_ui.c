@@ -71,12 +71,22 @@ void init_completion_ui(void) {
 		} else if (strcmp(ui_mode, "bottom") == 0) {
 			is_popup_mode = false;
 		} else {
+#ifdef ENABLE_YCMD_POPUP
 			debug_log("Unknown NANO_YCMD_UI_MODE=%s, defaulting to popup", ui_mode);
 			is_popup_mode = true;
+#else
+			debug_log("Unknown NANO_YCMD_UI_MODE=%s, defaulting to bottom", ui_mode);
+			is_popup_mode = false;
+#endif
 		}
 	} else {
+#ifdef ENABLE_YCMD_POPUP
 		debug_log("NANO_YCMD_UI_MODE unset, defaulting to popup");
 		is_popup_mode = true;
+#else
+		debug_log("NANO_YCMD_UI_MODE unset, defaulting to bottom");
+		is_popup_mode = false;
+#endif
 	}
 	debug_log("PID=%d, Checking environment", getpid());
 	extern char **environ;

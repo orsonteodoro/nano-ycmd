@@ -3665,8 +3665,7 @@ void full_refresh(void) {
 		wnoutrefresh(midwin);
 	}
 	if (footwin) wnoutrefresh(footwin);
-		char *ui_mode = getenv("NANO_YCMD_UI_MODE");
-	if (strcmp(ui_mode, "popup") == 0 && get_popup()) {
+	if (is_popup_active() && get_popup()) {
 		wnoutrefresh(get_popup());
 	}
 	if (doupdate() == ERR) {

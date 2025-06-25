@@ -387,8 +387,7 @@ void ycmd_constructor() {
 	file_ready_to_parse_results_constructor(
 		&ycmd_globals.file_ready_to_parse_results);
 
-	char *ui_mode = getenv("NANO_YCMD_UI_MODE");
-	if (strcmp(ui_mode, "popup") == 0) {
+	if (is_popup_active()) {
 		struct sigaction sa;
 		sa.sa_handler = ycmd_signal_handler;
 		sigemptyset(&sa.sa_mask);

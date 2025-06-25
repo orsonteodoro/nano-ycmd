@@ -141,8 +141,7 @@ void do_delete(void)
 #endif
 
 #ifdef ENABLE_YCMD
-		char *ui_mode = getenv("NANO_YCMD_UI_MODE");
-		if (strcmp(ui_mode, "popup") != 0) {
+		if (!is_popup_active()) {
 			ualarm(SEND_TO_SERVER_DELAY, 0);
 			debug_log("Scheduled SIGALRM for bottom bar");
 		}
@@ -174,8 +173,7 @@ void do_backspace(void)
 		do_left();
 		expunge(BACK);
 #ifdef ENABLE_YCMD
-		char *ui_mode = getenv("NANO_YCMD_UI_MODE");
-		if (strcmp(ui_mode, "popup") != 0) {
+		if (!is_popup_active()) {
 			ualarm(SEND_TO_SERVER_DELAY, 0);
 			debug_log("Scheduled SIGALRM for bottom bar");
 		}

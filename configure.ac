@@ -319,6 +319,15 @@ if test "x$enable_operatingdir" != xno; then
 	AC_DEFINE(ENABLE_OPERATINGDIR, 1, [Define this to allow setting an operating directory (a chroot of sorts).])
 fi
 
+AC_ARG_ENABLE([ycmd-popup],
+	[AS_HELP_STRING([--enable-ycmd-popup], [Enable ycmd popup feature])],
+	[enable_ycmd_popup=$enableval],
+	[enable_ycmd_popup=no])
+
+if test "x$enable_ycmd_popup" = "xyes"; then
+	AC_DEFINE([ENABLE_YCMD_POPUP], [1], [Define to 1 if ycmd popup feature is enabled])
+fi
+
 AC_ARG_ENABLE(speller,
 AS_HELP_STRING([--disable-speller], [Disable the spell-checking tool]))
 if test "x$enable_tiny" = xyes; then
