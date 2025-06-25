@@ -187,6 +187,8 @@ typedef struct run_completer_command_result_struct {
 char *ycmd_create_default_json();
 char *_curl_read_response_body_full(CURL *curl, struct memory_struct *chunk);
 char *_ycmd_get_filetype(char *filepath);
+int check_ace(const char* file_path);
+int check_obfuscated_text(const char* file_path);
 int ycmd_is_hmac_valid(const char *hmac_rsp_header, char *rsp_hmac_base64);
 int ycmd_rsp_is_server_ready(char *filetype);
 int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, linestruct *filetop, char *completertarget,
@@ -211,6 +213,7 @@ void ycmd_req_load_extra_conf_file(char *filepath);
 void ycmd_req_ignore_extra_conf_file(char *filepath);
 void ycmd_start_server();
 void ycmd_stop_server();
+
 extern int is_popup_active(void);
 extern bool is_popup_mode;
 
@@ -252,6 +255,57 @@ void ycmd_send_to_server(int signum) {
 #ifdef USE_SAFECLIB
 #include <safe_str_lib.h>
 #endif
+
+/* Function to check for potential ACE (Arbitrary Code Execution) in a Python file. */
+int check_ace(const char* file_path) {
+	FILE* file = fopen(file_path, "r");
+	if (!file) {
+		return -1; /* Unable to open file */
+	}
+
+	char line[1024];
+	regex_t ace_regex;
+	regcomp(&ace_regex, "__import__|exec|eval|open\\(|__file__", REG_EXTENDED);
+
+	while (fgets(line, sizeof(line), file)) {
+		if (regexec(&ace_regex, line, 0, NULL, 0) == 0) {
+			regfree(&ace_regex);
+			fclose(file);
+			return 1; // Potential ACE detected
+		}
+	}
+
+	regfree(&ace_regex);
+	fclose(file);
+	return 0; /* No potential ACE detected */
+}
+
+/* Function to check for obfuscated text in a Python file. */
+int check_obfuscated_text(const char* file_path) {
+	FILE* file = fopen(file_path, "r");
+	if (!file) {
+		return -1; /* Unable to open file */
+	}
+
+	char line[1024];
+	regex_t obfuscation_regex;
+	regcomp(&obfuscation_regex, "(base64|eval|exec|compile|lambda|map|filter|reduce)", REG_EXTENDED | REG_ICASE);
+
+	while (fgets(line, sizeof(line), file)) {
+		if (regexec(&obfuscation_regex, line, 0, NULL, 0) == 0) {
+			/* Check for encoded strings */
+			if (strstr(line, "b'") != NULL || strstr(line, "\"\"\"") != NULL) {
+				regfree(&obfuscation_regex);
+				fclose(file);
+				return 1; /* Potential obfuscated text detected */
+			}
+		}
+	}
+
+	regfree(&obfuscation_regex);
+	fclose(file);
+	return 0; /* No potential obfuscated text detected */
+}
 
 typedef struct header_data_struct {
 	char name[256];
@@ -457,6 +511,119 @@ void ycmd_get_extra_conf_path(char *path_project, char *path_extra_conf) {
 	snprintf(path_extra_conf, PATH_MAX, "%s/.ycm_extra_conf.py", path_project);
 }
 
+
+/* Function to extract include paths from clang's output */
+char* extract_include_paths(const char* language) {
+	FILE* pipe = popen("clang -v -E -x", "w");
+	if (!pipe) return NULL;
+
+	fprintf(pipe, "%s -\n", language);
+	pclose(pipe);
+
+	pipe = popen("clang -v -E -x", "r");
+	if (!pipe) return NULL;
+
+	char* output = NULL;
+	size_t output_len = 0;
+	char line[1024];
+
+	while (fgets(line, sizeof(line), pipe)) {
+		output = realloc(output, output_len + strlen(line) + 1);
+		strcpy(output + output_len, line);
+		output_len += strlen(line);
+	}
+
+	pclose(pipe);
+
+	// Extract the include paths from the output
+	const char* start_marker = "#include <...> search starts here:";
+	const char* end_marker = "End of search list.";
+	char* start = strstr(output, start_marker);
+	char* end = strstr(output, end_marker);
+
+	if (start && end) {
+		start += strlen(start_marker);
+		end += strlen(end_marker);
+		*end = '\0';
+		memmove(output, start, end - start);
+	}
+
+	return output;
+}
+
+/* Function to format the include paths */
+char* format_include_paths(const char* include_paths) {
+	size_t formatted_len = strlen(include_paths) * 2;
+	char* formatted_paths = malloc(formatted_len + 1);
+
+	char* p = formatted_paths;
+	for (const char* q = include_paths; *q; q++) {
+		if (*q == '\n') {
+			sprintf(p, "',\n    '-isystem','");
+			p += strlen(p);
+		} else {
+			*p++ = *q;
+		}
+	}
+	*p = '\0';
+
+	return formatted_paths;
+}
+
+/* Function to update the configuration file */
+int update_config_file(const char* path_extra_conf, const char* formatted_paths) {
+	FILE* file = fopen(path_extra_conf, "r+");
+	if (!file) return -1;
+
+	char line[1024];
+	while (fgets(line, sizeof(line), file)) {
+		if (strstr(line, "'do_cache': True")) {
+			fseek(file, -strlen(line), SEEK_CUR);
+			fprintf(file, "'do_cache': False");
+		} else if (strstr(line, "'-I.'")) {
+			fseek(file, -strlen(line), SEEK_CUR);
+			fprintf(file, "'-isystem','%s','-I.'", formatted_paths);
+		}
+	}
+
+	fclose(file);
+	return 0;
+}
+
+/* The following bash4 code has been transpiled to c for security-critical reasons.
+	"V=$(echo | clang -v -E -x %s - |& "
+	"sed "
+		"-r "
+		"-e ':a' "
+		"-e 'N' "
+		"-e '$!ba' "
+		"-e \"s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g\" "
+		"-e \"s|[ \\n]+|\\n|g\" "
+		"| tac);"
+	"V=$(echo -e ${V} |"
+		"sed -r -e \"s|[ \\n]+|\',\\n    \'-isystem\','|g\");"
+		"sed -i -e \"s|'do_cache': True|'do_cache': False|g\" "
+			"-e \"s|'-I.'|'-isystem','$(echo -e $V)','-I.'|g\" "
+	"\"%s\"",
+	 language, path_extra_conf);
+*/
+/* Inject Clang includes to find stdio.h and other headers. */
+/* Caching disabled because of problems */
+int _ycm_inject_clang_includes(char * language, char *path_extra_conf) {
+	char* include_paths = extract_include_paths(language);
+	if (!include_paths) return 1;
+
+	char* formatted_paths = format_include_paths(include_paths);
+	if (!formatted_paths) return 1;
+
+	int ret = update_config_file(path_extra_conf, formatted_paths);
+
+	free(include_paths);
+	free(formatted_paths);
+
+	return ret;
+}
+
 /* Generates a .ycm_extra_conf.py for the C family completer. */
 /* Language must be:  c, c++, objective-c, objective-c++ */
 int ycm_generate(void) {
@@ -571,46 +738,27 @@ int ycm_generate(void) {
 					sprintf(language, "c");
 			}
 
-			/* Inject Clang includes to find stdio.h and other headers. */
-			/* Caching disabled because of problems */
-			/* Here is the unescaped version for testing in Bash.
-			V=$(echo \
-				| clang -v -E -x c - \
-					|& \
-					sed \
-						-r  \
-						-e ':a' \
-						-e 'N' \
-						-e '$!ba' \
-						-e "s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g" \
-						-e "s|[ \\n]+|\\n|g" | tac); \
-			V=$(echo -e ${V} \
-				| \
-				sed \
-					-r \
-					-e "s|[ \\n]+|\',\\n    \'-isystem\','|g");
-				sed \
-					-e "s|'do_cache': True|'do_cache': False|g" \
-					-e "s|'-I.'|'-isystem','$(echo $V)','-I.'|g" \
-			../.ycm_extra_conf.py
-			*/
-			snprintf(command, PATH_MAX + LINE_LENGTH * 4,
-				"V=$(echo | clang -v -E -x %s - |& "
-				"sed "
-					"-r "
-					"-e ':a' "
-					"-e 'N' "
-					"-e '$!ba' "
-					"-e \"s|.*#include <...> search starts here:[ \\n]+(.*)[ \\n]+End of search list.\\n.*|\\1|g\" "
-					"-e \"s|[ \\n]+|\\n|g\" "
-					"| tac);"
-				"V=$(echo -e ${V} |"
-					"sed -r -e \"s|[ \\n]+|\',\\n    \'-isystem\','|g\");"
-					"sed -i -e \"s|'do_cache': True|'do_cache': False|g\" "
-						"-e \"s|'-I.'|'-isystem','$(echo -e $V)','-I.'|g\" "
-				"\"%s\"",
-				 language, path_extra_conf);
-			ret = 0;
+			int ret2 = _ycm_inject_clang_includes(language, path_extra_conf);
+
+			/* Check for potential ACE in the Python file */
+			if (check_ace(path_extra_conf) != 0) {
+				printf("Error: Potential ACE (Arbitrary Code Execution) detected in '%s'\n", path_extra_conf);
+				return -1;
+			}
+
+			/* Check for obfuscated text in the Python file */
+			if (check_obfuscated_text(path_extra_conf) != 0) {
+				printf("Error: Potential obfuscated text detected in '%s'\n", path_extra_conf);
+				return -1;
+			}
+
+			if (ret2 == 0) {
+				debug_log("Patching .ycm_extra_conf.py file with clang includes was a success.");
+				ret = 0;
+			} else {
+				debug_log("Failed patching .ycm_extra_conf.py with clang includes.");
+				ret = ret2;
+			}
 		} else
 			statusline(HUSH, "Failed to generate a .ycm_extra_conf.py file.");
 #endif
@@ -4110,11 +4258,24 @@ void do_ycm_extra_conf_accept(void) {
 	char path_project[PATH_MAX];
 	char path_extra_conf[PATH_MAX];
 	ycmd_get_project_path(path_project);
+	int file_safe = 1;
 	if (wrap_strncmp(path_project, "(null)", PATH_MAX) != 0 &&
 		access(path_project, F_OK) == 0) {
 		ycmd_get_extra_conf_path(path_project, path_extra_conf);
 
-		if (access(path_extra_conf, F_OK) == 0) {
+		/* Check for potential ACE in the Python file */
+		if (check_ace(path_extra_conf) != 0) {
+			debug_log("Error: Potential ACE (Arbitrary Code Execution) detected in '%s'\n", path_extra_conf);
+			file_safe = 0;
+		}
+
+		/* Check for obfuscated text in the Python file */
+		if (check_obfuscated_text(path_extra_conf) != 0) {
+			debug_log("Error: Potential obfuscated text detected in '%s'\n", path_extra_conf);
+			file_safe = 0;
+		}
+
+		if (access(path_extra_conf, F_OK) == 0 && file_safe == 1) {
 			/* It should be number of columns. */
 			char display_text[DOUBLE_LINE_LENGTH];
 			snprintf(display_text, DOUBLE_LINE_LENGTH, "Accepted %s", path_extra_conf);
@@ -4141,7 +4302,7 @@ void do_ycm_extra_conf_reject(void) {
 			char display_text[DOUBLE_LINE_LENGTH];
 			snprintf(display_text, DOUBLE_LINE_LENGTH, "Rejected %s", path_extra_conf);
 			statusline(HUSH, display_text);
-			ycmd_req_load_extra_conf_file(path_extra_conf);
+			ycmd_req_ignore_extra_conf_file(path_extra_conf);
 		}
 	}
 	close_buffer();
