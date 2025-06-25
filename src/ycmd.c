@@ -529,7 +529,7 @@ int ycm_generate(void) {
 			int has_cxx_code = -1;
 
 #ifdef ENABLE_YCM_GENERATOR
-			debug_log("%s", path_project);
+			debug_log("path_project = %s", path_project);
 			snprintf(command, PATH_MAX + LINE_LENGTH, "find '%s' -name '*.mm'", path_project);
 			has_objcxx = system(command);
 			snprintf(command, PATH_MAX + LINE_LENGTH, "find '%s' -name '*.m'", path_project);
@@ -1289,7 +1289,7 @@ char *_curl_read_response_body_fullB(CURL *curl, struct memory_struct *chunk) {
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
 	debug_log("chunk->memory = %s", chunk->memory);
 	if (response_code != HTTP_OK) {
-		debug_log("Error detected.  response_code = %ld", __func__, response_code);
+		debug_log("Error detected.  response_code = %ld", response_code);
 		/* Handle invalid status code */
 		wrap_free((void **)&chunk->memory);
 		return NULL;
@@ -1467,8 +1467,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 							debug_log("No valid completions array");
 						}
 					} else {
-						debug_log("json_loads failed: %s",
-							 error.text);
+						debug_log("json_loads failed: %s", error.text);
 					}
 				}
 			} else if (event == YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_REQUEST_COMPLETIONS) {
@@ -2007,7 +2006,7 @@ void _run_completer_command_execute_command_getdoc(char *command) {
 		struct passwd *pw = getpwuid(getuid());
 		char cache_dir[PATH_MAX];
 		sprintf(cache_dir, "%s/.cache/nano-ycmd", pw->pw_dir);
-		debug_log("cache_dir = %s", __func__, cache_dir);
+		debug_log("cache_dir = %s", cache_dir);
 		mkdir(cache_dir, 0700); /* Create the cache directory if it doesn't exist */
 
 #pragma GCC diagnostic push
@@ -2427,7 +2426,7 @@ int ycmd_rsp_is_healthy(int include_subservers) {
 		sprintf(req_buffer, "include_subservers=0");
 	}
 	sprintf(url, "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
-	debug_log("url = %s", __func__, url);
+	debug_log("url = %s", url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_CUSTOMREQUEST, "GET");
