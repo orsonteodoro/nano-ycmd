@@ -19,6 +19,9 @@
  *                                                                        *
  **************************************************************************/
 
+#ifdef ENABLE_YCMD
+#include "debug.h"
+#endif
 #include "prototypes.h"
 
 #include <errno.h>
@@ -529,9 +532,7 @@ size_t number_of_characters_in(const linestruct *begin, const linestruct *end)
 /* Return the 1-based line number of openfile->current relative to filetop. */
 int get_current_line_number(const openfilestruct *file)
 {
-#ifdef DEBUG
-	fprintf(stderr, "DEBUG:  Called %s\n", __func__);
-#endif
+	debug_log("Called function");
 	if (!file || !file->filetop || !file->current) {
 		return 1; /* Fallback */
 	}
@@ -543,6 +544,7 @@ int get_current_line_number(const openfilestruct *file)
 }
 
 int logical_to_display_x(const char *line_data, int logical_x, int tabsize) {
+	debug_log("Called function");
 	if (!line_data) return logical_x;
 	int display_x = 0;
 	for (int i = 0; i < logical_x && line_data[i]; i++) {

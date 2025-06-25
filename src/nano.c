@@ -51,8 +51,9 @@
 #include <ncurses.h>
 #include <signal.h>
 #include "completion_ui.h"
+#include "debug.h"
 #include "nano.h"
-//#include "safe_wrapper.h"
+/* #include "safe_wrapper.h" */
 #include "ycmd.h"
 #endif
 
@@ -1447,23 +1448,17 @@ void confirm_margin(void)
 /* Say that an unbound key was struck, and if possible which one. */
 void unbound_key(int code)
 {
-    char msg[256];
-fprintf(stderr, "YCMD:  DEBUG 0\n");
 #ifdef ENABLE_YCMD
-    if (code == 0x1B && is_popup_active()) {
-        snprintf(msg, sizeof(msg), "unbound_key: Skipping ESC (0x1B), popup_active=%d\n", is_popup_active());
-        fprintf(stderr, msg);
-        return;
-    }
+	if (code == 0x1B && is_popup_active()) {
+		debug_log("Skipping ESC (0x1B), popup_active=%d", is_popup_active());
+		return;
+	}
 #endif
 
-fprintf(stderr, "YCMD:  DEBUG A\n");
-   if (code < 0x20) {
-fprintf(stderr, "YCMD:  DEBUG A1 \n");
-        snprintf(msg, sizeof(msg), "unbound_key: Processing code=0x%x\n", code);
-        fprintf(stderr, msg);
-        statusline(AHEM, _("Unbound key: %s%c"), "^", code + 0x40);
-   }
+	if (code < 0x20) {
+		debug_log("Processing code=0x%x", code);
+		statusline(AHEM, _("Unbound key: %s%c"), "^", code + 0x40);
+	}
 
 	if (code == FOREIGN_SEQUENCE)
 		/* TRANSLATORS: This refers to a sequence of escape codes
@@ -1495,10 +1490,8 @@ fprintf(stderr, "YCMD:  DEBUG A1 \n");
 #endif
 			statusline(AHEM, _("Unbound key: %s%c"), "M-", toupper(code));
 	} else if (code == ESC_CODE) {
-fprintf(stderr, "YCMD:  DEBUG B\n");
 		statusline(AHEM, _("Unbindable key: ^["));
 	} else if (code < 0x20) {
-fprintf(stderr, "YCMD:  DEBUG C\n");
 		statusline(AHEM, _("Unbound key: %s%c"), "^", code + 0x40);
 #if defined(ENABLE_BROWSER) || defined (ENABLE_HELP)
 	} else
@@ -1745,20 +1738,18 @@ void inject(char *burst, size_t count)
 
 /* Calculate y-coordinate of current line relative to edittop */
 int get_current_y(const openfilestruct *file) {
-    int y = 0;
-    linestruct *line = file->edittop;
-    while (line && line != file->current && y < LINES) {
-        line = line->next;
-        y++;
-    }
-    if (line != file->current) {
-        y = 0;
-    }
-    char msg[256];
-    snprintf(msg, sizeof(msg), "get_current_y: y=%d, current=%p, edittop=%p", 
-             y, (void *)file->current, (void *)file->edittop);
-    fprintf(stderr, msg);
-    return y;
+	int y = 0;
+	linestruct *line = file->edittop;
+	while (line && line != file->current && y < LINES) {
+		line = line->next;
+		y++;
+	}
+	if (line != file->current) {
+		y = 0;
+	}
+	debug_log("y=%d, current=%p, edittop=%p",
+		y, (void *)file->current, (void *)file->edittop);
+	return y;
 }
 
 /* Read in a keystroke, and execute its command or insert it into the buffer. */
@@ -1766,309 +1757,296 @@ int get_current_y(const openfilestruct *file) {
 /* Note: The popup code was developed with assistance from Grok. */
 void process_a_keystroke_popup(void)
 {
-    char msg[256];
-    int input;
-    static char *puddle = NULL;
-    static size_t capacity = 12;
-    static size_t depth = 0;
+	int input;
+	static char *puddle = NULL;
+	static size_t capacity = 12;
+	static size_t depth = 0;
 #ifndef NANO_TINY
-    linestruct *was_mark = openfile->mark;
+	linestruct *was_mark = openfile->mark;
 #endif
-    static bool give_a_hint = TRUE;
-    const keystruct *shortcut;
-    functionptrtype function = NULL;
-    static bool just_closed_popup = FALSE;
+	static bool give_a_hint = TRUE;
+	const keystruct *shortcut;
+	functionptrtype function = NULL;
+	static bool just_closed_popup = FALSE;
 
-    snprintf(msg, sizeof(msg), "process_a_keystroke: Before get_kbinput, popup_active=%d, ycmd_handling=%d, is_popup_mode=%d\n",
-             is_popup_active(), ycmd_handling, is_popup_mode);
-    fprintf(stderr, "%s\n", msg);
+	debug_log("Before get_kbinput, popup_active=%d, ycmd_handling=%d, is_popup_mode=%d",
+		is_popup_active(), ycmd_handling, is_popup_mode);
 
-    WINDOW *frame = is_popup_active() ? get_popup() : midwin;
-    if (frame == NULL) {
-        snprintf(msg, sizeof(msg), "process_a_keystroke: Invalid frame, popup_active=%d\n", is_popup_active());
-        fprintf(stderr, "%s\n", msg);
-        hide_completions();
-        ycmd_handling = FALSE;
-        is_popup_mode = FALSE;
-        refresh_needed = TRUE;
-        just_closed_popup = TRUE;
-        full_refresh();
-        return;
-    }
+	WINDOW *frame = is_popup_active() ? get_popup() : midwin;
+	if (frame == NULL) {
+		debug_log("Invalid frame, popup_active=%d", is_popup_active());
+		hide_completions();
+		ycmd_handling = FALSE;
+		is_popup_mode = FALSE;
+		refresh_needed = TRUE;
+		just_closed_popup = TRUE;
+		full_refresh();
+		return;
+	}
 
-    input = get_kbinput(frame, !is_popup_active());
-    snprintf(msg, sizeof(msg), "process_a_keystroke: input=0x%x (%c), popup_active=%d, frame=%p, is_popup_mode=%d\n",
-             input, (input >= 0x20 && input <= 0x7E) ? input : '.', is_popup_active(), (void *)frame, is_popup_mode);
-    fprintf(stderr, "%s\n", msg);
+	input = get_kbinput(frame, !is_popup_active());
+	debug_log("input=0x%x (%c), popup_active=%d, frame=%p, is_popup_mode=%d",
+		input, (input >= 0x20 && input <= 0x7E) ? input : '.', is_popup_active(), (void *)frame, is_popup_mode);
 
-    if (input == KEY_RESIZE) {
-        snprintf(msg, sizeof(msg), "process_a_keystroke: Handling KEY_RESIZE, updating popup\n");
-        fprintf(stderr, "%s\n", msg);
-        if (is_popup_active()) {
-            // Reposition popup
-            int max_y, max_x;
-            getmaxyx(stdscr, max_y, max_x);
-            int screen_y, screen_x;
-            getyx(midwin, screen_y, screen_x);
-            int popup_height = MIN(json_array_size(active_completions), max_popup_height) + 2;
-            int popup_width = max_popup_width;
-            popup_start_y = (screen_y + 1 < max_y - popup_height ? screen_y + 1 : max_y - popup_height);
-            popup_start_x = (screen_x + popup_width < max_x ? screen_x : max_x - popup_width);
-            if (popup_start_y < 0) popup_start_y = 0;
-            if (popup_start_x < 0) popup_start_x = 0;
-            if (popup) {
-                mvwin(popup, popup_start_y, popup_start_x);
-                redraw_popup(active_completions, 0, 0);
-            }
-        }
-        refresh_needed = TRUE;
-        edit_redraw(openfile->current, CENTERING);
-        full_refresh();
-        return;
-    }
+	if (input == KEY_RESIZE) {
+		debug_log("Handling KEY_RESIZE, updating popup");
+		if (is_popup_active()) {
+			/* Reposition popup */
+			int max_y, max_x;
+			getmaxyx(stdscr, max_y, max_x);
+			int screen_y, screen_x;
+			getyx(midwin, screen_y, screen_x);
+			int popup_height = MIN(json_array_size(active_completions), max_popup_height) + 2;
+			int popup_width = max_popup_width;
+			popup_start_y = (screen_y + 1 < max_y - popup_height ? screen_y + 1 : max_y - popup_height);
+			popup_start_x = (screen_x + popup_width < max_x ? screen_x : max_x - popup_width);
+			if (popup_start_y < 0) popup_start_y = 0;
+			if (popup_start_x < 0) popup_start_x = 0;
+			if (popup) {
+				mvwin(popup, popup_start_y, popup_start_x);
+				redraw_popup(active_completions, 0, 0);
+			}
+		}
+		refresh_needed = TRUE;
+		edit_redraw(openfile->current, CENTERING);
+		full_refresh();
+		return;
+	}
 
-    if (is_popup_active()) {
-        if (input == ERR) {
-            snprintf(msg, sizeof(msg), "process_a_keystroke: Ignoring ERR input for popup\n");
-            fprintf(stderr, "%s\n", msg);
-            return;
-        }
+	if (is_popup_active()) {
+		if (input == ERR) {
+			debug_log("Ignoring ERR input for popup");
+			return;
+		}
 
-        char *completion_text = NULL;
-        handle_completion_input(input, &completion_text);
-        if (completion_text) {
-            snprintf(msg, sizeof(msg), "process_a_keystroke: Inserting completion_text=%s, current_x=%zu\n",
-                     completion_text, openfile->current_x);
-            fprintf(stderr, "%s\n", msg);
-            size_t original_x = openfile->current_x;
-            int word_start = ycmd_globals.apply_column > 0 ? ycmd_globals.apply_column - 1 : openfile->current_x;
-            char *line_data = openfile->current->data ? openfile->current->data : "";
-            if (word_start < 0 || word_start > (int)strlen(line_data)) {
-                word_start = original_x;
-                while (word_start > 0 && (isalnum(line_data[word_start - 1]) || line_data[word_start - 1] == '_' || line_data[word_start - 1] == '.')) {
-                    word_start--;
-                }
-            }
-            int length_to_delete = original_x - word_start;
-            if (length_to_delete > 0) {
-                char *new_data = malloc(strlen(line_data) - length_to_delete + strlen(completion_text) + 1);
-                if (!new_data) {
-                    snprintf(msg, sizeof(msg), "process_a_keystroke: Memory allocation failed\n");
-                    fprintf(stderr, "%s\n", msg);
-                    free(completion_text);
-                    return;
-                }
-                strncpy(new_data, line_data, word_start);
-                strcpy(new_data + word_start, completion_text);
-                strcpy(new_data + word_start + strlen(completion_text), line_data + original_x);
-                free(openfile->current->data);
-                openfile->current->data = new_data;
-                openfile->current_x = word_start + strlen(completion_text);
-            } else {
-                do_insert_string(completion_text);
-                openfile->current_x = original_x + strlen(completion_text);
-            }
-            free(completion_text);
-            just_closed_popup = TRUE;
-            refresh_needed = TRUE;
-            edit_redraw(openfile->current, CENTERING);
-            full_refresh();
-        } else if (input == KEY_UP || input == KEY_DOWN || input == KEY_LEFT || input == KEY_RIGHT) {
-            refresh_needed = FALSE;
-            full_refresh();
-            snprintf(msg, sizeof(msg), "process_a_keystroke: Handled navigation input=0x%x\n", input);
-            fprintf(stderr, "%s\n", msg);
-            return;
-        }
+		char *completion_text = NULL;
+		handle_completion_input(input, &completion_text);
+		if (completion_text) {
+			debug_log("Inserting completion_text=%s, current_x=%zu",
+				completion_text, openfile->current_x);
+			size_t original_x = openfile->current_x;
+			int word_start = ycmd_globals.apply_column > 0 ? ycmd_globals.apply_column - 1 : openfile->current_x;
+			char *line_data = openfile->current->data ? openfile->current->data : "";
+			if (word_start < 0 || word_start > (int)strlen(line_data)) {
+				word_start = original_x;
+				while (word_start > 0 && (isalnum(line_data[word_start - 1]) || line_data[word_start - 1] == '_' || line_data[word_start - 1] == '.')) {
+				word_start--;
+			}
+		}
+		int length_to_delete = original_x - word_start;
+		if (length_to_delete > 0) {
+			char *new_data = malloc(strlen(line_data) - length_to_delete + strlen(completion_text) + 1);
+			if (!new_data) {
+				debug_log("Memory allocation failed");
+				free(completion_text);
+				return;
+			}
+			strncpy(new_data, line_data, word_start);
+			strcpy(new_data + word_start, completion_text);
+			strcpy(new_data + word_start + strlen(completion_text), line_data + original_x);
+			free(openfile->current->data);
+			openfile->current->data = new_data;
+			openfile->current_x = word_start + strlen(completion_text);
+			} else {
+				do_insert_string(completion_text);
+				openfile->current_x = original_x + strlen(completion_text);
+			}
+			free(completion_text);
+			just_closed_popup = TRUE;
+			refresh_needed = TRUE;
+			edit_redraw(openfile->current, CENTERING);
+			full_refresh();
+		} else if (input == KEY_UP || input == KEY_DOWN || input == KEY_LEFT || input == KEY_RIGHT) {
+			refresh_needed = FALSE;
+			full_refresh();
+			debug_log("Handled navigation input=0x%x", input);
+			return;
+		}
 
-        if (!is_popup_active()) {
-            just_closed_popup = TRUE;
-            ycmd_handling = FALSE;
-            is_popup_mode = FALSE;
-            refresh_needed = TRUE;
-            edit_redraw(openfile->current, CENTERING);
-            full_refresh();
-            flushinp();
-        }
-        return;
-    }
+		if (!is_popup_active()) {
+			just_closed_popup = TRUE;
+			ycmd_handling = FALSE;
+			is_popup_mode = FALSE;
+			refresh_needed = TRUE;
+			edit_redraw(openfile->current, CENTERING);
+			full_refresh();
+			flushinp();
+		}
+		return;
+	}
 
-    if (just_closed_popup && input == 0x0A) {
-        snprintf(msg, sizeof(msg), "process_a_keystroke: Skipped Enter (0x0A) after popup closure\n");
-        fprintf(stderr, "%s\n", msg);
-        just_closed_popup = FALSE;
-        flushinp();
-        return;
-    }
-    just_closed_popup = FALSE;
+	if (just_closed_popup && input == 0x0A) {
+		debug_log("Skipped Enter (0x0A) after popup closure");
+		just_closed_popup = FALSE;
+		flushinp();
+		return;
+	}
+	just_closed_popup = FALSE;
 
-    if (input == 0x00) { // Ctrl+Space
-        snprintf(msg, sizeof(msg), "process_a_keystroke: Ctrl+Space start, is_popup_mode=%d\n", is_popup_mode);
-        fprintf(stderr, "%s\n", msg);
+	if (input == 0x00) { /* Ctrl+Space */
+		debug_log("Ctrl+Space start, is_popup_mode=%d", is_popup_mode);
 
-        hide_completions();
-        if (is_popup_active()) {
-            snprintf(msg, sizeof(msg), "process_a_keystroke: hide_completions failed\n");
-            fprintf(stderr, "%s\n", msg);
-            full_refresh();
-            return;
-        }
+		hide_completions();
+		if (is_popup_active()) {
+			debug_log("hide_completions failed");
+			full_refresh();
+			return;
+		}
 
-        if (!openfile || !openfile->filename) {
-            statusline(ALERT, "No file open for completions");
-            full_refresh();
-            return;
-        }
+		if (!openfile || !openfile->filename) {
+			statusline(ALERT, "No file open for completions");
+			full_refresh();
+			return;
+		}
 
-        ycmd_filename = openfile->filename;
-        ycmd_line_num = get_current_line_number(openfile);
-        ycmd_column_num = openfile->current_x + 1;
-        ycmd_filetop = openfile->filetop;
+		ycmd_filename = openfile->filename;
+		ycmd_line_num = get_current_line_number(openfile);
+		ycmd_column_num = openfile->current_x + 1;
+		ycmd_filetop = openfile->filetop;
 
-        json_t *completions = request_completions(
-            ycmd_filename,
-            ycmd_line_num,
-            ycmd_column_num,
-            ycmd_filetop,
-            YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_REQUEST_COMPLETIONS);
+		json_t *completions = request_completions(
+			ycmd_filename,
+			ycmd_line_num,
+			ycmd_column_num,
+			ycmd_filetop,
+			YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_REQUEST_COMPLETIONS);
 
-        if (completions && json_is_array(completions) && json_array_size(completions) > 0) {
-            int screen_y, screen_x;
-            getyx(midwin, screen_y, screen_x);
-            show_completions(completions, screen_y, screen_x);
-            if (get_popup()) {
-                keypad(get_popup(), TRUE);
-                is_popup_mode = TRUE;
-                ycmd_handling = TRUE;
-                full_refresh();
-            } else {
-                json_decref(completions);
-                statusline(ALERT, "Failed to create completion popup");
-                full_refresh();
-            }
-        } else {
-            if (completions) json_decref(completions);
-            statusline(ALERT, "No completions available");
-            full_refresh();
-        }
-        snprintf(msg, sizeof(msg), "process_a_keystroke: Ctrl+Space end, is_popup_mode=%d\n", is_popup_mode);
-        fprintf(stderr, "%s\n", msg);
-        return;
-    }
+		if (completions && json_is_array(completions) && json_array_size(completions) > 0) {
+			int screen_y, screen_x;
+			getyx(midwin, screen_y, screen_x);
+			show_completions(completions, screen_y, screen_x);
+			if (get_popup()) {
+				keypad(get_popup(), TRUE);
+				is_popup_mode = TRUE;
+				ycmd_handling = TRUE;
+				full_refresh();
+			} else {
+				json_decref(completions);
+				statusline(ALERT, "Failed to create completion popup");
+				full_refresh();
+			}
+		} else {
+			if (completions) json_decref(completions);
+			statusline(ALERT, "No completions available");
+			full_refresh();
+		}
+		debug_log("Ctrl+Space end, is_popup_mode=%d", is_popup_mode);
+		return;
+	}
 
-    // Handle other inputs as in vanilla mode
-    shortcut = get_shortcut(input);
-    function = (shortcut ? shortcut->func : NULL);
+	/* Handle other inputs as in vanilla mode */
+	shortcut = get_shortcut(input);
+	function = (shortcut ? shortcut->func : NULL);
 
-    if (!function) {
-        if (input >= 0x20 && input <= 0x7E) {
-            char ch[2] = {(char)input, '\0'};
-            do_insert_string(ch);
-            refresh_needed = TRUE;
-            edit_redraw(openfile->current, CENTERING);
-            full_refresh();
-            pletion_line = NULL;
-            keep_cutbuffer = FALSE;
-            return;
-        }
-        if (input < 0x20 || input > 0xFF || meta_key)
-            unbound_key(input);
-        else if (ISSET(VIEW_MODE))
-            print_view_warning();
-        else {
+	if (!function) {
+		if (input >= 0x20 && input <= 0x7E) {
+			char ch[2] = {(char)input, '\0'};
+			do_insert_string(ch);
+			refresh_needed = TRUE;
+			edit_redraw(openfile->current, CENTERING);
+			full_refresh();
+			pletion_line = NULL;
+			keep_cutbuffer = FALSE;
+			return;
+		}
+		if (input < 0x20 || input > 0xFF || meta_key)
+			unbound_key(input);
+		else if (ISSET(VIEW_MODE))
+			print_view_warning();
+		else {
 #ifndef NANO_TINY
-            if (openfile->mark && openfile->softmark) {
-                openfile->mark = NULL;
-                refresh_needed = TRUE;
-            }
+			if (openfile->mark && openfile->softmark) {
+				openfile->mark = NULL;
+				refresh_needed = TRUE;
+			}
 #endif
-            if (depth + 1 == capacity) {
-                capacity = 2 * capacity;
-                puddle = nrealloc(puddle, capacity);
-            } else if (!puddle)
-                puddle = nmalloc(capacity);
-            puddle[depth++] = (char)input;
-        }
-    }
+			if (depth + 1 == capacity) {
+				capacity = 2 * capacity;
+				puddle = nrealloc(puddle, capacity);
+			} else if (!puddle)
+				puddle = nmalloc(capacity);
+			puddle[depth++] = (char)input;
+		}
+	}
 
-    if (depth > 0 && (function || waiting_keycodes() == 0)) {
-        puddle[depth] = '\0';
-        inject(puddle, depth);
-        depth = 0;
-    }
+	if (depth > 0 && (function || waiting_keycodes() == 0)) {
+		puddle[depth] = '\0';
+		inject(puddle, depth);
+		depth = 0;
+	}
 
 #ifndef NANO_TINY
-    if (function != do_cycle)
-        cycling_aim = 0;
+		if (function != do_cycle)
+			cycling_aim = 0;
 #endif
 
-    if (!function) {
-        pletion_line = NULL;
-        keep_cutbuffer = FALSE;
-        return;
-    }
+	if (!function) {
+		pletion_line = NULL;
+		keep_cutbuffer = FALSE;
+		return;
+	}
 
-    if (ISSET(VIEW_MODE) && changes_something(function)) {
-        print_view_warning();
-        return;
-    }
+	if (ISSET(VIEW_MODE) && changes_something(function)) {
+		print_view_warning();
+		return;
+	}
 
-    if (input == '\b' && give_a_hint && openfile->current_x == 0 &&
-        openfile->current == openfile->filetop && !ISSET(NO_HELP)) {
-        statusbar(_("^W = Ctrl+W    M-W = Alt+W"));
-        give_a_hint = FALSE;
-    } else if (meta_key)
-        give_a_hint = FALSE;
+	if (input == '\b' && give_a_hint && openfile->current_x == 0 &&
+		openfile->current == openfile->filetop && !ISSET(NO_HELP)) {
+		statusbar(_("^W = Ctrl+W    M-W = Alt+W"));
+		give_a_hint = FALSE;
+	} else if (meta_key)
+		give_a_hint = FALSE;
 
-    if (function != cut_text && function != copy_text) {
+	if (function != cut_text && function != copy_text) {
 #ifndef NANO_TINY
-        if (function != zap_text)
+		if (function != zap_text)
 #endif
-            keep_cutbuffer = FALSE;
-    }
+			keep_cutbuffer = FALSE;
+	}
 
 #ifdef ENABLE_WORDCOMPLETION
-    if (function != complete_a_word)
-        pletion_line = NULL;
+	if (function != complete_a_word)
+		pletion_line = NULL;
 #endif
 #ifdef ENABLE_NANORC
-    if (function == (functionptrtype)implant) {
-        implant(shortcut->expansion);
-        return;
-    }
+	if (function == (functionptrtype)implant) {
+		implant(shortcut->expansion);
+		return;
+	}
 #endif
 #ifndef NANO_TINY
-    if (function == do_toggle) {
-        toggle_this(shortcut->toggle);
-        if (shortcut->toggle == CUT_FROM_CURSOR)
-            keep_cutbuffer = FALSE;
-        return;
-    }
+	if (function == do_toggle) {
+		toggle_this(shortcut->toggle);
+		if (shortcut->toggle == CUT_FROM_CURSOR)
+			keep_cutbuffer = FALSE;
+		return;
+	}
 
-    linestruct *was_current = openfile->current;
-    size_t was_x = openfile->current_x;
+	linestruct *was_current = openfile->current;
+	size_t was_x = openfile->current_x;
 
-    if (shift_held && !openfile->mark) {
-        openfile->mark = openfile->current;
-        openfile->mark_x = openfile->current_x;
-        openfile->softmark = TRUE;
-    }
+	if (shift_held && !openfile->mark) {
+		openfile->mark = openfile->current;
+		openfile->mark_x = openfile->current_x;
+		openfile->softmark = TRUE;
+	}
 #endif
 
-    function();
+	function();
 
 #ifndef NANO_TINY
-    if (openfile->mark && openfile->softmark && !shift_held &&
-        (openfile->current != was_current ||
-         openfile->current_x != was_x ||
-         wanted_to_move(function))) {
-        openfile->mark = NULL;
-        refresh_needed = TRUE;
-    } else if (openfile->current != was_current)
-        also_the_last = FALSE;
+	if (openfile->mark && openfile->softmark && !shift_held &&
+		(openfile->current != was_current ||
+		openfile->current_x != was_x ||
+		wanted_to_move(function))) {
+		openfile->mark = NULL;
+		refresh_needed = TRUE;
+	} else if (openfile->current != was_current)
+		also_the_last = FALSE;
 
-    if (ISSET(STATEFLAGS) && openfile->mark != was_mark)
-        titlebar(NULL);
+	if (ISSET(STATEFLAGS) && openfile->mark != was_mark)
+		titlebar(NULL);
 #endif
 }
 #endif
@@ -3189,14 +3167,8 @@ int main(int argc, char **argv)
 
 	while (TRUE) {
 #ifdef ENABLE_YCMD
-    char msg[256];
-    snprintf(msg, sizeof(msg), "main: Before checks, popup_active=%d, ycmd_handling=%d, refresh_needed=%d\n",
-             is_popup_active(), ycmd_handling, refresh_needed);
-    fprintf(stderr, msg);
-
-
-
-
+		debug_log("Before checks, popup_active=%d, ycmd_handling=%d, refresh_needed=%d",
+			is_popup_active(), ycmd_handling, refresh_needed);
 #endif
 #ifdef ENABLE_LINENUMBERS
 		confirm_margin();
@@ -3256,17 +3228,12 @@ int main(int argc, char **argv)
 			}
 			if (is_popup_active()) {
 				wnoutrefresh(get_popup());
-				snprintf(msg, sizeof(msg), "main: Refreshed popup\n");
-				fprintf(stderr, msg);
+				debug_log("Refreshed popup");
 			}
 			doupdate();
 			continue;
 		}
 		place_the_cursor();
-
-
-
-
 #else
 		if ((refresh_needed && LINES > 1) || (LINES == 1 && lastmessage <= HUSH))
 			edit_refresh();
@@ -3300,9 +3267,8 @@ int main(int argc, char **argv)
 
 #ifdef ENABLE_YCMD
 		process_a_keystroke();
-		snprintf(msg, sizeof(msg), "main: After process_a_keystroke, popup_active=%d, ycmd_handling=%d\n",
+		debug_log("After process_a_keystroke, popup_active=%d, ycmd_handling=%d",
 			is_popup_active(), ycmd_handling);
-		fprintf(stderr, msg);
 #else
 		/* Read in and interpret a single keystroke. */
 		process_a_keystroke();

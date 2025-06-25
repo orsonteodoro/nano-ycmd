@@ -24,11 +24,12 @@
 
 #include <string.h>
 #ifdef ENABLE_YCMD
+#include "debug.h"
+#include "nano.h"
+#include "ycmd.h"
 #include <signal.h>
 #include <pthread.h>
 #include <unistd.h>
-#include "nano.h"
-#include "ycmd.h"
 extern bool is_popup_mode;
 #endif
 
@@ -139,20 +140,15 @@ void do_delete(void)
 			expunge(DEL);
 #endif
 
-
 #ifdef ENABLE_YCMD
-	char *ui_mode = getenv("NANO_YCMD_UI_MODE");
-        if (strcmp(ui_mode, "popup") != 0) {
-            char msg[256];
-            ualarm(SEND_TO_SERVER_DELAY, 0);
-            snprintf(msg, sizeof(msg), "do_delete: Scheduled SIGALRM for bottom bar\n");
-            fprintf(stderr, "%s\n", msg);
-        }
-        refresh_needed = TRUE;
-        edit_redraw(openfile->current, CENTERING);
+		char *ui_mode = getenv("NANO_YCMD_UI_MODE");
+		if (strcmp(ui_mode, "popup") != 0) {
+			ualarm(SEND_TO_SERVER_DELAY, 0);
+			debug_log("Scheduled SIGALRM for bottom bar");
+		}
+		refresh_needed = TRUE;
+		edit_redraw(openfile->current, CENTERING);
 #endif
-
-
 	}
 }
 
@@ -180,10 +176,8 @@ void do_backspace(void)
 #ifdef ENABLE_YCMD
 		char *ui_mode = getenv("NANO_YCMD_UI_MODE");
 		if (strcmp(ui_mode, "popup") != 0) {
-			char msg[256];
 			ualarm(SEND_TO_SERVER_DELAY, 0);
-			snprintf(msg, sizeof(msg), "do_backspace: Scheduled SIGALRM for bottom bar\n");
-			fprintf(stderr, "%s\n", msg);
+			debug_log("Scheduled SIGALRM for bottom bar");
 		}
 		refresh_needed = TRUE;
 		edit_redraw(openfile->current, CENTERING);

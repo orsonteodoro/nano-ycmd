@@ -43,6 +43,7 @@
  * Grok 3 made the fixed compatibility wrapper classes for wrap_vsnprintf, wrap_strncat.
  */
 
+#include "debug.h"
 #include "safe_wrapper.h"
 #include "prototypes.h"
 #include <limits.h>
@@ -55,16 +56,16 @@
 #include <string.h>
 #include <unistd.h>
 
-#define MAX_FILESIZE_LIMIT ( 10 * 1024 * 1024 ) /* 10 MB limit for ycmd requests. */
-#define DEFAULT_JSON_SIZE (PATH_MAX * 16 + 44 * 10 + 80 * 50) /* 69976 */
+#define MAX_FILESIZE_LIMIT ( 10 * 1024 * 1024 )			/* 10 MB limit for ycmd requests. */
+#define DEFAULT_JSON_SIZE (PATH_MAX * 16 + 44 * 10 + 80 * 50)	/* 69976 */
 
 #if defined(__GLIBC__) && __GLIBC_PREREQ(2, 25)
-# define HAVE_EXPLICIT_BZERO 1
+#define HAVE_EXPLICIT_BZERO 1
 #elif defined(__has_builtin)
-# if __has_builtin(__builtin_memset_explicit)
-#  define explicit_bzero(p, l) __builtin_memset_explicit((p), 0, (l))
-#  define HAVE_EXPLICIT_BZERO 1
-# endif
+#if __has_builtin(__builtin_memset_explicit)
+#define explicit_bzero(p, l) __builtin_memset_explicit((p), 0, (l))
+#define HAVE_EXPLICIT_BZERO 1
+#endif
 #endif
 
 #if !defined(HAVE_EXPLICIT_BZERO)
@@ -133,9 +134,6 @@ char *wrap_strncpy(char *dest, const char *src, size_t n) {
 }
 
 size_t get_smax(void) {
-#ifdef DEBUG
-	char msg[256];
-#endif
 	static size_t smax = 0;
 	if (smax == 0) {
 		/* Adjustable buffer overflow limiter. */
@@ -143,10 +141,7 @@ size_t get_smax(void) {
 		size_t max_limit = 10485760; /* 10 MB */
 #ifdef NANO_YCMD_MAX_SMAX
 		if (NANO_YCMD_MAX_SMAX < max_limit) {
-#ifdef DEBUG
-			snprintf(msg, sizeof(msg), "%s:  RSIZE_MAX_STR=%zu is less than 10 MB. Large files may be truncated.", __func__, NANO_YCMD_MAX_SMAX);
-			fprintf(stderr, msg);
-#endif
+			debug_log("RSIZE_MAX_STR=%zu is less than 10 MB. Large files may be truncated.", NANO_YCMD_MAX_SMAX);
 			max_limit = NANO_YCMD_MAX_SMAX;
 		}
 #endif
@@ -156,56 +151,37 @@ size_t get_smax(void) {
 			if (*endptr == '\0' && val >= 1024 && val <= max_limit) {
 				smax = val;
 			} else {
-#ifdef DEBUG
-				snprintf(msg, sizeof(msg), "Invalid NANO_YCMD_SMAX (must be 1 KB to %zu bytes), using default 1 MB", max_limit);
-				fprintf(stderr, msg);
-#endif
+				debug_log("Invalid NANO_YCMD_SMAX (must be 1 KB to %zu bytes), using default 1 MB", max_limit);
 				smax = 1048576; /* 1 MB default */
 			}
 		} else {
 			smax = 1048576; /* 1MB default */
 		}
-#ifdef DEBUG
-		snprintf(msg, sizeof(msg), "%s:  smax set to %zu bytes. Large values may slow down nano.", __func__, smax);
-		fprintf(stderr, msg);
-#endif
+		debug_log("smax is set to %zu bytes. Large values may slow down nano.", smax);
 	}
 	return smax;
 }
 
 char *wrap_strcpy(char *dest, const char *src) {
-#ifdef DEBUG
-	char msg[256];
-#endif
 	if (!dest || !src) {
-#ifdef DEBUG
-		fprintf(stderr, "%s: null input", __func__);
-#endif
+		debug_log("null input");
 		return NULL;
 	}
 	size_t smax = get_smax();
 	size_t src_len = strnlen(src, smax);
 	if (src_len == 0 || src_len >= smax) {
-#ifdef DEBUG
-		snprintf(msg, sizeof(msg), "%s: source string invalid or exceeds smax (%zu)", __func__, smax);
-		fprintf(stderr, msg);
-#endif
+		debug_log("source string invalid or exceeds smax (%zu)", smax);
 		return NULL;
 	}
 #ifdef USE_SAFECLIB
 	errno_t err = strcpy_s(dest, src_len + 1, src);
 	if (err != 0) {
-#ifdef DEBUG
-		snprintf_s(msg, sizeof(msg), "%s: strcpy_s failed with error %d", __func__, err);
-		fprintf(stderr, msg);
-#endif
+		debug_log("strcpy_s failed with error %d", err);
 		return NULL;
 	}
 #else
 	if (strlcpy(dest, src, src_len + 1) >= src_len + 1) {
-#ifdef DEBUG
-		fprintf(stderr, "%s: strlcpy truncated", __func__);
-#endif
+		debug_log("strlcpy truncated");
 		return NULL;
 	}
 #endif
@@ -216,9 +192,7 @@ void *wrap_memcpy(void *dest, const void *src, size_t n) {
 #ifdef USE_SAFECLIB
 	errno_t err = memcpy_s(dest, n, src, n);
 	if (err != EOK) {
-#ifdef DEBUG
-		fprintf(stderr, "%s:  Error:  %s\n", __func__, strerror(err));
-#endif
+		debug_log("Error:  %s", strerror(err));
 	}
 	return dest;
 #else
@@ -243,24 +217,16 @@ int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 		int res = vsnprintf_s(dummy, sizeof(dummy), format, ap_copy);
 		va_end(ap_copy);
 		if (res < 0) {
-#ifdef DEBUG
-			fprintf(stderr, "%s: vsnprintf_s failed in dummy case (res=%d)\n", __func__, res);
+			debug_log("vsnprintf_s failed in dummy case (res=%d)", res);
 			return -1;
-#endif
 		}
 		if (res >= DUMMY_BUFFER_SIZE) {
-#ifdef DEBUG
-			fprintf(stderr, "%s: Warning: Format string may exceed %d bytes (res=%d)\n",
-				__func__, DUMMY_BUFFER_SIZE, res);
-#endif
+			debug_log("Warning:  Format string may exceed %d bytes (res=%d)", DUMMY_BUFFER_SIZE, res);
 		}
 		return res;
 	}
 	if (size > DEFAULT_JSON_SIZE) {
-#ifdef DEBUG
-		fprintf(stderr, "%s: size capped (input=%zu, max=%d)\n",
-			__func__, size, DEFAULT_JSON_SIZE);
-#endif
+		debug_log("size capped (input=%zu, max=%d)", size, DEFAULT_JSON_SIZE);
 		size = DEFAULT_JSON_SIZE;
 	}
 	int res = vsnprintf_s(str, size, format, ap);
@@ -281,10 +247,7 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	/* There is an inconsistency in the safeclib implementation.  So rewrite. */
 	/* Validate inputs */
 	if (dest == NULL || src == NULL || n == 0) {
-#ifdef DEBUG
-		fprintf(stderr, "%s: Invalid input (dest=%p, src=%p, n=%zu)\n",
-			__func__, (void *)dest, (void *)src, n);
-#endif
+		debug_log("Invalid input (dest=%p, src=%p, n=%zu)", (void *)dest, (void *)src, n);
 		return NULL;
 	}
 
@@ -293,12 +256,9 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	 * functions to break.  It is assumed that safeclib is built with
 	 * >= 128K strmax. */
 	if (n > DEFAULT_JSON_SIZE) {
-#ifdef DEBUG
 		/*
-		fprintf(stderr, "%s: n capped (input=%zu, max=%d)\n",
-			__func__, n, DEFAULT_JSON_SIZE);
+		debug_log("n capped (input=%zu, max=%d)", n, DEFAULT_JSON_SIZE);
 		*/
-#endif
 		n = DEFAULT_JSON_SIZE;
 	}
 
@@ -306,10 +266,7 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	dest[n - 1] = '\0';
 	size_t dest_len = strnlen_s(dest, n);
 	if (dest_len >= n - 1) {
-#ifdef DEBUG
-		fprintf(stderr, "%s: No space in dest (dest_len=%zu, n=%zu)\n",
-			__func__, dest_len, n);
-#endif
+		debug_log("No space in dest (dest_len=%zu, n=%zu)", dest_len, n);
 		return NULL;
 	}
 
@@ -320,20 +277,14 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	}
 	size_t src_len = strnlen_s(src, max_src_len);
 	if (src_len >= max_src_len && (src_len < n && src[src_len] != '\0')) {
-#ifdef DEBUG
-		fprintf(stderr, "%s: src too long (src_len=%zu, max_src_len=%zu)\n",
-			__func__, src_len, max_src_len);
-#endif
+		debug_log("src too long (src_len=%zu, max_src_len=%zu)", src_len, max_src_len);
 		return NULL;
 	}
 
 	/* Concatenate */
 	errno_t res = strncat_s(dest, n, src, RSIZE_MAX_STR);
 	if (res != 0) {
-#ifdef DEBUG
-		fprintf(stderr, "%s: strncat_s failed (res=%d, n=%zu, src_len=%zu)\n",
-			__func__, res, n, src_len);
-#endif
+		debug_log("strncat_s failed (res=%d, n=%zu, src_len=%zu)", res, n, src_len);
 		return NULL;
 	}
 
@@ -487,41 +438,28 @@ char *wrap_strstr(const char *haystack, const char *needle) {
 }
 
 size_t wrap_strlen(const char *s) {
-#ifdef DEBUG
-	char msg[256];
-#endif
 	if (!s) {
-#ifdef DEBUG
-		fprintf(stderr, "%s: null input", __func__);
-#endif
+		debug_log("null input");
 		return 0;
 	}
 	size_t smax = get_smax();
 #ifdef USE_SAFECLIB
 	/* Validate input for file contents (allow control chars) */
-	for (size_t i = 0; i < smax; i++) { // Reasonable limit
+	for (size_t i = 0; i < smax; i++) { /* Reasonable limit */
 		if (s[i] == '\0') break;
 		unsigned char c = (unsigned char)s[i];
 		/* Exclude only NUL (0x00) */
 		if (c == 0) {
-#ifdef DEBUG
-			snprintf(msg, sizeof(msg), "%s: invalid character 0x%02x at index %zu", __func__, c, i);
-			fprintf(stderr, msg);
-#endif
+			debug_log("Invalid character 0x%02x at index %zu", c, i);
 			return 0;
 		}
 	}
 	rsize_t len = strnlen_s(s, smax);
 	if (len == 0 && s[0] != '\0') {
-#ifdef DEBUG
-//		snprintf(msg, sizeof(msg), "%s: strnlen_s failed for input (first 32 chars): '%.32s'", __func__, s);
-//		fprintf(stderr, msg);
-#endif
+		/* debug_log("strnlen_s failed for input (first 32 chars): '%.32s'", s); */
 		size_t fallback_len = strlen(s); /* glibc fallback */
 		if (fallback_len >= smax) {
-#ifdef DEBUG
-			fprintf(stderr, "%s: string exceeds 10 MB", __func__);
-#endif
+			debug_log("String s exceeds 10 MB");
 			return 0;
 		}
 		return fallback_len;
@@ -529,9 +467,7 @@ size_t wrap_strlen(const char *s) {
 #else
 	size_t len = strlen(s);
 	if (len >= smax) {
-#ifdef DEBUG
-		fprintf(stderr, "%s: string exceeds 10 MB", __func__);
-#endif
+		debug_log("String s exceeds 10 MB");
 		return 0;
 	}
 #endif
@@ -539,13 +475,8 @@ size_t wrap_strlen(const char *s) {
 }
 
 size_t wrap_strnlen(const char *s, size_t maxlen) {
-#ifdef DEBUG
-	char msg[256];
-#endif
 	if (!s) {
-#ifdef DEBUG
-		fprintf(stderr, "%s: null input", __func__);
-#endif
+		debug_log("Null input for s");
 		return 0;
 	}
 	size_t smax = get_smax();
@@ -553,10 +484,7 @@ size_t wrap_strnlen(const char *s, size_t maxlen) {
 #ifdef USE_SAFECLIB
 	rsize_t len = strnlen_s(s, effective_max);
 	if (len == 0 && s[0] != '\0') {
-#ifdef DEBUG
-//		snprintf(msg, sizeof(msg), "%s: strnlen_s failed for input (first 32 chars): '%.32s'", __func__, s);
-//		fprintf(stderr, msg);
-#endif
+		/* debug_log("strnlen_s failed for input (first 32 chars): '%.32s'", s); */
 		return 0;
 	}
 #else

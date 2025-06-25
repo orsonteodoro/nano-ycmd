@@ -21,6 +21,9 @@
  *                                                                        *
  **************************************************************************/
 
+#ifdef ENABLE_YCMD
+#include "debug.h"
+#endif
 #include "prototypes.h"
 
 #ifdef ENABLE_NANORC
@@ -786,7 +789,7 @@ void parse_binding(char *ptr, bool dobind)
 
 #ifdef ENABLE_YCMD
 	if (ycmd_handling && keycode >= 0x20 && keycode <= 0x7E) {
-		fprintf(stderr, "parse_binding: Skipping ASCII key 0x%x due to ycmd_handling\n", keycode);
+		debug_log("Skipping ASCII key 0x%x due to ycmd_handling", keycode);
 		return;
 	}
 #endif

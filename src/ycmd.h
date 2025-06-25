@@ -21,7 +21,6 @@
  *                                                                        *
  **************************************************************************/
 
-
 #ifndef YCMD_H
 #define YCMD_H
 
@@ -33,10 +32,10 @@
 /* Buffer sizes */
 #define QUARTER_LINE_LENGTH 20
 #define HALF_LINE_LENGTH 40
-#define LINE_LENGTH 80 /* Approximate for 800x600, 8pt */
+#define LINE_LENGTH 80				/* Approximate for 800x600, 8pt */
 #define DOUBLE_LINE_LENGTH 160
-#define TRIPLE_LINE_LENGTH 240 /* Approximate for 1040p, 8pt */
-#define LINES_PER_PAGE 66 /* Approximate for 1080P 8pt */
+#define TRIPLE_LINE_LENGTH 240			/* Approximate for 1040p, 8pt */
+#define LINES_PER_PAGE 66			/* Approximate for 1080P 8pt */
 
 #define DEFAULT_JSON_FILETYPE_SPECIFIC_COMPLETION_TO_DISABLE_MAX 200	/* Arbitrary, not in spec */
 #define DEFAULT_JSON_FILETYPE_WHITELIST_MAX 200				/* Arbitrary, not in spec */
@@ -49,7 +48,7 @@
 #define CSPRNG_CHACHA20_NONCE_SIZE 8
 #define DIGITS_MAX 11							/* It includes the NULL character. */
 #define HTTP_HEADER_YCM_HMAC "X-Ycm-Hmac"
-#define HMAC_SIZE 256/8							/* 32 bytes */
+#define HMAC_SIZE 256 / 8						/* 32 bytes */
 #define SECRET_KEY_LENGTH 16
 #define IDLE_SUICIDE_SECONDS 10800					/* 3 Hours */
 #define SEND_TO_SERVER_DELAY 500000
@@ -59,12 +58,12 @@
 #define DEFAULT_YCMD_CORE_VERSION 48
 #endif
 /* size = path strings + whitelist strings + blacklist strings + integer strings */
-#define DEFAULT_JSON_SIZE ( PATH_MAX * 16 + 44 * 10 + 80 * 50 )
+#define DEFAULT_JSON_SIZE (PATH_MAX * 16 + 44 * 10 + 80 * 50)
 
 /* Max file supported (_MEMFILE_MAX) */
 /* https://github.com/ycm-core/ycmd/blob/master/ycmd/web_plumbing.py#L29 */
 /* < 10 MiB */
-#define MAX_FILESIZE_LIMIT ( 10 * 1024 * 1024 )
+#define MAX_FILESIZE_LIMIT (10 * 1024 * 1024)
 
 /* See also https://github.com/ycm-core/YouCompleteMe/blob/4654e1bf7001128195ae7692c35fe91b4024d632/doc/youcompleteme.txt#L3118 */
 typedef struct filetype_specific_completion_to_disable_struct {
@@ -99,9 +98,9 @@ typedef struct default_settings_struct {
 	int min_num_of_chars_for_completion;
 	int min_num_identifier_candidate_chars;
 	semantic_triggers_struct semantic_triggers[DEFAULT_JSON_SEMANTIC_TRIGGERS_MAX];
-	int semantic_triggers_num;										/* Metadata, not in spec */
+	int semantic_triggers_num; /* Metadata, not in spec */
 	filetype_specific_completion_to_disable_struct filetype_specific_completion_to_disable[DEFAULT_JSON_FILETYPE_SPECIFIC_COMPLETION_TO_DISABLE_MAX];
-	int filetype_specific_completion_to_disable_num;							/* Metadata, not in spec */
+	int filetype_specific_completion_to_disable_num; /* Metadata, not in spec */
 	int seed_identifiers_with_syntax;
 	int collect_identifiers_from_comments_and_strings;
 	int collect_identifiers_from_tags_files;
@@ -109,21 +108,21 @@ typedef struct default_settings_struct {
 	int max_num_candidates;
 	int max_num_candidates_to_detail;
 	extra_conf_globlist_struct extra_conf_globlist[DEFAULT_JSON_EXTRA_CONF_GLOBLIST_MAX];
-	int extra_conf_globlist_num;										/* Metadata, not in spec */
+	int extra_conf_globlist_num; /* Metadata, not in spec */
 	char global_ycm_extra_conf[PATH_MAX];
 	int confirm_extra_conf;
 	int complete_in_comments;
 	int complete_in_strings;
 	int max_diagnostics_to_display;
 	filetype_whitelist_struct filetype_whitelist[DEFAULT_JSON_FILETYPE_WHITELIST_MAX];
-	int filetype_whitelist_num;										/* Metadata, not in spec */
+	int filetype_whitelist_num; /* Metadata, not in spec */
 	filetype_blacklist_struct filetype_blacklist[DEFAULT_JSON_FILETYPE_BLACKLIST_MAX];
-	int filetype_blacklist_num;										/* Metadata, not in spec */
+	int filetype_blacklist_num; /* Metadata, not in spec */
 	int auto_start_csharp_server;
 	int auto_stop_csharp_server;
 	int use_ultisnips_completer;
 	int csharp_server_port;
-	char hmac_secret[SECRET_KEY_LENGTH * 2 + 1];								/* As base64 encoded */
+	char hmac_secret[SECRET_KEY_LENGTH * 2 + 1]; /* As base64 encoded */
 	int server_keep_logfiles;
 	char gocode_binary_path[PATH_MAX]; /* PATH_MAX includes null */
 	char godef_binary_path[PATH_MAX];
@@ -150,8 +149,7 @@ typedef struct default_settings_struct {
 	char java_binary_path[PATH_MAX];
 } default_settings_struct;
 
-typedef struct file_ready_to_parse_results_struct
-{
+typedef struct file_ready_to_parse_results_struct {
 	int usable;
 	char *json; /* Diagnostic data for FileReadyToParse */
 	long response_code;
@@ -240,5 +238,5 @@ extern void do_n_entries(void);
 
 #include <jansson.h>
 #include <stdbool.h>
-json_t *request_completions(const char *filename, int line, int column, linestruct *filetop, int event);
+json_t *request_completions(const char *filename, int line, int column,	linestruct *filetop, int event);
 #endif

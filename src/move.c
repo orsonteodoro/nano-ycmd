@@ -19,6 +19,9 @@
  *                                                                        *
  **************************************************************************/
 
+#ifdef ENABLE_YCMD
+#include "debug.h"
+#endif
 #include "prototypes.h"
 
 #include <string.h>
@@ -571,39 +574,35 @@ void do_end(void)
 
 #ifdef ENABLE_YCMD
 void do_up(void) {
-    char msg[256];
-    linestruct *old_current = openfile->current;
-    size_t old_x = openfile->current_x;
+	linestruct *old_current = openfile->current;
+	size_t old_x = openfile->current_x;
 
-    if (openfile->current != openfile->filetop) {
-        openfile->current = openfile->current->prev;
-        openfile->current_x = actual_x(openfile->current->data, openfile->placewewant);
-        snprintf(msg, sizeof(msg), "do_up: Moved to line %zu, x=%zu\n",
-                 openfile->current->lineno, openfile->current_x);
-        fprintf(stderr, msg);
-    }
+	if (openfile->current != openfile->filetop) {
+		openfile->current = openfile->current->prev;
+		openfile->current_x = actual_x(openfile->current->data, openfile->placewewant);
+		debug_log("Moved to line %zu, x=%zu",
+			openfile->current->lineno, openfile->current_x);
+	}
 
-    adjust_viewport(CENTERING);
-    refresh_needed = TRUE;
-    edit_redraw(old_current, CENTERING);
+	adjust_viewport(CENTERING);
+	refresh_needed = TRUE;
+	edit_redraw(old_current, CENTERING);
 }
 
 void do_down(void) {
-    char msg[256];
-    linestruct *old_current = openfile->current;
-    size_t old_x = openfile->current_x;
+	linestruct *old_current = openfile->current;
+	size_t old_x = openfile->current_x;
 
-    if (openfile->current != openfile->filebot) {
-        openfile->current = openfile->current->next;
-        openfile->current_x = actual_x(openfile->current->data, openfile->placewewant);
-        snprintf(msg, sizeof(msg), "do_down: Moved to line %zu, x=%zu\n",
-                 openfile->current->lineno, openfile->current_x);
-        fprintf(stderr, msg);
-    }
+	if (openfile->current != openfile->filebot) {
+		openfile->current = openfile->current->next;
+		openfile->current_x = actual_x(openfile->current->data, openfile->placewewant);
+		debug_log("Moved to line %zu, x=%zu",
+			openfile->current->lineno, openfile->current_x);
+	}
 
-    adjust_viewport(CENTERING);
-    refresh_needed = TRUE;
-    edit_redraw(old_current, CENTERING);
+	adjust_viewport(CENTERING);
+	refresh_needed = TRUE;
+	edit_redraw(old_current, CENTERING);
 }
 #else
 /* Move the cursor to the preceding line or chunk. */
