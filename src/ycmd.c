@@ -151,6 +151,7 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 #include <ctype.h>
 #include <limits.h>
 #include <pthread.h>
+#include <regex.h>
 
 /* Notes:
  *
