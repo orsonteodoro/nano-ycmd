@@ -19,6 +19,12 @@
  *                                                                        *
  **************************************************************************/
 
+/* get_kbinput() logs everything so information disclosure possible. */
+#ifdef DEBUG
+#warning "You are enabling with debug.  This will lower security or add an information disclosure vulnerability." \
+        "Do not use --enable-debug in production.  --enable-debug is for developers only."
+#endif
+
 #include "prototypes.h"
 #include "revision.h"
 #ifdef ENABLE_YCMD
