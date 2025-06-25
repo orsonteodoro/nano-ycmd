@@ -70,8 +70,7 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
 #include <openssl/rand.h>
 #define CRYPTO_LIB "OPENSSL"
 #else
-#error                                                                         \
-	"You must choose a cryptographic library to use ycmd code completion support.  Currently Libgcrypt, Nettle, OpenSSL 3.x are supported."
+#error "You must choose a cryptographic library to use ycmd code completion support.  Currently Libgcrypt, Nettle, OpenSSL 3.x are supported."
 #endif
 
 /*
@@ -881,7 +880,20 @@ void ycmd_gen_extra_conf() {
 	else
 		return;
 
-	snprintf(command, PATH_MAX + DOUBLE_LINE_LENGTH, "find '%s' -name '*.mm' -o -name '*.m' -o -name '*.cpp' -o -name '*.C' -o -name '*.cxx' -o -name '*.c' -o -name '*.hpp' -o -name '*.h' -o -name '*.cc' -o -name '*.hh' >/dev/null", path_project);
+	snprintf(command, PATH_MAX + DOUBLE_LINE_LENGTH,
+		"find '%s' "
+			   "-name '*.C' "
+			"-o -name '*.c' "
+			"-o -name '*.cc' "
+			"-o -name '*.cpp' "
+			"-o -name '*.cxx' "
+			"-o -name '*.h' "
+			"-o -name '*.hh' "
+			"-o -name '*.hpp' "
+			"-o -name '*.m' "
+			"-o -name '*.mm' "
+			">/dev/null",
+		path_project);
 	int ret = system(command);
 
 	if (ret == 0) {
@@ -3488,12 +3500,10 @@ size_t ycmd_escape_json(char *unescaped, char *escaped) {
 			/* C escape sequences */
 			*(escaped + j) = '\\';
 #if __BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__
-			uint64_t chars = 0x7266766e7462; /* 0x72 = r, 0x66 = f, 0x76 = v,
-												0x6e = n, 0x74 = t, 0x62 = b */
+			uint64_t chars = 0x7266766e7462; /* 0x72 = r, 0x66 = f, 0x76 = v, 0x6e = n, 0x74 = t, 0x62 = b */
 #elif __BYTE_ORDER__ == __ORDER_BIG_ENDIAN__
 			uint64_t chars =
-				0x62746e76667272; /* 0x62 = b, 0x74 = t, 0x6e = n, 0x76 = v,
-									 0x66 = f, 0x72 = r, 0x72 = r */
+				0x62746e76667272; /* 0x62 = b, 0x74 = t, 0x6e = n, 0x76 = v, 0x66 = f, 0x72 = r, 0x72 = r */
 #endif
 			char val = (chars >> YCMD_ESCAPE_JSON_SHIFT_AMOUNT(c)) & 0xff;
 			*(escaped + j + 1) = val;
