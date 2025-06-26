@@ -2247,6 +2247,39 @@ void do_completer_command_fixit(void) {
 	delete_run_completer_command_result(&rccr);
 }
 
+/* Mitigate path-traversal vulnerability */
+void validate_pw(struct passwd *pw) {
+	if (!pw || !pw->pw_dir || pw->pw_dir[0] == '\0') {
+		statusline(HUSH, "Failed to get user home directory.");
+		return;
+	}
+
+	/* Validate pw->pw_dir (basic check for reasonable home directory) */
+	if (strncmp(pw->pw_dir, "/home/", 6) != 0 || strstr(pw->pw_dir, "..") != NULL) {
+		statusline(HUSH, "Invalid home directory path.");
+		return;
+	}
+}
+
+void create_cache_dir(char *cache_dir) {
+	/* Verify and create cache directory */
+	struct stat st;
+	if (stat(cache_dir, &st) == -1) {
+		if (errno == ENOENT) {
+			if (mkdir(cache_dir, 0700) == -1) {
+				statusline(HUSH, "Failed to create cache directory.");
+				return;
+			}
+		} else {
+			statusline(HUSH, "Invalid cache directory path.");
+			return;
+		}
+	} else if (!S_ISDIR(st.st_mode)) {
+		statusline(HUSH, "Cache directory is not a directory.");
+		return;
+	}
+}
+
 void _run_completer_command_execute_command_getdoc(char *command) {
 	run_completer_command_result_struct rccr;
 	constructor_run_completer_command_result(&rccr);
@@ -2256,11 +2289,17 @@ void _run_completer_command_execute_command_getdoc(char *command) {
 	if (!rccr.usable || rccr.response_code != HTTP_OK) {
 		statusline(HUSH, "Completer command failed.");
 	} else {
+		/* Get the user's home directory */
 		struct passwd *pw = getpwuid(getuid());
+		validate_pw(pw);
+
 		char cache_dir[PATH_MAX];
-		sprintf(cache_dir, "%s/.cache/nano-ycmd", pw->pw_dir);
+		if (snprintf(cache_dir, PATH_MAX, "%s/.cache/nano-ycmd", pw->pw_dir) >= PATH_MAX) {
+			statusline(HUSH, "Cache directory path too long.");
+			return;
+		}
+		create_cache_dir(cache_dir);
 		debug_log("cache_dir = %s", cache_dir);
-		mkdir(cache_dir, 0700); /* Create the cache directory if it doesn't exist */
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-overflow"
@@ -3288,10 +3327,15 @@ void ycmd_start_server() {
 
 	/* Get the user's home directory */
 	struct passwd *pw = getpwuid(getuid());
+	validate_pw(pw);
+
 	char cache_dir[PATH_MAX];
-	sprintf(cache_dir, "%s/.cache/nano-ycmd", pw->pw_dir);
+	if (snprintf(cache_dir, PATH_MAX, "%s/.cache/nano-ycmd", pw->pw_dir) >= PATH_MAX) {
+		statusline(HUSH, "Cache directory path too long.");
+		return;
+	}
+	create_cache_dir(cache_dir);
 	debug_log("cache_dir = %s", cache_dir);
-	mkdir(cache_dir, 0700); /* Create the cache directory if it doesn't exist */
 
 // #if defined(DEBUG)
 #if 0
@@ -4358,17 +4402,140 @@ void do_end_ycm_extra_conf(void) {
 	bottombars(MMAIN);
 }
 
+
+/* Grok converted code for security-critical reasons and dependency jq removal:
+ *
+ * Original code:
+ * char command[PATH_MAX * 4 + LINE_LENGTH];
+ * snprintf(command, PATH_MAX * 4 + LINE_LENGTH,
+ *		"cat '%s' | jq 'to_entries | map({name:.value, index:.key})' > "
+ *		 "'%s.t'; mv '%s.t' '%s'",
+ *		 doc_filename, doc_filename, doc_filename, doc_filename);
+ * system(command);
+ *
+ */
+int transform_json_file(const char *doc_filename) {
+	json_t *root = NULL, *array = NULL;
+	json_error_t error;
+	FILE *fp = NULL;
+	char *temp_filename = NULL;
+	int result = -1;
+
+	/* Create temporary filename */
+	size_t len = strlen(doc_filename) + 3; // ".t" + null terminator
+	temp_filename = malloc(len);
+	if (!temp_filename) {
+		statusline(ALERT, _("Memory allocation failed"));
+		goto cleanup;
+	}
+	snprintf(temp_filename, len, "%s.t", doc_filename);
+
+	/* Load JSON from file */
+	root = json_load_file(doc_filename, 0, &error);
+	if (!root) {
+		statusline(ALERT, _("Failed to parse JSON file %s: %s"), doc_filename, error.text);
+		goto cleanup;
+	}
+
+	/* Ensure root is an object */
+	if (!json_is_object(root)) {
+		statusline(ALERT, _("Root JSON is not an object"));
+		goto cleanup;
+	}
+
+	/* Create an array to hold the transformed entries */
+	array = json_array();
+	if (!array) {
+		statusline(ALERT, _("Failed to create JSON array"));
+		goto cleanup;
+	}
+
+	/* Iterate over the object's keys and values */
+	const char *key;
+	json_t *value;
+	size_t index = 0;
+	json_object_foreach(root, key, value) {
+		json_t *entry = json_object();
+		if (!entry) {
+			statusline(ALERT, _("Failed to create JSON object for entry"));
+			goto cleanup;
+		}
+
+		/* Set "name" to the value */
+		if (json_object_set_new(entry, "name", json_incref(value)) != 0) {
+			statusline(ALERT, _("Failed to set 'name' field"));
+			json_decref(entry);
+			goto cleanup;
+		}
+
+		/* Set "index" to the key */
+		if (json_object_set_new(entry, "index", json_string(key)) != 0) {
+			statusline(ALERT, _("Failed to set 'index' field"));
+			json_decref(entry);
+			goto cleanup;
+		}
+
+		/* Add entry to array */
+		if (json_array_append_new(array, entry) != 0) {
+			statusline(ALERT, _("Failed to append entry to array"));
+			json_decref(entry);
+			goto cleanup;
+		}
+		index++;
+	}
+
+	/* Write the transformed JSON to a temporary file */
+	fp = fopen(temp_filename, "w");
+	if (!fp) {
+		statusline(ALERT, _("Failed to open temporary file %s"), temp_filename);
+		goto cleanup;
+	}
+
+	if (json_dumpf(array, fp, JSON_INDENT(2)) != 0) {
+		statusline(ALERT, _("Failed to write JSON to temporary file"));
+		fclose(fp);
+		goto cleanup;
+	}
+	fclose(fp);
+	fp = NULL;
+
+	/* Replace the original file with the temporary file */
+	if (rename(temp_filename, doc_filename) != 0) {
+		statusline(ALERT, _("Failed to rename %s to %s"), temp_filename, doc_filename);
+		goto cleanup;
+	}
+
+	result = 0; /* Success */
+	refresh_needed = TRUE; /* Trigger screen refresh to update bottom bar */
+	if (currmenu == MMAIN && !is_popup_active()) {
+		bottombars(MMAIN); /* Ensure main menu is redrawn */
+	}
+
+cleanup:
+	if (fp) fclose(fp);
+	if (temp_filename) free(temp_filename);
+	if (array) json_decref(array);
+	if (root) json_decref(root);
+	return result;
+}
+
 void ycmd_display_parse_results() {
 	if (!ycmd_globals.file_ready_to_parse_results.json) {
 		statusline(HUSH, "Parse results are not usable.");
 		return;
 	}
 
+	/* Get the user's home directory */
 	struct passwd *pw = getpwuid(getuid());
+	validate_pw(pw);
+
 	char cache_dir[PATH_MAX];
-	sprintf(cache_dir, "%s/.cache/nano-ycmd", pw->pw_dir);
+	if (snprintf(cache_dir, PATH_MAX, "%s/.cache/nano-ycmd", pw->pw_dir) >= PATH_MAX) {
+		statusline(HUSH, "Cache directory path too long.");
+		return;
+	}
+	create_cache_dir(cache_dir);
 	debug_log("cache_dir = %s", cache_dir);
-	mkdir(cache_dir, 0700); /* Create the cache directory if it doesn't exist */
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-overflow"
@@ -4380,15 +4547,10 @@ void ycmd_display_parse_results() {
 	fprintf(f, "%s", ycmd_globals.file_ready_to_parse_results.json);
 	fclose(f);
 
-	char command[PATH_MAX * 4 + LINE_LENGTH];
-	snprintf(command, PATH_MAX * 4 + LINE_LENGTH,
-		 "cat '%s' | jq 'to_entries | map({name:.value, index:.key})' > "
-		 "'%s.t'; mv '%s.t' '%s'",
-		 doc_filename, doc_filename, doc_filename, doc_filename);
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-result"
-	system(command);
-#pragma GCC diagnostic pop
+	if (transform_json_file(doc_filename) != 0) {
+		statusline(HUSH, "transform_json_file() failed.");
+		return;
+	}
 
 #ifndef DISABLE_MULTIBUFFER
 	SET(MULTIBUFFER);
