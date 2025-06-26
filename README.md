@@ -16,7 +16,7 @@ You can use the following which have been tested:
 
 | Commit / Tree snapshot                                                                             | Source code download                                                                                                                                                                                                  | Notes                                                                                                                                                                                                                                                      |
 |----------------------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| [cf526b3](https://github.com/orsonteodoro/nano-ycmd/tree/cf526b31d0e4c7f207f56ba0c4259969326cd34a) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/cf526b31d0e4c7f207f56ba0c4259969326cd34a.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/cf526b31d0e4c7f207f56ba0c4259969326cd34a.tar.gz) | (Pre-release) Tested working for ycmd CORE_VERSION 48 on Jun 18, 2025.  Hardened version.  Support for hardened_malloc, mimalloc-secure, safeclib.  Faster startup with ChaCha20.  Skips security prompt if .ycm_extra_conf.py is missing.  Removed performance-critical for security-critical since nano is used for website passwords and sensitive data.  Drops SIMD and OpenMP support.  Removed unnecessary heap allocations to reduce chance of Denial of Service (DoS).  More sanitization to mitigate Information Disclosure (ID).  Mitigate obfuscated Arbitrary Code Execution (ACE) and fix ignore for .ycm_extra_conf.py.  Add popup suggestion support.  Re-allow and hardened YCM generator header fix. |
+| [aefdc98](https://github.com/orsonteodoro/nano-ycmd/tree/aefdc98a1a2c30c66dcbbd064fa964feb8874667) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/aefdc98a1a2c30c66dcbbd064fa964feb8874667.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/aefdc98a1a2c30c66dcbbd064fa964feb8874667.tar.gz) | (Pre-release) Tested working for ycmd CORE_VERSION 48 on Jun 18, 2025.  Hardened version.  Support for hardened_malloc, mimalloc-secure, safeclib.  Faster startup with ChaCha20.  Skips security prompt if .ycm_extra_conf.py is missing.  Removed performance-critical for security-critical since nano is used for website passwords and sensitive data.  Drops SIMD and OpenMP support.  Removed unnecessary heap allocations to reduce chance of Denial of Service (DoS).  More sanitization to mitigate Information Disclosure (ID).  Mitigate obfuscated Arbitrary Code Execution (ACE) and fix ignore for .ycm_extra_conf.py.  Add popup suggestion support.  Re-allow and hardened YCM generator header fix. |
 | [dab16f0](https://github.com/orsonteodoro/nano-ycmd/tree/dab16f057401457163374efe17d53955cf1004db) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/dab16f057401457163374efe17d53955cf1004db.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/dab16f057401457163374efe17d53955cf1004db.tar.gz) | RECOMMENDED.  Tested working for ycmd CORE_VERSION 48 on Jun 8, 2025.  Adds core version 48 support.  Updates to latest upstream HEAD (version 8.4).  Fixes possible privilege escalation [CVE-2024-5742](https://nvd.nist.gov/vuln/detail/CVE-2024-5742). |
 | [7efd128](https://github.com/orsonteodoro/nano-ycmd/tree/7efd128a4e4a9e5c3269ba04c3743e21bc364190) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/7efd128a4e4a9e5c3269ba04c3743e21bc364190.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/7efd128a4e4a9e5c3269ba04c3743e21bc364190.tar.gz) | Tested working for latest ycmd CORE_VERSION 47 commit on Jul 7, 2023.  Security and completer suggestion improvements.                                                                                                                                     |
 | [7b52887](https://github.com/orsonteodoro/nano-ycmd/tree/7b52887728a19e95c77c73a0f4cd39075379e45f) | [[zip]](https://github.com/orsonteodoro/nano-ycmd/archive/7b52887728a19e95c77c73a0f4cd39075379e45f.zip) [[tar.gz]](https://github.com/orsonteodoro/nano-ycmd/archive/7b52887728a19e95c77c73a0f4cd39075379e45f.tar.gz) | Tested working for latest ycmd CORE_VERSION 47 commit on Jul 2, 2023 with upstream commits to 7f4c2c6.                                                                                                                                                     |
@@ -486,6 +486,31 @@ data, attempts to access the network, etc.
 
 ycmd will run this file after it has been confirmed safe to use by you in order
 for ycmd to work on this kind of project or this type of programming language.
+
+#### Popup completer support
+
+To add popup support, compile add `--enable-ycmd-popup` to configure.
+
+Optionally these environment variables before calling nano.
+
+* NANO_YCMD_UI_MODE - Set to `bottom` or `popup` to choose between classic bottom bar UI mode or popup UI mode.
+* NANO_YCMD_COMPLETION_LIMIT - Set to `3-10` to control the number of rows suggestions to choose.
+
+The popup UI mode is a new introduction.  Features from the classic mode still
+need to be integrated with the popup UI.  The popup support is enabled by
+default.
+
+To use it, press `<CTRL>-Space` for the word you are trying to complete.
+
+#### String buffer max limit (SMAX)
+
+There is a limit on the string buffers.  This limit controls how much data can
+be processed by string functions to a mitigate an availability attack.  It
+is set by an environment variable before calling nano.  It is to prevent
+a buffer overflow or calling unbounded strlen.
+
+NANO_YCMD_SMAX - Set between `1024 - 10485760` (or 1KB - 10 MB) to control
+buffer size.  The default is 1048576 (1 MB).
 
 #### Special thanks goes to...
 
