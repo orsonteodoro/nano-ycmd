@@ -3285,17 +3285,17 @@ void do_insert_string(const char *string) {
 	debug_log("Before insert:  string='%s', data='%s', x=%zu",
 		string, openfile->current->data ? openfile->current->data : "null", openfile->current_x);
 
-	size_t string_len = strlen(string);
+	size_t string_len = wrap_strlen(string);
 	char *data = openfile->current->data;
-	size_t data_len = data ? strlen(data) : 0;
-	char *new_data = malloc(data_len + string_len + 1);
+	size_t data_len = data ? wrap_strlen(data) : 0;
+	char *new_data = wrap_malloc(data_len + string_len + 1);
 	if (data) {
-		strncpy(new_data, data, openfile->current_x);
-		strcpy(new_data + openfile->current_x, string);
-		strcpy(new_data + openfile->current_x + string_len, data + openfile->current_x);
-		free(data);
+		wrap_strncpy(new_data, data, openfile->current_x);
+		wrap_strcpy(new_data + openfile->current_x, string);
+		wrap_strcpy(new_data + openfile->current_x + string_len, data + openfile->current_x);
+		wrap_free((void **)&data);
 	} else {
-		strcpy(new_data, string);
+		wrap_strcpy(new_data, string);
 		new_data[string_len] = '\0';
 	}
 	openfile->current->data = new_data;

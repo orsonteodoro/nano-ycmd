@@ -53,7 +53,7 @@
 #include "completion_ui.h"
 #include "debug.h"
 #include "nano.h"
-/* #include "safe_wrapper.h" */
+#include "safe_wrapper.h"
 #include "ycmd.h"
 #endif
 
@@ -1826,7 +1826,7 @@ void process_a_keystroke_popup(void)
 		size_t original_x = openfile->current_x;
 		int word_start = ycmd_globals.apply_column > 0 ? ycmd_globals.apply_column - 1 : openfile->current_x;
 		char *line_data = openfile->current->data ? openfile->current->data : "";
-		if (word_start < 0 || word_start > (int)strlen(line_data)) {
+		if (word_start < 0 || word_start > (int)wrap_strlen(line_data)) {
 			word_start = original_x;
 			while (word_start > 0 && (isalnum(line_data[word_start - 1]) || line_data[word_start - 1] == '_' || line_data[word_start - 1] == '.')) {
 				word_start--;
@@ -1834,23 +1834,23 @@ void process_a_keystroke_popup(void)
 		}
 		int length_to_delete = original_x - word_start;
 			if (length_to_delete > 0) {
-				char *new_data = malloc(strlen(line_data) - length_to_delete + strlen(completion_text) + 1);
+				char *new_data = wrap_malloc(wrap_strlen(line_data) - length_to_delete + wrap_strlen(completion_text) + 1);
 			if (!new_data) {
 				debug_log("Memory allocation failed");
-				free(completion_text);
+				wrap_free((void **)&completion_text);
 				return;
 			}
-			strncpy(new_data, line_data, word_start);
-			strcpy(new_data + word_start, completion_text);
-			strcpy(new_data + word_start + strlen(completion_text), line_data + original_x);
-			free(openfile->current->data);
+			wrap_strncpy(new_data, line_data, word_start);
+			wrap_strcpy(new_data + word_start, completion_text);
+			wrap_strcpy(new_data + word_start + wrap_strlen(completion_text), line_data + original_x);
+			wrap_free((void **)&openfile->current->data);
 			openfile->current->data = new_data;
-			openfile->current_x = word_start + strlen(completion_text);
+			openfile->current_x = word_start + wrap_strlen(completion_text);
 			} else {
 				do_insert_string(completion_text);
-				openfile->current_x = original_x + strlen(completion_text);
+				openfile->current_x = original_x + wrap_strlen(completion_text);
 			}
-			free(completion_text);
+			wrap_free((void **)&completion_text);
 			just_closed_popup = TRUE;
 			refresh_needed = TRUE;
 			edit_redraw(openfile->current, CENTERING);

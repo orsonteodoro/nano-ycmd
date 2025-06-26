@@ -91,7 +91,7 @@ void init_completion_ui(void) {
 	debug_log("PID=%d, Checking environment", getpid());
 	extern char **environ;
 	for (char **env = environ; *env; env++) {
-		if (strstr(*env, "NANO_YCMD_UI_MODE")) {
+		if (wrap_strstr(*env, "NANO_YCMD_UI_MODE")) {
 			debug_log("Env:  %s", *env);
 		}
 	}
@@ -153,7 +153,7 @@ void show_completions(json_t *completions, int y, int x) {
 			continue;
 		const char *text = json_string_value(text_obj);
 		char display_text[max_popup_width - 3];
-		strncpy(display_text, text, max_popup_width - 4);
+		wrap_strncpy(display_text, text, max_popup_width - 4);
 		display_text[max_popup_width - 4] = '\0';
 		if (i == selected_index) {
 			wattron(popup, A_REVERSE | A_BOLD);
@@ -229,7 +229,7 @@ void redraw_popup(json_t *completions, int screen_y, int screen_x) {
 		}
 		const char *text = json_string_value(text_obj);
 		char display_text[max_popup_width - 3];
-		strncpy(display_text, text, max_popup_width - 4);
+		wrap_strncpy(display_text, text, max_popup_width - 4);
 		display_text[max_popup_width - 4] = '\0';
 		if (i == selected_index) {
 			wattron(popup, A_REVERSE | A_BOLD);
