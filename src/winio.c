@@ -2385,40 +2385,6 @@ void minibar(void)
 }
 #endif /* NANO_TINY */
 
-#ifdef ENABLE_YCMD
-void statusline(message_type importance, const char *msg, ...) {
-	char formatted_msg[DOUBLE_LINE_LENGTH];
-	va_list args;
-
-	va_start(args, msg);
-	vsnprintf(formatted_msg, DOUBLE_LINE_LENGTH, msg, args);
-	va_end(args);
-
-	debug_log("importance=%d, msg=%s, footwin=%p, has_colors=%d",
-		importance, formatted_msg, (void *)footwin, has_colors());
-
-	if (!footwin) {
-		debug_log("footwin is null\n");
-		return;
-	}
-
-	wclear(footwin);
-	wbkgd(footwin, A_NORMAL);
-	wattron(footwin, importance == ALERT ? A_BOLD | A_REVERSE : A_BOLD);
-	mvwprintw(footwin, 0, 0, "%-*s", getmaxx(footwin), formatted_msg);
-	wattroff(footwin, importance == ALERT ? A_BOLD | A_REVERSE : A_BOLD);
-
-	attr_t attrs;
-	short pair;
-	wattr_get(footwin, &attrs, &pair, NULL);
-	debug_log("after wattron, attrs=0x%lx, color_pair=%d", (long)attrs, pair);
-
-	wnoutrefresh(footwin);
-	if (doupdate() == ERR) {
-		debug_log("doupdate failed\n");
-	}
-}
-#else
 /* Display the given message on the status bar, but only if its importance
  * is higher than that of a message that is already there. */
 void statusline(message_type importance, const char *msg, ...)
@@ -2525,7 +2491,6 @@ void statusline(message_type importance, const char *msg, ...)
 	/* When requested, wipe the status bar after just one keystroke. */
 	countdown = (ISSET(QUICK_BLANK) ? 1 : 20);
 }
-#endif
 
 /* Display a normal message on the status bar, quietly. */
 void statusbar(const char *msg)
@@ -2570,10 +2535,6 @@ void bottombars(int menu)
 	size_t index, number, itemwidth;
 	const keystruct *s;
 	funcstruct *f;
-
-#ifdef ENABLE_YCMD
-	debug_log("menu=%d, footwin=%p", menu, (void *)footwin);
-#endif
 
 	/* Set the global variable to the given menu. */
 	currmenu = menu;
@@ -2633,27 +2594,6 @@ void bottombars(int menu)
 
 		index++;
 	}
-
-#ifdef ENABLE_YCMD
-	if (!footwin) return;
-
-	currmenu = menu; /* Set current menu */
-	wmove(footwin, 1, 0);
-	wclrtoeol(footwin);
-	wattron(footwin, A_BOLD);
-	if (menu == MYCMEXTRACONF) {
-		mvwprintw(footwin, 1, 0, "^Y Accept  ^N Reject"); // Use second row
-	} else {
-		mvwprintw(footwin, 1, 0, "%-*s", getmaxx(footwin), ""); // Clear second row
-	}
-	wattroff(footwin, A_BOLD | COLOR_PAIR(1));
-
-	attr_t attrs;
-	short pair;
-	wattr_get(footwin, &attrs, &pair, NULL);
-	debug_log("after wattron, attrs=0x%lx, color_pair=%d", (long)attrs, pair);
-#endif
-
 
 	wrefresh(footwin);
 }

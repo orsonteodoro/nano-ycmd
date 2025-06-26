@@ -1778,7 +1778,6 @@ void process_a_keystroke_popup(void)
 		debug_log("Invalid frame, popup_active=%d", is_popup_active());
 		hide_completions();
 		ycmd_handling = FALSE;
-		is_popup_mode = FALSE;
 		refresh_needed = TRUE;
 		just_closed_popup = TRUE;
 		full_refresh();
@@ -1792,7 +1791,6 @@ void process_a_keystroke_popup(void)
 	if (input == KEY_RESIZE) {
 		debug_log("Handling KEY_RESIZE, updating popup");
 		if (is_popup_active()) {
-			/* Reposition popup */
 			int max_y, max_x;
 			getmaxyx(stdscr, max_y, max_x);
 			int screen_y, screen_x;
@@ -1824,19 +1822,19 @@ void process_a_keystroke_popup(void)
 		handle_completion_input(input, &completion_text);
 		if (completion_text) {
 			debug_log("Inserting completion_text=%s, current_x=%zu",
-				completion_text, openfile->current_x);
-			size_t original_x = openfile->current_x;
-			int word_start = ycmd_globals.apply_column > 0 ? ycmd_globals.apply_column - 1 : openfile->current_x;
-			char *line_data = openfile->current->data ? openfile->current->data : "";
-			if (word_start < 0 || word_start > (int)strlen(line_data)) {
-				word_start = original_x;
-				while (word_start > 0 && (isalnum(line_data[word_start - 1]) || line_data[word_start - 1] == '_' || line_data[word_start - 1] == '.')) {
+			completion_text, openfile->current_x);
+		size_t original_x = openfile->current_x;
+		int word_start = ycmd_globals.apply_column > 0 ? ycmd_globals.apply_column - 1 : openfile->current_x;
+		char *line_data = openfile->current->data ? openfile->current->data : "";
+		if (word_start < 0 || word_start > (int)strlen(line_data)) {
+			word_start = original_x;
+			while (word_start > 0 && (isalnum(line_data[word_start - 1]) || line_data[word_start - 1] == '_' || line_data[word_start - 1] == '.')) {
 				word_start--;
 			}
 		}
 		int length_to_delete = original_x - word_start;
-		if (length_to_delete > 0) {
-			char *new_data = malloc(strlen(line_data) - length_to_delete + strlen(completion_text) + 1);
+			if (length_to_delete > 0) {
+				char *new_data = malloc(strlen(line_data) - length_to_delete + strlen(completion_text) + 1);
 			if (!new_data) {
 				debug_log("Memory allocation failed");
 				free(completion_text);
@@ -1867,7 +1865,7 @@ void process_a_keystroke_popup(void)
 		if (!is_popup_active()) {
 			just_closed_popup = TRUE;
 			ycmd_handling = FALSE;
-			is_popup_mode = FALSE;
+			/* Preserve is_popup_mode to allow re-triggering */
 			refresh_needed = TRUE;
 			edit_redraw(openfile->current, CENTERING);
 			full_refresh();
@@ -1892,25 +1890,25 @@ void process_a_keystroke_popup(void)
 			debug_log("hide_completions failed");
 			full_refresh();
 			return;
-		}
+	}
 
-		if (!openfile || !openfile->filename) {
-			statusline(ALERT, "No file open for completions");
-			full_refresh();
-			return;
-		}
+	if (!openfile || !openfile->filename) {
+		statusline(ALERT, "No file open for completions");
+		full_refresh();
+		return;
+	}
 
-		ycmd_filename = openfile->filename;
-		ycmd_line_num = get_current_line_number(openfile);
-		ycmd_column_num = openfile->current_x + 1;
-		ycmd_filetop = openfile->filetop;
+	ycmd_filename = openfile->filename;
+	ycmd_line_num = get_current_line_number(openfile);
+	ycmd_column_num = openfile->current_x + 1;
+	ycmd_filetop = openfile->filetop;
 
-		json_t *completions = request_completions(
-			ycmd_filename,
-			ycmd_line_num,
-			ycmd_column_num,
-			ycmd_filetop,
-			YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_REQUEST_COMPLETIONS);
+	json_t *completions = request_completions(
+		ycmd_filename,
+		ycmd_line_num,
+		ycmd_column_num,
+		ycmd_filetop,
+		YCMD_REQ_COMPLETIONS_SUGGESTIONS_EVENT_REQUEST_COMPLETIONS);
 
 		if (completions && json_is_array(completions) && json_array_size(completions) > 0) {
 			int screen_y, screen_x;
@@ -1918,7 +1916,6 @@ void process_a_keystroke_popup(void)
 			show_completions(completions, screen_y, screen_x);
 			if (get_popup()) {
 				keypad(get_popup(), TRUE);
-				is_popup_mode = TRUE;
 				ycmd_handling = TRUE;
 				full_refresh();
 			} else {
@@ -1966,19 +1963,19 @@ void process_a_keystroke_popup(void)
 				puddle = nrealloc(puddle, capacity);
 			} else if (!puddle)
 				puddle = nmalloc(capacity);
-			puddle[depth++] = (char)input;
+				puddle[depth++] = (char)input;
+			}
 		}
-	}
 
-	if (depth > 0 && (function || waiting_keycodes() == 0)) {
+		if (depth > 0 && (function || waiting_keycodes() == 0)) {
 		puddle[depth] = '\0';
 		inject(puddle, depth);
 		depth = 0;
 	}
 
 #ifndef NANO_TINY
-		if (function != do_cycle)
-			cycling_aim = 0;
+	if (function != do_cycle)
+		cycling_aim = 0;
 #endif
 
 	if (!function) {
@@ -2001,9 +1998,9 @@ void process_a_keystroke_popup(void)
 
 	if (function != cut_text && function != copy_text) {
 #ifndef NANO_TINY
-		if (function != zap_text)
+	if (function != zap_text)
 #endif
-			keep_cutbuffer = FALSE;
+		keep_cutbuffer = FALSE;
 	}
 
 #ifdef ENABLE_WORDCOMPLETION
@@ -3193,12 +3190,8 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ENABLE_YCMD
-		if (is_popup_mode) {
-			;
-		} else {
-			if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS && currmenu != MYCMEXTRACONF)
-				bottombars(MMAIN);
-		}
+		if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS && currmenu != MYCMEXTRACONF)
+			bottombars(MMAIN);
 #else
 		if (currmenu != MMAIN)
 			bottombars(MMAIN);

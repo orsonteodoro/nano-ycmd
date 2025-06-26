@@ -322,8 +322,11 @@ void handle_completion_input(int input, char **completion_text) {
 }
 
 void hide_completions(void) {
-	if (popup == NULL && !is_popup_mode) {
-		debug_log("Nothing to hide, popup=%p, is_popup_mode=%d", (void *)popup, is_popup_mode);
+	debug_log("Start, popup=%p, is_popup_mode=%d, active_completions=%p",
+		(void *)popup, is_popup_mode, (void *)active_completions);
+
+	if (popup == NULL && !active_completions) {
+		debug_log("Nothing to hide");
 		return;
 	}
 
@@ -338,10 +341,16 @@ void hide_completions(void) {
 		json_decref(active_completions);
 		active_completions = NULL;
 	}
+
 	selected_index = 0;
-	is_popup_mode = FALSE;
 	popup_start_y = 0;
 	popup_start_x = 0;
 
-	debug_log("Cleared, popup=%p, is_popup_mode=%d", (void *)popup, is_popup_mode);
+	debug_log("Completed, popup=%p, is_popup_mode=%d, active_completions=%p",
+		(void *)popup, is_popup_mode, (void *)active_completions);
+
+	edit_refresh();
+	if (doupdate() == ERR) {
+		debug_log("doupdate failed");
+	}
 }
