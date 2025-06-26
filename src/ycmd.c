@@ -108,10 +108,13 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  * Mitigations (hardened_malloc):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF
  * Mitigations (http neon):  NPD, SO
  * Mitigations (jansson):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF
+ * Mitigations (libgcrypt): DoS, DT, ID, IO, NPD, OOBA, OOBR, OOBW, RC, SF, SO, UAF
  * Mitigations (mimalloc-secure):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF
  * Mitigations (musl malloc/free):  DF, DoS, DP, DT, HO, ID, IO, OOBA, OOBR, OOBW, PF, RC, SO, UAF
  * Mitigations (musl str/mem functions): RC, SO
+ * Mitigations (Nettle): DT, IO, NPD, OOBA, OOBR, OOBW, RC, SF, SO, UAF
  * Mitigations (nxjson):  NPD
+ * Mitigations (OpenSSL): CE, DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, RC, SF, SO, UAF
  * Mitigations (safeclib):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF
  * Mitigations (scudo):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF
  * Mitigations (yyjson): DF, DP, DoS, ID, IO, DT HO, NPD, OOBA, OOBR, OOBW, SO, UAF
@@ -122,10 +125,13 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  * hardened_malloc:		# Security: 10, Performance: 6, Overall: 9
  * http neon:			# Security: 3, Performance: 7, Overall: 5; Removed support
  * jansson:			# Security: 9, Performance: 7, Overall: 8
+ * libgcrypt:			# Security: 9, Performance: 8, Overall: 9
  * mimalloc-secure:		# Security: 9, Performance: 8, Overall: 9
  * musl malloc/free:		# Security: 8, Performance: 6, Overall: 7
  * musl str/mem functions:	# Security: 4, Performance: 9, Overall: 6
+ * nettle:			# Security: 8, Performance: 7, Overall: 8
  * nxjson:			# Security: 2, Performance: 5, Overall 3; Removed support
+ * OpenSSL:			# Security: 6, Performance: 8, Overall: 7; Frequent CVEs and larger code base lower security score
  * safeclib:			# Security: 9, Performance: 7, Overall: 8
  * scudo:			# Security: 8, Performance: 7, Overall: 8; Available via LD_PRELOAD
  * yyjson:			# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation,
