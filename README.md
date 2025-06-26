@@ -512,6 +512,18 @@ a buffer overflow or calling unbounded strlen to unreasonable limit.
 * NANO_YCMD_SMAX - Set between `1024 - 10485760` (or 1KB - 10 MB) to control
   buffer size.  The default is 1048576 (1 MB).
 
+#### Safe paths to completer dependencies
+
+To increase the mitigation against path traversal vulnerability pass a
+semicolon (;) list of dir paths to depenencies using `--with-safe-paths=`.  This
+is to mitigate against a misconfiguration of default_settings.json that leads to
+Code Execution (CE), Privilege Escalation (PE), Data Tampering (DT), Information
+Disclosure (ID), Denial of Service (DoS).
+
+Example:
+
+--with-safe-paths="/usr/lib/python3.11/site-packages/ycmd/48/third_party/clangd/output/bin;/usr/lib/python3.11/site-packages/ycmd/48/third_party/go/bin;/usr/lib/python3.11/site-packages/ycmd/48/third_party/gocode;/usr/lib/python3.11/site-packages/ycmd/48/third_party/godef;/usr/lib/python3.11/site-packages/ycmd/48/third_party/omnisharp-roslyn;/usr/lib/python3.11/site-packages/ycmd/48/third_party/omnisharp-roslyn/bin;/usr/lib/python3.11/site-packages/ycmd/48/third_party/racerd;/usr/lib/python3.11/site-packages/ycmd/48/third_party/rls/bin;/usr/lib/python3.11/site-packages/ycmd/48/third_party/rust-analyzer;/usr/lib/python3.11/site-packages/ycmd/48/third_party/tsserver/node_modules/typescript/bin"
+
 #### Special thanks goes to...
 
 marchelzo and twkm from freenode ##C channel for the clear excess stdin fix.
