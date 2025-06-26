@@ -493,21 +493,6 @@ size_t wrap_strnlen(const char *s, size_t maxlen) {
 	return len;
 }
 
-int wrap_sprintf(char *str, size_t size, const char *format, ...) {
-	va_list args;
-	va_start(args, format);
-	int result;
-
-#ifdef USE_SAFECLIB
-	result = vsnprintf_s(str, size, format, args);
-#else
-	result = vsnprintf(str, size, format, args);
-#endif
-
-	va_end(args);
-	return result;
-}
-
 int wrap_snprintf(char *str, size_t size, const char *format, ...)
 {
 	va_list ap;

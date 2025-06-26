@@ -33,8 +33,8 @@
 #include <sys/wait.h>
 #ifdef ENABLE_YCMD
 #include "debug.h"
-#include "ycmd.h"
 #include "safe_wrapper.h"
+#include "ycmd.h"
 #endif
 
 #ifdef ENABLE_YCMD

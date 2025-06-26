@@ -74,7 +74,6 @@ char *wrap_strstr(const char *haystack, const char *needle);
 errno_t wrap_secure_zero(void *dest, size_t n);
 int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap);
 int wrap_snprintf(char *str, size_t size, const char *format, ...);
-int wrap_sprintf(char *str, size_t size, const char *format, ...);
 int wrap_strncmp(const char *s1, const char *s2, size_t n);
 size_t wrap_strlen(const char *s);
 size_t wrap_strnlen(const char *s, size_t maxlen);

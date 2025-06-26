@@ -238,7 +238,7 @@ struct curl_slist *_curl_sprintf_header(struct curl_slist *headers, const char *
 	char buffer[LINE_LENGTH];
 	va_list args;
 	va_start(args, format);
-	int len = vsnprintf(buffer, sizeof(buffer), format, args);
+	int len = wrap_vsnprintf(buffer, sizeof(buffer), format, args);
 	va_end(args);
 
 	if (len >= sizeof(buffer)) {
@@ -578,17 +578,17 @@ int bear_generate(char *project_path) {
 	char command[PATH_MAX + LINE_LENGTH];
 	int ret = -1;
 
-	snprintf(file_path, PATH_MAX, "%s/compile_commands.json", project_path);
+	wrap_snprintf(file_path, sizeof(file_path), "%s/compile_commands.json", project_path);
 
 	if (access(file_path, F_OK) == 0) {
 		; /* statusline(HUSH, "Using previously generated compile_commands.json file."); */
 		ret = 0;
 	} else {
 		statusline(HUSH, "Please wait.  Generating a compile_commands.json file.");
-		snprintf(command, PATH_MAX + LINE_LENGTH, "cd '%s'; make clean > /dev/null", project_path);
+		wrap_snprintf(command, sizeof(command), "cd '%s'; make clean > /dev/null", project_path);
 		ret = system(command);
 
-		snprintf(command, PATH_MAX + LINE_LENGTH, "cd '%s'; bear make > /dev/null", project_path);
+		wrap_snprintf(command, sizeof(command), "cd '%s'; bear make > /dev/null", project_path);
 		ret = system(command);
 		full_refresh();
 		draw_all_subwindows();
@@ -615,11 +615,11 @@ int ninja_compdb_generate(char *project_path) {
 	char *_ninja_build_path = getenv("NINJA_BUILD_PATH");
 	if (_ninja_build_path &&
 		wrap_strncmp(_ninja_build_path, "(null)", PATH_MAX) != 0)
-		snprintf(ninja_build_path, PATH_MAX, "%s", _ninja_build_path);
+		wrap_snprintf(ninja_build_path, sizeof(ninja_build_path), "%s", _ninja_build_path);
 	else
 		ninja_build_path[0] = 0;
 
-	snprintf(command, PATH_MAX + LINE_LENGTH,
+	wrap_snprintf(command, sizeof(command),
 		"find '%s' -maxdepth 1 -name '*.ninja' > /dev/null",
 		ninja_build_path);
 	int ret = system(command);
@@ -631,12 +631,12 @@ int ninja_compdb_generate(char *project_path) {
 		char *_ninja_build_targets = getenv("NINJA_BUILD_TARGETS");
 		if (_ninja_build_targets &&
 			wrap_strncmp(_ninja_build_targets, "(null)", PATH_MAX) != 0) {
-			snprintf(ninja_build_targets, PATH_MAX, "%s", _ninja_build_targets);
+			wrap_snprintf(ninja_build_targets, sizeof(ninja_build_targets), "%s", _ninja_build_targets);
 		} else {
 			ninja_build_targets[0] = 0;
 		}
 
-		snprintf(command, PATH_MAX * 4 + LINE_LENGTH,
+		wrap_snprintf(command, sizeof(command),
 			"cd '%s'; '%s' -t compdb %s > '%s/compile_commands.json'",
 			ninja_build_path, NINJA_PATH, ninja_build_targets, project_path);
 		ret = system(command);
@@ -651,7 +651,7 @@ void ycmd_get_project_path(char *path_project) {
 	char *ycmg_project_path = getenv("YCMG_PROJECT_PATH");
 	if (ycmg_project_path &&
 		wrap_strncmp(ycmg_project_path, "(null)", PATH_MAX) != 0) {
-		snprintf(path_project, PATH_MAX, "%s", ycmg_project_path);
+		wrap_snprintf(path_project, PATH_MAX, "%s", ycmg_project_path);
 	} else {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wunused-result"
@@ -663,7 +663,7 @@ void ycmd_get_project_path(char *path_project) {
 /* Precondition:  path_project must be populated first from
  * ycmd_get_project_path(). */
 void ycmd_get_extra_conf_path(char *path_project, char *path_extra_conf) {
-	snprintf(path_extra_conf, PATH_MAX, "%s/.ycm_extra_conf.py", path_project);
+	wrap_snprintf(path_extra_conf, PATH_MAX, "%s/.ycm_extra_conf.py", path_project);
 }
 
 
@@ -684,7 +684,7 @@ char* extract_include_paths(const char* language) {
 
 	while (fgets(line, sizeof(line), pipe)) {
 		output = realloc(output, output_len + wrap_strlen(line) + 1);
-		strcpy(output + output_len, line);
+		wrap_strcpy(output + output_len, line);
 		output_len += wrap_strlen(line);
 	}
 
@@ -714,7 +714,7 @@ char* format_include_paths(const char* include_paths) {
 	char* p = formatted_paths;
 	for (const char* q = include_paths; *q; q++) {
 		if (*q == '\n') {
-			sprintf(p, "',\n    '-isystem','");
+			wrap_snprintf(p, formatted_len + 1, "',\n    '-isystem','");
 			p += wrap_strlen(p);
 		} else {
 			*p++ = *q;
@@ -804,7 +804,7 @@ int ycm_generate(void) {
 	if (!ycmg_flags || wrap_strncmp(ycmg_flags, "(null)", PATH_MAX) == 0) {
 		flags[0] = 0;
 	} else {
-		snprintf(flags, PATH_MAX, "%s", ycmg_flags);
+		wrap_snprintf(flags, sizeof(flags), "%s", ycmg_flags);
 	}
 #endif
 
@@ -826,14 +826,14 @@ int ycm_generate(void) {
 	} else {
 #ifdef ENABLE_YCM_GENERATOR
 		statusline(HUSH, "Please wait.  Generating a .ycm_extra_conf.py file.");
-		snprintf(command, PATH_MAX * 3 + LINE_LENGTH, "'%s' '%s' -f %s '%s' >/dev/null", YCMG_PYTHON_PATH,
+		wrap_snprintf(command, sizeof(command), "'%s' '%s' -f %s '%s' >/dev/null", YCMG_PYTHON_PATH,
 			YCMG_PATH, flags, path_project);
 		int ret = system(command);
 		if (ret == 0) {
 			statusline(HUSH, "Sucessfully generated a .ycm_extra_conf.py file.");
 
 #if defined(ENABLE_BEAR) || defined(ENABLE_NINJA)
-			snprintf(command, PATH_MAX * 2 + LINE_LENGTH,
+			wrap_snprintf(command, sizeof(command),
 				"sed -i -e \"s|compilation_database_folder = ''|compilation_database_folder = '%s'|g\" \"%s\"",
 				path_project, path_extra_conf);
 			ret2 = system(command);
@@ -852,19 +852,19 @@ int ycm_generate(void) {
 
 #ifdef ENABLE_YCM_GENERATOR
 			debug_log("path_project = %s", path_project);
-			snprintf(command, PATH_MAX + LINE_LENGTH, "find '%s' -name '*.mm'", path_project);
+			wrap_snprintf(command, sizeof(command), "find '%s' -name '*.mm'", path_project);
 			has_objcxx = system(command);
-			snprintf(command, PATH_MAX + LINE_LENGTH, "find '%s' -name '*.m'", path_project);
+			wrap_snprintf(command, sizeof(command), "find '%s' -name '*.m'", path_project);
 			has_objc = system(command);
-			snprintf(command, PATH_MAX + LINE_LENGTH,
+			wrap_snprintf(command, sizeof(command),
 				"find '%s' -name '*.cpp' -o -name '*.C' -o -name '*.cxx' -o -name '*.cc'",
 				path_project);
 			has_cxx = system(command);
-			snprintf(command, PATH_MAX + LINE_LENGTH, "find '%s' -name '*.c'", path_project);
+			wrap_snprintf(command, sizeof(command), "find '%s' -name '*.c'", path_project);
 			has_c = system(command);
-			snprintf(command, PATH_MAX + LINE_LENGTH, "find '%s' -name '*.c'", path_project);
+			wrap_snprintf(command, sizeof(command), "find '%s' -name '*.c'", path_project);
 			has_h = system(command);
-			snprintf(command, PATH_MAX + LINE_LENGTH,
+			wrap_snprintf(command, sizeof(command),
 				"grep -r -e 'using namespace' "
 					"-e 'iostream' "
 					"-e '\tclass ' "
@@ -878,19 +878,19 @@ int ycm_generate(void) {
 
 			char language[QUARTER_LINE_LENGTH];
 			if (has_objcxx == 0)
-				sprintf(language, "objective-c++");
+				wrap_snprintf(language, sizeof(language), "objective-c++");
 			else if (has_objc == 0)
-				sprintf(language, "objective-c");
+				wrap_snprintf(language, sizeof(language), "objective-c");
 			else if (has_cxx == 0)
-				sprintf(language, "c++");
+				wrap_snprintf(language, sizeof(language), "c++");
 			else if (has_c == 0)
-				sprintf(language, "c");
+				wrap_snprintf(language, sizeof(language), "c");
 			else if (has_h == 0) {
 				/* Handle header only projects */
 				if (has_cxx_code == 0)
-					sprintf(language, "c++");
+					wrap_snprintf(language, sizeof(language), "c++");
 				else
-					sprintf(language, "c");
+					wrap_snprintf(language, sizeof(language), "c");
 			}
 
 			ret2 = _ycm_inject_clang_includes(language, path_extra_conf);
@@ -1030,7 +1030,7 @@ void default_settings_constructor(default_settings_struct *settings) {
 	settings->auto_stop_csharp_server = 1;
 	settings->use_ultisnips_completer = 1;
 	settings->csharp_server_port = 0;
-	sprintf(settings->hmac_secret, "%s", ycmd_globals.secret_key_base64);
+	wrap_snprintf(settings->hmac_secret, sizeof(settings->hmac_secret), "%s", ycmd_globals.secret_key_base64);
 	settings->server_keep_logfiles = 0;
 
 	/* Applies path traversal mitigation */
@@ -1336,7 +1336,7 @@ void ycmd_gen_extra_conf() {
 	else
 		return;
 
-	snprintf(command, PATH_MAX + DOUBLE_LINE_LENGTH,
+	wrap_snprintf(command, sizeof(command),
 		"find '%s' "
 			   "-name '*.C' "
 			"-o -name '*.c' "
@@ -1410,7 +1410,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 
 	curl_easy_reset(ycmd_globals.curl);
 	char url[LINE_LENGTH];
-	sprintf(url, "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
+	wrap_snprintf(url, sizeof(url), "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
 	debug_log("url = %s", url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
@@ -1480,7 +1480,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 
 	header_data_struct header_data;
 	wrap_secure_zero(&header_data, sizeof(header_data_struct));
-	sprintf(header_data.name, "%s", HTTP_HEADER_YCM_HMAC);
+	wrap_snprintf(header_data.name, sizeof(header_data.name), "%s", HTTP_HEADER_YCM_HMAC);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERFUNCTION, header_callback);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERDATA, &header_data);
 
@@ -1560,7 +1560,7 @@ void *safe_resize_buffer(void *ptr, size_t old_size, size_t new_size) {
 	void *new_ptr = wrap_malloc(new_size);
 	if (new_ptr == NULL)
 		return NULL;
-	memcpy(new_ptr, ptr, old_size < new_size ? old_size : new_size);
+	wrap_memcpy(new_ptr, ptr, old_size < new_size ? old_size : new_size);
 	volatile char *volatile_ptr = (volatile char *)ptr;
 	for (size_t i = 0; i < old_size; i++)
 		volatile_ptr[i] = 0;
@@ -1576,7 +1576,7 @@ void *safe_resize_bufferB(void *ptr, size_t old_size, size_t new_size) {
 	}
 
 	/* Copy data from old buffer to new buffer */
-	memcpy(new_ptr, ptr, old_size < new_size ? old_size : new_size);
+	wrap_memcpy(new_ptr, ptr, old_size < new_size ? old_size : new_size);
 
 	/* Securely erase the old buffer */
 	volatile char *volatile_ptr = (volatile char *volatile)ptr;
@@ -1597,7 +1597,7 @@ static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *data) {
 	mem->memory = safe_resize_buffer(mem->memory, mem->size, new_size);
 	if (mem->memory == NULL)
 		return 0;
-	memcpy(&(mem->memory[mem->size]), ptr, realsize);
+	wrap_memcpy(&(mem->memory[mem->size]), ptr, realsize);
 	mem->size += realsize;
 	mem->memory[mem->size] = 0;
 	return realsize;
@@ -1616,7 +1616,7 @@ static size_t write_callbackB(void *ptr, size_t size, size_t nmemb, void *data) 
 	}
 
 	/* Append new data to the buffer */
-	memcpy(&(mem->memory[mem->size]), ptr, realsize);
+	wrap_memcpy(&(mem->memory[mem->size]), ptr, realsize);
 	mem->size += realsize;
 	mem->memory[mem->size] = 0;
 
@@ -1647,7 +1647,7 @@ char *_curl_read_response_body_full(CURL *curl, struct memory_struct *chunk) {
 	char *body = wrap_malloc(chunk->size + 1);
 	if (!body)
 		return NULL;
-	memcpy(body, chunk->memory, chunk->size);
+	wrap_memcpy(body, chunk->memory, chunk->size);
 	body[chunk->size] = '\0';
 	return body;
 }
@@ -1706,7 +1706,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 
 	curl_easy_reset(ycmd_globals.curl);
 	char url[LINE_LENGTH];
-	snprintf(url, sizeof(url), "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
+	wrap_snprintf(url, sizeof(url), "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
 	debug_log("url = %s", url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L); /* Increased timeout */
@@ -1754,7 +1754,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 
 	struct header_data_struct header_data;
 	wrap_secure_zero(&header_data, sizeof(struct header_data_struct));
-	snprintf(header_data.name, sizeof(header_data.name), "%s",
+	wrap_snprintf(header_data.name, sizeof(header_data.name), "%s",
 			 HTTP_HEADER_YCM_HMAC);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERFUNCTION, header_callback);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERDATA, &header_data);
@@ -2293,7 +2293,7 @@ void do_completer_command_fixit(void) {
 
 					const char *text = json_string_value(json_object_get(item_fixit, "text"));
 					char prompt_msg[QUARTER_LINE_LENGTH];
-					snprintf(prompt_msg, QUARTER_LINE_LENGTH, "Apply fix It? %s", text);
+					wrap_snprintf(prompt_msg, sizeof(prompt_msg), "Apply fix It? %s", text);
 
 					/* TODO:  Finish implementation or remove deadcode
 					const char *fl_filepath;
@@ -2412,7 +2412,7 @@ void _run_completer_command_execute_command_getdoc(char *command) {
 		validate_pw(pw);
 
 		char cache_dir[PATH_MAX];
-		if (snprintf(cache_dir, PATH_MAX, "%s/.cache/nano-ycmd", pw->pw_dir) >= PATH_MAX) {
+		if (wrap_snprintf(cache_dir, sizeof(cache_dir), "%s/.cache/nano-ycmd", pw->pw_dir) >= PATH_MAX) {
 			statusline(HUSH, "Cache directory path too long.");
 			return;
 		}
@@ -2422,7 +2422,7 @@ void _run_completer_command_execute_command_getdoc(char *command) {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-overflow"
 		char doc_filename[PATH_MAX];
-		sprintf(doc_filename, "%s/tmpXXXXXX", cache_dir);
+		wrap_snprintf(doc_filename, sizeof(doc_filename), "%s/tmpXXXXXX", cache_dir);
 #pragma GCC diagnostic pop
 		int fdtemp = mkstemp(doc_filename);
 		FILE *f = fdopen(fdtemp, "w+");
@@ -2474,7 +2474,7 @@ void do_completer_command_refactorrename(void) {
 	/*  0 means to enter.
 	 * -1 means to cancel. */
 	if (ret == 0) {
-		sprintf(cc_command, "\"RefactorRename\",\"%s\"", answer);
+		wrap_snprintf(cc_command, sizeof(cc_command), "\"RefactorRename\",\"%s\"", answer);
 
 		statusline(HUSH, "Applying refactor rename...");
 
@@ -2548,7 +2548,7 @@ void do_completer_command_restartserver(void) {
 	wrap_secure_zero(completercommand, LINE_LENGTH);
 
 	char *completertarget = "filetype_default";
-	sprintf(completercommand, "[\"RestartServer\"]");
+	wrap_snprintf(completercommand, sizeof(completercommand), "[\"RestartServer\"]");
 
 	/* Check the server if it is compromised before sending sensitive source
 	 * code (e.g. CMS passwords). */
@@ -2582,7 +2582,7 @@ void do_completer_command_stopserver(void) {
 	wrap_secure_zero(completercommand, LINE_LENGTH);
 
 	char *completertarget = "filetype_default";
-	sprintf(completercommand, "[\"StopServer\"]");
+	wrap_snprintf(completercommand, sizeof(completercommand), "[\"StopServer\"]");
 
 	/* Check the server if it is compromised before sending sensitive source
 	 * code (e.g. CMS passwords). */
@@ -2685,7 +2685,7 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 
 	curl_easy_reset(ycmd_globals.curl);
 	char url[LINE_LENGTH];
-	sprintf(url, "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
+	wrap_snprintf(url, sizeof(url), "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
 	debug_log("url = %s", url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
@@ -2745,7 +2745,7 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 
 	header_data_struct header_data;
 	wrap_secure_zero(&header_data, sizeof(header_data_struct));
-	sprintf(header_data.name, "%s", HTTP_HEADER_YCM_HMAC);
+	wrap_snprintf(header_data.name, sizeof(header_data.name), "%s", HTTP_HEADER_YCM_HMAC);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERFUNCTION, header_callback);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERDATA, &header_data);
 
@@ -2831,11 +2831,11 @@ int ycmd_rsp_is_healthy(int include_subservers) {
 	if (include_subservers == 2) {
 		req_buffer[0] = '\0';
 	} else if (include_subservers) {
-		sprintf(req_buffer, "include_subservers=1");
+		wrap_snprintf(req_buffer, sizeof(req_buffer), "include_subservers=1");
 	} else {
-		sprintf(req_buffer, "include_subservers=0");
+		wrap_snprintf(req_buffer, sizeof(req_buffer), "include_subservers=0");
 	}
-	sprintf(url, "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
+	wrap_snprintf(url, sizeof(url), "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
 	debug_log("url = %s", url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
@@ -2870,7 +2870,7 @@ int ycmd_rsp_is_healthy(int include_subservers) {
 
 	header_data_struct header_data;
 	wrap_secure_zero(&header_data, sizeof(header_data_struct));
-	sprintf(header_data.name, "%s", HTTP_HEADER_YCM_HMAC);
+	wrap_snprintf(header_data.name, sizeof(header_data.name), "%s", HTTP_HEADER_YCM_HMAC);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERFUNCTION, header_callback);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERDATA, &header_data);
 
@@ -2940,8 +2940,8 @@ int ycmd_rsp_is_server_ready(char *filetype) {
 
 	curl_easy_reset(ycmd_globals.curl);
 	char url[LINE_LENGTH];
-	sprintf(req_buffer, "subserver=%s", filetype);
-	sprintf(url, "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
+	wrap_snprintf(req_buffer, sizeof(req_buffer), "subserver=%s", filetype);
+	wrap_snprintf(url, sizeof(url), "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
 	debug_log("url = %s", url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
@@ -2969,7 +2969,7 @@ int ycmd_rsp_is_server_ready(char *filetype) {
 
 	header_data_struct header_data;
 	wrap_secure_zero(&header_data, sizeof(header_data_struct));
-	sprintf(header_data.name, "%s", HTTP_HEADER_YCM_HMAC);
+	wrap_snprintf(header_data.name, sizeof(header_data.name), "%s", HTTP_HEADER_YCM_HMAC);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERFUNCTION, header_callback);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERDATA, &header_data);
 
@@ -3038,7 +3038,7 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 
 	curl_easy_reset(ycmd_globals.curl);
 	char url[LINE_LENGTH];
-	sprintf(url, "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
+	wrap_snprintf(url, sizeof(url), "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
 	debug_log("url = %s", url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
@@ -3110,7 +3110,7 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 
 	header_data_struct header_data;
 	wrap_secure_zero(&header_data, sizeof(header_data_struct));
-	sprintf(header_data.name, "%s", HTTP_HEADER_YCM_HMAC);
+	wrap_snprintf(header_data.name, sizeof(header_data.name), "%s", HTTP_HEADER_YCM_HMAC);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERFUNCTION,
 					 header_callback);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERDATA, &header_data);
@@ -3198,7 +3198,7 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 
 	curl_easy_reset(ycmd_globals.curl);
 	char url[LINE_LENGTH];
-	sprintf(url, "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
+	wrap_snprintf(url, sizeof(url), "%s://%s:%d%s", ycmd_globals.scheme, ycmd_globals.hostname, ycmd_globals.port, path);
 	debug_log("url = %s", url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_URL, url);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_TIMEOUT_MS, 500L);
@@ -3253,7 +3253,7 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 
 	header_data_struct header_data;
 	wrap_secure_zero(&header_data, sizeof(header_data_struct));
-	sprintf(header_data.name, "%s", HTTP_HEADER_YCM_HMAC);
+	wrap_snprintf(header_data.name, sizeof(header_data.name), "%s", HTTP_HEADER_YCM_HMAC);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERFUNCTION, header_callback);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HEADERDATA, &header_data);
 
@@ -3448,7 +3448,7 @@ void ycmd_start_server() {
 	validate_pw(pw);
 
 	char cache_dir[PATH_MAX];
-	if (snprintf(cache_dir, PATH_MAX, "%s/.cache/nano-ycmd", pw->pw_dir) >= PATH_MAX) {
+	if (wrap_snprintf(cache_dir, sizeof(cache_dir), "%s/.cache/nano-ycmd", pw->pw_dir) >= PATH_MAX) {
 		statusline(HUSH, "Cache directory path too long.");
 		return;
 	}
@@ -3458,7 +3458,7 @@ void ycmd_start_server() {
 // #if defined(DEBUG)
 #if 0
 	char combined_output_file[PATH_MAX];
-	sprintf(combined_output_file, "%s/tmpXXXXXX", cache_dir); /* Do not add .txt suffix */
+	wrap_snprintf(combined_output_file, sizeof(combined_output_file), "%s/tmpXXXXXX", cache_dir); /* Do not add .txt suffix */
 	int fd2 = mkstemp(combined_output_file);
 	if (fd2 == -1) {
 		debug_log("mkstemp creation failed for combined_output_file");
@@ -3470,13 +3470,13 @@ void ycmd_start_server() {
 	debug_log("stdout_output_file = %s", combined_output_file);
 #else
 	char combined_output_file[PATH_MAX];
-	sprintf(combined_output_file, "/dev/null");
+	wrap_snprintf(combined_output_file, sizeof(combined_output_file), "/dev/null");
 #endif
 
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-overflow"
 	char default_settings_json_path[PATH_MAX];
-	sprintf(default_settings_json_path, "%s/tmpXXXXXX", cache_dir); /* Do not add .txt suffix */
+	wrap_snprintf(default_settings_json_path, sizeof(default_settings_json_path), "%s/tmpXXXXXX", cache_dir); /* Do not add .txt suffix */
 #pragma GCC diagnostic pop
 	int fd3 = mkstemp(default_settings_json_path);
 	if (fd3 == -1) {
@@ -3487,7 +3487,7 @@ void ycmd_start_server() {
 	}
 	debug_log("default_settings_json_path = %s", default_settings_json_path);
 
-	sprintf(ycmd_globals.default_settings_json_path, "%s", default_settings_json_path);
+	wrap_snprintf(ycmd_globals.default_settings_json_path, sizeof(ycmd_globals.default_settings_json_path), "%s", default_settings_json_path);
 	FILE *f = fdopen(fd3, "w+");
 	fprintf(f, "%s", ycmd_globals.json);
 	fclose(f);
@@ -3500,10 +3500,10 @@ void ycmd_start_server() {
 		char idle_suicide_seconds_value[DIGITS_MAX];
 		char ycmd_path[PATH_MAX];
 
-		snprintf(port_value, DIGITS_MAX, "%d", ycmd_globals.port);
-		snprintf(options_file_value, PATH_MAX, "%s", ycmd_globals.default_settings_json_path);
-		snprintf(idle_suicide_seconds_value, DIGITS_MAX, "%d", IDLE_SUICIDE_SECONDS);
-		snprintf(ycmd_path, PATH_MAX, "%s", YCMD_PATH);
+		wrap_snprintf(port_value, sizeof(port_value), "%d", ycmd_globals.port);
+		wrap_snprintf(options_file_value, sizeof(options_file_value), "%s", ycmd_globals.default_settings_json_path);
+		wrap_snprintf(idle_suicide_seconds_value, sizeof(idle_suicide_seconds_value), "%d", IDLE_SUICIDE_SECONDS);
+		wrap_snprintf(ycmd_path, sizeof(ycmd_path), "%s", YCMD_PATH);
 
 		/* After execl() executes, the server will delete the tmpfile (aka options_file_value). */
 		/* For inspecting for changes:
@@ -4540,13 +4540,13 @@ int transform_json_file(const char *doc_filename) {
 	int result = -1;
 
 	/* Create temporary filename */
-	size_t len = strlen(doc_filename) + 3; // ".t" + null terminator
+	size_t len = strlen(doc_filename) + 3; /* ".t" + null terminator */
 	temp_filename = malloc(len);
 	if (!temp_filename) {
 		statusline(ALERT, _("Memory allocation failed"));
 		goto cleanup;
 	}
-	snprintf(temp_filename, len, "%s.t", doc_filename);
+	wrap_snprintf(temp_filename, len, "%s.t", doc_filename);
 
 	/* Load JSON from file */
 	root = json_load_file(doc_filename, 0, &error);
@@ -4648,7 +4648,7 @@ void ycmd_display_parse_results() {
 	validate_pw(pw);
 
 	char cache_dir[PATH_MAX];
-	if (snprintf(cache_dir, PATH_MAX, "%s/.cache/nano-ycmd", pw->pw_dir) >= PATH_MAX) {
+	if (wrap_snprintf(cache_dir, sizeof(cache_dir), "%s/.cache/nano-ycmd", pw->pw_dir) >= PATH_MAX) {
 		statusline(HUSH, "Cache directory path too long.");
 		return;
 	}
@@ -4658,7 +4658,7 @@ void ycmd_display_parse_results() {
 #pragma GCC diagnostic push
 #pragma GCC diagnostic ignored "-Wformat-overflow"
 	char doc_filename[PATH_MAX];
-	sprintf(doc_filename, "%s/tmpXXXXXX", cache_dir);
+	wrap_snprintf(doc_filename, sizeof(doc_filename), "%s/tmpXXXXXX", cache_dir);
 #pragma GCC diagnostic pop
 	int fdtemp = mkstemp(doc_filename);
 	FILE *f = fdopen(fdtemp, "w+");
@@ -4765,7 +4765,7 @@ void do_ycm_extra_conf_generate(void) {
 #ifdef ENABLE_YCM_GENERATOR
 		/* It should be number of columns. */
 		char display_text[DOUBLE_LINE_LENGTH];
-		snprintf(display_text, DOUBLE_LINE_LENGTH, "Generated and accepted %s", path_extra_conf);
+		wrap_snprintf(display_text, sizeof(display_text), "Generated and accepted %s", path_extra_conf);
 		statusline(HUSH, display_text);
 		ycmd_gen_extra_conf();
 #endif
@@ -4788,7 +4788,7 @@ void do_n_entries() {
 	else
 		max = 6;
 	char max_str[2];
-	snprintf(max_str, 2, "%d", max);
+	wrap_snprintf(max_str, sizeof(max_str), "%d", max);
 	int ret = do_prompt(MNUMSUGGEST, max_str,
 #ifndef DISABLE_HISTORIES
 		NULL,
