@@ -98,7 +98,7 @@ If you are using nano-ycmd for passwords or untrusted data (e.g. opening files
 from the web or without file extension), it is recommended to install hardened
 libraries.
 
-##### Older builds/commits (Pre June 21, 2025)
+##### Older builds/commits (Pre June 26, 2025)
 
 | Dependency                                                        | Version        | Required or optional | Build-time or run-time | Description                                                                                                                           |
 | ----                                                              | ----           | ----                 | ----                   | ----                                                                                                                                  |
