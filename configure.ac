@@ -319,14 +319,11 @@ if test "x$enable_operatingdir" != xno; then
 	AC_DEFINE(ENABLE_OPERATINGDIR, 1, [Define this to allow setting an operating directory (a chroot of sorts).])
 fi
 
-AC_ARG_ENABLE([ycmd-popup],
-	[AS_HELP_STRING([--enable-ycmd-popup], [Enable ycmd popup feature])],
-	[enable_ycmd_popup=$enableval],
-	[enable_ycmd_popup=yes])
-
-if test "x$enable_ycmd_popup" = "xyes"; then
-	AC_DEFINE([ENABLE_YCMD_POPUP], [1], [Define to 1 if ycmd popup feature is enabled])
-fi
+AC_ARG_WITH([safe-paths],
+    [AS_HELP_STRING([--with-safe-paths=PATHS],
+        [Specify safe paths (e.g., /usr/local;/usr/bin)])],
+    [safe_paths="$withval"],
+    [safe_paths=""])
 
 AC_ARG_ENABLE(speller,
 AS_HELP_STRING([--disable-speller], [Disable the spell-checking tool]))
@@ -379,6 +376,15 @@ if test "x$enable_tiny" = xyes; then
 fi
 if test "x$enable_wrapping" != xno; then
 	AC_DEFINE(ENABLE_WRAPPING, 1, [Define this to have hard text wrapping.])
+fi
+
+AC_ARG_ENABLE([ycmd-popup],
+	[AS_HELP_STRING([--enable-ycmd-popup], [Enable ycmd popup feature])],
+	[enable_ycmd_popup=$enableval],
+	[enable_ycmd_popup=yes])
+
+if test "x$enable_ycmd_popup" = "xyes"; then
+	AC_DEFINE([ENABLE_YCMD_POPUP], [1], [Define to 1 if ycmd popup feature is enabled])
 fi
 
 AC_ARG_ENABLE(debug,

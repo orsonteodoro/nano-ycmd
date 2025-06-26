@@ -31,6 +31,10 @@
 #define COMMAND_LINE_COMMAND_NUM 21
 #define COMMAND_LINE_WIDTH 34
 
+#ifndef SAFE_PATHS
+#define SAFE_PATHS ""
+#endif
+
 /* GH line width (hard limit):  147 chars at 1080p */
 /* Mod default (soft limit):  120 chars */
 //2345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678901234567890123456
@@ -263,7 +267,7 @@ void ycmd_send_to_server(int signum) {
 #include <safe_str_lib.h>
 #endif
 
-char *sanitize_path(const char *input_path, char *output, size_t output_size) {
+char *sanitize_path(const char *input_path, const char *safe_paths, char *output, size_t output_size) {
 	if (!input_path || !output || output_size == 0) {
 		return NULL;
 	}
@@ -275,18 +279,42 @@ char *sanitize_path(const char *input_path, char *output, size_t output_size) {
 		return NULL;
 	}
 
-	/* Optional: Restrict paths to a safe directory (e.g., /usr/local/bin) */
-	/*
-	 * // Example safe root
-	 * const char *allowed_prefix = "/usr/local";
-	 * if (strncmp(resolved_path, allowed_prefix, strlen(allowed_prefix)) != 0) {
-	 * 	// Path is outside allowed directory
-	 * 	return NULL;
-	 * }
-	 */
+	if (safe_paths) {
+		/* Split safe paths into individual paths */
+		char *safe_paths_copy = wrap_strdup(safe_paths);
+		if (!safe_paths_copy) {
+			return NULL; /* Out of memory */
+		}
+
+		char *path = strtok(safe_paths_copy, ";");
+		int is_safe = 0;
+		while (path) {
+			/* Remove leading and trailing whitespace */
+			while (*path == ' ' || *path == '\t') path++;
+				char *end = path + wrap_strlen(path) - 1;
+				while (end > path && (*end == ' ' || *end == '\t')) {
+				*end = '\0';
+				end--;
+			}
+
+			/* Check if resolved path starts with safe path */
+			if (wrap_strncmp(resolved_path, path, wrap_strlen(path)) == 0) {
+				is_safe = 1;
+				break;
+			}
+			path = strtok(NULL, ";");
+		}
+
+		wrap_free((void **)&safe_paths_copy);
+
+		if (!is_safe) {
+			/* Path is outside allowed directories */
+			return NULL;
+		}
+	}
 
 	/* Check for forbidden sequences (additional check, though realpath typically handles ../) */
-	if (strstr(resolved_path, "../") != NULL || strstr(resolved_path, "./") != NULL) {
+	if (wrap_strstr(resolved_path, "../") != NULL || wrap_strstr(resolved_path, "./") != NULL) {
 		return NULL;
 	}
 
@@ -294,7 +322,6 @@ char *sanitize_path(const char *input_path, char *output, size_t output_size) {
 	wrap_strncpy(output, resolved_path, output_size);
 	return output;
 }
-
 
 #define YCM_EXTRA_CONF_PY_LINE_LENGTH 1024
 #define YCM_EXTRA_CONF_PY_NAME_LENGTH 256
@@ -1007,29 +1034,30 @@ void default_settings_constructor(default_settings_struct *settings) {
 	settings->server_keep_logfiles = 0;
 
 	/* Applies path traversal mitigation */
+	const char *safe_paths = SAFE_PATHS;
 	if (ycmd_globals.core_version < 43) {
-		if (sanitize_path(GOCODE_PATH, sanitized_path, PATH_MAX)) {
+		if (sanitize_path(GOCODE_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->gocode_binary_path, sanitized_path, PATH_MAX);
 		} else {
 			wrap_strncpy(settings->gocode_binary_path, "", PATH_MAX); /* Fallback to empty path */
 		}
-		if (sanitize_path(GODEF_PATH, sanitized_path, PATH_MAX)) {
+		if (sanitize_path(GODEF_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->godef_binary_path, sanitized_path, PATH_MAX);
 		} else {
 			wrap_strncpy(settings->godef_binary_path, "", PATH_MAX);
 		}
-		if (sanitize_path(RUST_SRC_PATH, sanitized_path, PATH_MAX)) {
+		if (sanitize_path(RUST_SRC_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->rust_src_path, sanitized_path, PATH_MAX);
 		} else {
 			wrap_strncpy(settings->rust_src_path, "", PATH_MAX);
 		}
-		if (sanitize_path(RACERD_PATH, sanitized_path, PATH_MAX)) {
+		if (sanitize_path(RACERD_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->racerd_binary_path, sanitized_path, PATH_MAX);
 		} else {
 			wrap_strncpy(settings->racerd_binary_path, "", PATH_MAX);
 		}
 	}
-	if (sanitize_path(YCMD_PYTHON_PATH, sanitized_path, PATH_MAX)) {
+	if (sanitize_path(YCMD_PYTHON_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 		wrap_strncpy(settings->python_binary_path, sanitized_path, PATH_MAX);
 	} else {
 		wrap_strncpy(settings->python_binary_path, "", PATH_MAX);
@@ -1040,7 +1068,7 @@ void default_settings_constructor(default_settings_struct *settings) {
 		/* java_jdtls_workspace_root_path = "" */
 		/* java_jdtls_extension_path = [] */
 		settings->use_clangd = 0;
-		if (sanitize_path(CLANGD_PATH, sanitized_path, PATH_MAX)) {
+		if (sanitize_path(CLANGD_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->clangd_binary_path, sanitized_path, PATH_MAX);
 		} else {
 			wrap_strncpy(settings->clangd_binary_path, "", PATH_MAX);
@@ -1048,37 +1076,37 @@ void default_settings_constructor(default_settings_struct *settings) {
 		/* clangd_args = [] */
 		settings->clangd_uses_ycmd_caching = 0;
 		settings->disable_signature_help = 0;
-		if (sanitize_path(GOPLS_PATH, sanitized_path, PATH_MAX)) {
+		if (sanitize_path(GOPLS_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->gopls_binary_path, sanitized_path, PATH_MAX);
 		} else {
 			wrap_strncpy(settings->gopls_binary_path, "", PATH_MAX);
 		}
 		/* gopls_args = [] */
 		if (ycmd_globals.core_version < 45) {
-			if (sanitize_path(RLS_PATH, sanitized_path, PATH_MAX)) {
+			if (sanitize_path(RLS_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 				wrap_strncpy(settings->rls_binary_path, sanitized_path, PATH_MAX);
 			} else {
 				wrap_strncpy(settings->rls_binary_path, "", PATH_MAX);
 			}
-			if (sanitize_path(RUSTC_PATH, sanitized_path, PATH_MAX)) {
+			if (sanitize_path(RUSTC_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 				wrap_strncpy(settings->rustc_binary_path, sanitized_path, PATH_MAX);
 			} else {
 				wrap_strncpy(settings->rustc_binary_path, "", PATH_MAX);
 			}
 		}
 		if (ycmd_globals.core_version >= 45) {
-			if (sanitize_path(RUST_TOOLCHAIN_PATH, sanitized_path, PATH_MAX)) {
+			if (sanitize_path(RUST_TOOLCHAIN_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 				wrap_strncpy(settings->rust_toolchain_root, sanitized_path, PATH_MAX);
 			} else {
 				wrap_strncpy(settings->rust_toolchain_root, "", PATH_MAX);
 			}
 		}
-		if (sanitize_path(TSSERVER_PATH, sanitized_path, PATH_MAX)) {
+		if (sanitize_path(TSSERVER_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->tsserver_binary_path, sanitized_path, PATH_MAX);
 		} else {
 			wrap_strncpy(settings->tsserver_binary_path, "", PATH_MAX);
 		}
-		if (sanitize_path(OMNISHARP_PATH, sanitized_path, PATH_MAX)) {
+		if (sanitize_path(OMNISHARP_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->roslyn_binary_path, sanitized_path, PATH_MAX);
 		} else {
 			wrap_strncpy(settings->roslyn_binary_path, "", PATH_MAX);
@@ -1086,7 +1114,7 @@ void default_settings_constructor(default_settings_struct *settings) {
 	}
 
 	if (ycmd_globals.core_version >= 44) {
-		if (sanitize_path(MONO_PATH, sanitized_path, PATH_MAX)) {
+		if (sanitize_path(MONO_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->mono_binary_path, sanitized_path, PATH_MAX);
 		} else {
 			wrap_strncpy(settings->mono_binary_path, "", PATH_MAX);
@@ -1094,7 +1122,7 @@ void default_settings_constructor(default_settings_struct *settings) {
 	}
 
 	if (ycmd_globals.core_version >= 45) {
-		if (sanitize_path(JAVA_PATH, sanitized_path, PATH_MAX)) {
+		if (sanitize_path(JAVA_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->java_binary_path, sanitized_path, PATH_MAX);
 		} else {
 			wrap_strncpy(settings->java_binary_path, "", PATH_MAX);
