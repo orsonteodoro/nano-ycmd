@@ -295,7 +295,7 @@ void handle_completion_input(int input, char **completion_text) {
 		}
 		json_t *text = json_object_get(selected, "insertion_text");
 		if (text && json_is_string(text)) {
-			*completion_text = strdup(json_string_value(text));
+			*completion_text = wrap_strdup(json_string_value(text));
 			debug_log("Selected completion: %s", *completion_text);
 		} else {
 			debug_log("Missing insertion_text at index %zu", selected_index);

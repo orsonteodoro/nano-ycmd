@@ -534,3 +534,26 @@ int wrap_snprintf(char *str, size_t size, const char *format, ...)
 	va_end(ap);
 	return result;
 }
+
+char* wrap_strdup(const char* str) {
+	size_t len = wrap_strlen(str) + 1;
+	char* dup = NULL;
+
+#if defined(USE_HARDENED_MALLOC)
+	extern void* hardened_malloc(size_t size);
+	dup = hardened_malloc(len);
+	if (dup != NULL) {
+		return wrap_memcpy(dup, str, len);
+	}
+#elif defined(USE_MIMALLOC_SECURE)
+	extern void* mimalloc_malloc(size_t size);
+	dup = mimalloc_malloc(len);
+	if (dup != NULL) {
+		return wrap_memcpy(dup, str, len);
+	}
+#else
+	/* Fallback to glibc strdup */
+	return strdup(str);
+#endif
+
+}

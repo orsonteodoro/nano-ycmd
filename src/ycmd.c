@@ -1409,7 +1409,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 			if (wrap_strstr(eventname, "FileReadyToParse")) {
 				ycmd_globals.file_ready_to_parse_results.usable = 1;
 				ycmd_globals.file_ready_to_parse_results.json =
-					strdup(response_body); /* Unfinished? */
+					wrap_strdup(response_body); /* Unfinished? */
 			}
 		}
 	}
@@ -1689,7 +1689,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 														 wrap_strlen(func->tag));
 										wrap_free((void **)&func->tag);
 									}
-									func->tag = strdup(json_string_value(
+									func->tag = wrap_strdup(json_string_value(
 										insertion_text_value));
 									func = func->next;
 								}
@@ -1699,7 +1699,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 									wrap_secure_zero(func->tag, wrap_strlen(func->tag));
 									wrap_free((void **)&func->tag);
 								}
-								func->tag = strdup("");
+								func->tag = wrap_strdup("");
 							}
 							json_t *completion_start_column_value =	json_object_get(root, "completion_start_column");
 							if (completion_start_column_value && json_is_integer(completion_start_column_value)) {
@@ -1801,7 +1801,7 @@ void parse_run_completer_command_result(
 	}
 
 	char *json; /* nxjson does inplace edits so back it up. */
-	json = strdup(rccr->json);
+	json = wrap_strdup(rccr->json);
 
 	json_error_t error;
 	json_t *root = json_loads(rccr->json, 0, &error);
@@ -1810,11 +1810,11 @@ void parse_run_completer_command_result(
 		json_t *value;
 		value = json_object_get(root, "message");
 		if (value && json_is_string(value))
-			rccr->message = strdup(json_string_value(value));
+			rccr->message = wrap_strdup(json_string_value(value));
 
 		value = json_object_get(root, "filepath");
 		if (value && json_is_string(value))
-			rccr->filepath = strdup(json_string_value(value));
+			rccr->filepath = wrap_strdup(json_string_value(value));
 
 		value = json_object_get(root, "line_num");
 		if (value && json_is_integer(value))
@@ -1826,7 +1826,7 @@ void parse_run_completer_command_result(
 
 		value = json_object_get(root, "detailed_info");
 		if (value && json_is_string(value))
-			rccr->detailed_info = strdup(json_string_value(value));
+			rccr->detailed_info = wrap_strdup(json_string_value(value));
 
 		/* Sanitize root? */
 		json_decref(root);
@@ -2626,7 +2626,7 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 			compromised = 1;
 		} else {
 			ycmd_get_hmac_response(rsp_hmac_base64, response_body);
-			rccr->json = strdup(response_body);
+			rccr->json = wrap_strdup(response_body);
 			rccr->usable = 1;
 		}
 	}
@@ -3133,7 +3133,7 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 			compromised = 1;
 		} else {
 			ycmd_get_hmac_response(rsp_hmac_base64, response_body);
-			dsr->json = strdup(response_body);
+			dsr->json = wrap_strdup(response_body);
 			dsr->usable = 1;
 		}
 	}
@@ -4180,7 +4180,7 @@ void do_code_completion(char letter) {
 
 				wrap_secure_zero(func->tag, wrap_strlen(func->tag));
 				wrap_free((void **)&func->tag);
-				func->tag = strdup("");
+				func->tag = wrap_strdup("");
 				blank_statusbar();
 			}
 
