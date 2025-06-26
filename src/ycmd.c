@@ -262,7 +262,7 @@ void ycmd_send_to_server(int signum) {
 #define YCM_EXTRA_CONF_PY_NAME_LENGTH 256
 
 /* Whitelist of allowed modules for .ycm_extra_conf.py */
-const char* allowed_imported_modules_for_ycm_extra_conf_py[] = {"sysconfig", "platform", "os", "subprocess"};
+const char* allowed_imported_modules_for_ycm_extra_conf_py[] = {"sysconfig", "platform", "os", "subprocess", "ycm_core"};
 int num_allowed_imported_modules_for_ycm_extra_conf_py = 4;
 
 /* Function to check if a module is in the whitelist */
