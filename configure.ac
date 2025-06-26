@@ -324,7 +324,7 @@ AC_ARG_WITH([safe-paths],
         [Specify safe paths (e.g., /usr/local;/usr/bin)])],
     [safe_paths="$withval"],
     [safe_paths=""])
-AC_SUBST([safe_paths])
+AC_DEFINE_UNQUOTED([SAFE_PATHS], ["$safe_paths"], [Safe paths])
 
 AC_ARG_ENABLE(speller,
 AS_HELP_STRING([--disable-speller], [Disable the spell-checking tool]))
