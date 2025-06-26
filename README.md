@@ -494,7 +494,7 @@ To add popup support, compile add `--enable-ycmd-popup` to configure.
 Optionally these environment variables before calling nano.
 
 * NANO_YCMD_UI_MODE - Set to `bottom` or `popup` to choose between classic bottom bar UI mode or popup UI mode.
-* NANO_YCMD_COMPLETION_LIMIT - Set to `3-10` to control the number of rows suggestions to choose.
+* NANO_YCMD_COMPLETION_LIMIT - Set to `3-10` to control the number of rows suggestions to choose for popup UI mode.
 
 The popup UI mode is a new introduction.  Features from the classic mode still
 need to be integrated with the popup UI.  The popup support is enabled by
