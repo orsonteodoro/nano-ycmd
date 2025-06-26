@@ -406,7 +406,7 @@ typedef struct header_data_struct {
 static size_t header_callback(char *buffer, size_t size, size_t nitems, void *userdata) {
 	struct header_data_struct *hd = (struct header_data_struct *)userdata;
 	size_t len = size * nitems;
-	if (len > 0 && strncasecmp(buffer, hd->name, strlen(hd->name)) == 0) {
+	if (len > 0 && strncasecmp(buffer, hd->name, wrap_strlen(hd->name)) == 0) {
 		char *value = strchr(buffer, ':');
 		if (value) {
 			value++;
@@ -427,7 +427,7 @@ static size_t header_callback(char *buffer, size_t size, size_t nitems, void *us
 static size_t header_callbackB(char *buffer, size_t size, size_t nitems, void *userdata) {
 	header_data_struct *hd = (header_data_struct *)userdata;
 	size_t len = size * nitems;
-	if (len > 0 && strncasecmp(buffer, hd->name, strlen(hd->name)) == 0) {
+	if (len > 0 && strncasecmp(buffer, hd->name, wrap_strlen(hd->name)) == 0) {
 		char *value = strchr(buffer, ':');
 		if (value) {
 			value++;
@@ -618,9 +618,9 @@ char* extract_include_paths(const char* language) {
 	char line[1024];
 
 	while (fgets(line, sizeof(line), pipe)) {
-		output = realloc(output, output_len + strlen(line) + 1);
+		output = realloc(output, output_len + wrap_strlen(line) + 1);
 		strcpy(output + output_len, line);
-		output_len += strlen(line);
+		output_len += wrap_strlen(line);
 	}
 
 	pclose(pipe);
@@ -632,8 +632,8 @@ char* extract_include_paths(const char* language) {
 	char* end = strstr(output, end_marker);
 
 	if (start && end) {
-		start += strlen(start_marker);
-		end += strlen(end_marker);
+		start += wrap_strlen(start_marker);
+		end += wrap_strlen(end_marker);
 		*end = '\0';
 		memmove(output, start, end - start);
 	}
@@ -643,14 +643,14 @@ char* extract_include_paths(const char* language) {
 
 /* Function to format the include paths */
 char* format_include_paths(const char* include_paths) {
-	size_t formatted_len = strlen(include_paths) * 2;
+	size_t formatted_len = wrap_strlen(include_paths) * 2;
 	char* formatted_paths = malloc(formatted_len + 1);
 
 	char* p = formatted_paths;
 	for (const char* q = include_paths; *q; q++) {
 		if (*q == '\n') {
 			sprintf(p, "',\n    '-isystem','");
-			p += strlen(p);
+			p += wrap_strlen(p);
 		} else {
 			*p++ = *q;
 		}
@@ -668,10 +668,10 @@ int update_config_file(const char* path_extra_conf, const char* formatted_paths)
 	char line[1024];
 	while (fgets(line, sizeof(line), file)) {
 		if (strstr(line, "'do_cache': True")) {
-			fseek(file, -strlen(line), SEEK_CUR);
+			fseek(file, -wrap_strlen(line), SEEK_CUR);
 			fprintf(file, "'do_cache': False");
 		} else if (strstr(line, "'-I.'")) {
-			fseek(file, -strlen(line), SEEK_CUR);
+			fseek(file, -wrap_strlen(line), SEEK_CUR);
 			fprintf(file, "'-isystem','%s','-I.'", formatted_paths);
 		}
 	}
@@ -1322,11 +1322,11 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
 	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer,
-						  strlen(req_buffer));
+						  wrap_strlen(req_buffer));
 	debug_log("HMAC inputs:  method=%s, path=%s, body='%s', body_size=%zu",
 		method, path,
-		req_buffer && strlen(req_buffer) ? req_buffer : "NULL",
-		req_buffer && strlen(req_buffer) ? strlen(req_buffer) : 0);
+		req_buffer && wrap_strlen(req_buffer) ? req_buffer : "NULL",
+		req_buffer && wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
 	debug_log("X-Ycm-Hmac = %s", req_hmac_base64);
 	headers = curl_slist_append(headers, "Keep-Alive: ");
 	headers = curl_slist_append(headers, "Connection: TE, Keep-Alive");
@@ -1340,7 +1340,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POST, 1L);
 		if (req_buffer && req_buffer_size > 0) {
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
+			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
 		} else {
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, "");
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, 0L);
@@ -1350,7 +1350,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	}
 
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
 	memory_struct chunk;
 	curl_setup_request(ycmd_globals.curl, &chunk);
 
@@ -1419,7 +1419,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 	wrap_secure_zero(rsp_hmac_base64, sizeof(rsp_hmac_base64));
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	if (response_body) {
-		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
 
@@ -1615,7 +1615,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	_req_sprintf(req_buffer, req_buffer_size, "}\n");
 
 	struct curl_slist *headers = NULL;
-	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, wrap_strlen(req_buffer));
 	headers = curl_slist_append(headers, "Keep-Alive: ");
 	headers = curl_slist_append(headers, "Connection: TE, Keep-Alive");
 	headers = curl_slist_append(headers, "content-type: application/json");
@@ -1623,7 +1623,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
 	memory_struct chunk = {0};
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_WRITEFUNCTION, write_callback);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_WRITEDATA, &chunk);
@@ -1686,7 +1686,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 									json_is_string(insertion_text_value)) {
 									if (func->tag) {
 										wrap_secure_zero(func->tag,
-														 strlen(func->tag));
+														 wrap_strlen(func->tag));
 										wrap_free((void **)&func->tag);
 									}
 									func->tag = strdup(json_string_value(
@@ -1696,7 +1696,7 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 							}
 							for (; i < completions_size && i < maximum && i < 6 && func; i++, func = func->next) {
 								if (func->tag) {
-									wrap_secure_zero(func->tag, strlen(func->tag));
+									wrap_secure_zero(func->tag, wrap_strlen(func->tag));
 									wrap_free((void **)&func->tag);
 								}
 								func->tag = strdup("");
@@ -2197,7 +2197,7 @@ void do_completer_command_fixit(void) {
 					if (ret == YES && fcrs_column_num >= 0 &&
 						fcre_column_num >= 0 && fcrs_column_num >= 0 &&
 						fcre_line_num >= 0) {
-						if (replacement_text && strlen(replacement_text)) {
+						if (replacement_text && wrap_strlen(replacement_text)) {
 							/* Assumes that the flag was previously set. */
 							/* openfile->mark_set = 1; */
 
@@ -2222,7 +2222,7 @@ void do_completer_command_fixit(void) {
 
 							/* Insert the fix */
 							inject((char *)replacement_text,
-								   strlen(replacement_text));
+								   wrap_strlen(replacement_text));
 							statusline(HUSH, "Applied FixIt.");
 						}
 					} else {
@@ -2563,11 +2563,11 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
 	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer,
-						  strlen(req_buffer));
+						  wrap_strlen(req_buffer));
 	debug_log("HMAC inputs:  method=%s, path=%s, body='%s', body_size=%zu",
 		method, path,
-		req_buffer && strlen(req_buffer) ? req_buffer : "NULL",
-		req_buffer && strlen(req_buffer) ? strlen(req_buffer) : 0);
+		req_buffer && wrap_strlen(req_buffer) ? req_buffer : "NULL",
+		req_buffer && wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
 	debug_log("X-Ycm-Hmac = %s", req_hmac_base64);
 	headers = curl_slist_append(headers, "Keep-Alive: ");
 	headers = curl_slist_append(headers, "Connection: TE, Keep-Alive");
@@ -2576,7 +2576,7 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 	headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
 	memory_struct chunk;
 	curl_setup_request(ycmd_globals.curl, &chunk);
 
@@ -2636,7 +2636,7 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 	wrap_secure_zero(rsp_hmac_base64, sizeof(rsp_hmac_base64));
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	if (response_body) {
-		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
 
@@ -2682,24 +2682,24 @@ int ycmd_rsp_is_healthy(int include_subservers) {
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
 	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer,
-						  strlen(req_buffer));
+						  wrap_strlen(req_buffer));
 	debug_log("HMAC inputs:  method=%s, path=%s, body='%s', body_size=%zu",
-		method, path, strlen(req_buffer) ? req_buffer : "NULL",
-		strlen(req_buffer) ? strlen(req_buffer) : 0);
+		method, path, wrap_strlen(req_buffer) ? req_buffer : "NULL",
+		wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
 	debug_log("X-Ycm-Hmac: %s", req_hmac_base64);
 	headers = curl_slist_append(headers, "Keep-Alive: ");
 	headers = curl_slist_append(headers, "Connection: TE, Keep-Alive");
 	headers = curl_slist_append(headers, "Accept:");
 	headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	headers = curl_slist_append(headers, "Content-Type:");
-	if (strlen(req_buffer)) {
-		headers = _curl_sprintf_header(headers, "Content-Length: %d", strlen(req_buffer));
+	if (wrap_strlen(req_buffer)) {
+		headers = _curl_sprintf_header(headers, "Content-Length: %d", wrap_strlen(req_buffer));
 	}
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 
-	if (strlen(req_buffer)) {
+	if (wrap_strlen(req_buffer)) {
 		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
+		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
 	}
 
 	memory_struct chunk;
@@ -2746,7 +2746,7 @@ int ycmd_rsp_is_healthy(int include_subservers) {
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	curl_slist_free_all(headers);
 	if (response_body) {
-		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
 
@@ -2787,10 +2787,10 @@ int ycmd_rsp_is_server_ready(char *filetype) {
 
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
-	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, strlen(req_buffer));
+	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer, wrap_strlen(req_buffer));
 	debug_log("HMAC inputs:  method=%s, path=%s, body='%s', body_size=%zu",
-		method, path, strlen(req_buffer) ? req_buffer : "NULL",
-		strlen(req_buffer) ? strlen(req_buffer) : 0);
+		method, path, wrap_strlen(req_buffer) ? req_buffer : "NULL",
+		wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
 	debug_log("X-Ycm-Hmac = %s", req_hmac_base64);
 	headers = curl_slist_append(headers, "Keep-Alive: ");
 	headers = curl_slist_append(headers, "Connection: TE, Keep-Alive");
@@ -2799,7 +2799,7 @@ int ycmd_rsp_is_server_ready(char *filetype) {
 	headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
 
 	memory_struct chunk;
 	curl_setup_request(ycmd_globals.curl, &chunk);
@@ -2848,7 +2848,7 @@ int ycmd_rsp_is_server_ready(char *filetype) {
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	curl_slist_free_all(headers);
 	if (response_body) {
-		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
 
@@ -2915,11 +2915,11 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
 	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer,
-						  strlen(req_buffer));
+						  wrap_strlen(req_buffer));
 	debug_log("HMAC inputs:  method=%s, path=%s, body='%s', body_size=%zu",
 		method, path,
-		req_buffer && strlen(req_buffer) ? req_buffer : "NULL",
-		req_buffer && strlen(req_buffer) ? strlen(req_buffer) : 0);
+		req_buffer && wrap_strlen(req_buffer) ? req_buffer : "NULL",
+		req_buffer && wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
 	debug_log("X-Ycm-Hmac = %s", req_hmac_base64);
 	headers = curl_slist_append(headers, "Keep-Alive: ");
 	headers = curl_slist_append(headers, "Connection: TE, Keep-Alive");
@@ -2933,7 +2933,7 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 		if (req_buffer && req_buffer_size > 0) {
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE,
-							 strlen(req_buffer));
+							 wrap_strlen(req_buffer));
 		} else {
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, "");
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, 0L);
@@ -2996,7 +2996,7 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	wrap_secure_zero(rsp_hmac_base64, sizeof(rsp_hmac_base64));
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	if (response_body) {
-		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
 
@@ -3071,11 +3071,11 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 	/* Set headers to match HTTP Neon */
 	struct curl_slist *headers = NULL;
 	ycmd_get_hmac_request(req_hmac_base64, method, path, req_buffer,
-						  strlen(req_buffer));
+						  wrap_strlen(req_buffer));
 	debug_log("HMAC inputs:  method=%s, path=%s, body='%s', body_size=%zu",
 		method, path,
-		req_buffer && strlen(req_buffer) ? req_buffer : "NULL",
-		req_buffer && strlen(req_buffer) ? strlen(req_buffer) : 0);
+		req_buffer && wrap_strlen(req_buffer) ? req_buffer : "NULL",
+		req_buffer && wrap_strlen(req_buffer) ? wrap_strlen(req_buffer) : 0);
 	debug_log("X-Ycm-Hmac = %s", req_hmac_base64);
 	headers = curl_slist_append(headers, "Keep-Alive: ");
 	headers = curl_slist_append(headers, "Connection: TE, Keep-Alive");
@@ -3084,7 +3084,7 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 	headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
-	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, strlen(req_buffer));
+	curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDSIZE, wrap_strlen(req_buffer));
 	memory_struct chunk;
 	curl_setup_request(ycmd_globals.curl, &chunk);
 
@@ -3143,7 +3143,7 @@ int ycmd_req_defined_subcommands(int linenum, int columnnum, char *filepath, lin
 	wrap_secure_zero(rsp_hmac_base64, sizeof(rsp_hmac_base64));
 	wrap_secure_zero(req_hmac_base64, sizeof(req_hmac_base64));
 	if (response_body) {
-		/* wrap_secure_zero(response_body, strlen(response_body)); */ /* Segfaults */
+		/* wrap_secure_zero(response_body, wrap_strlen(response_body)); */ /* Segfaults */
 		wrap_free((void **)&response_body);
 	}
 
@@ -3647,7 +3647,7 @@ void ycmd_generate_secret_key_base64(uint8_t *secret, char *secret_base64) {
 #elif defined(USE_LIBGCRYPT)
 	gchar *_secret_base64 = g_base64_encode((unsigned char *)secret, SECRET_KEY_LENGTH);
 	wrap_strncpy(secret_base64, _secret_base64, SECRET_KEY_LENGTH * 2 - 1);
-	wrap_secure_zero(_secret_base64, strlen(_secret_base64));
+	wrap_secure_zero(_secret_base64, wrap_strlen(_secret_base64));
 	g_free(_secret_base64);
 #else
 #error "You need to define a crypto library to use."
@@ -3674,10 +3674,10 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	struct hmac_sha256_ctx hmac_ctx;
 
 	hmac_sha256_set_key(&hmac_ctx, SECRET_KEY_LENGTH, (unsigned char *)ycmd_globals.secret_key_raw);
-	hmac_sha256_update(&hmac_ctx, strlen(method), (const uint8_t *)method);
+	hmac_sha256_update(&hmac_ctx, wrap_strlen(method), (const uint8_t *)method);
 	hmac_sha256_digest(&hmac_ctx, HMAC_SIZE, (unsigned char *)join);
 
-	hmac_sha256_update(&hmac_ctx, strlen(path), (const uint8_t *)path);
+	hmac_sha256_update(&hmac_ctx, wrap_strlen(path), (const uint8_t *)path);
 	hmac_sha256_digest(&hmac_ctx, HMAC_SIZE, (unsigned char *)(join + HMAC_SIZE));
 
 	hmac_sha256_update(&hmac_ctx, body_len, (const uint8_t *)body);
@@ -3706,13 +3706,13 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	EVP_MAC_init(ctx, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, params);
 
 	/* Calculate HMAC for method */
-	EVP_MAC_update(ctx, (unsigned char *)method, strlen(method));
+	EVP_MAC_update(ctx, (unsigned char *)method, wrap_strlen(method));
 	size_t hmac_method_len = EVP_MAX_MD_SIZE;
 	EVP_MAC_final(ctx, hmac_method, &hmac_method_len, EVP_MAX_MD_SIZE);
 	EVP_MAC_init(ctx, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, params); /* Reset ctx */
 
 	/* Calculate HMAC for path */
-	EVP_MAC_update(ctx, (unsigned char *)path, strlen(path));
+	EVP_MAC_update(ctx, (unsigned char *)path, wrap_strlen(path));
 	size_t hmac_path_len = EVP_MAX_MD_SIZE;
 	EVP_MAC_final(ctx, hmac_path, &hmac_path_len, EVP_MAX_MD_SIZE);
 	EVP_MAC_init(ctx, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH, params); /* Reset ctx */
@@ -3761,13 +3761,13 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	gcry_mac_open(&hd, GCRY_MAC_HMAC_SHA256, 0 /*GCRY_MAC_FLAG_SECURE*/, NULL);
 	gcry_mac_setkey(hd, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH);
 
-	gcry_mac_write(hd, method, strlen(method));
+	gcry_mac_write(hd, method, wrap_strlen(method));
 	length = HMAC_SIZE;
 	gcry_mac_read(hd, join, &length);
 
 	gcry_mac_reset(hd);
 
-	gcry_mac_write(hd, path, strlen(path));
+	gcry_mac_write(hd, path, wrap_strlen(path));
 	length = HMAC_SIZE;
 	gcry_mac_read(hd, join + HMAC_SIZE, &length);
 
@@ -3791,7 +3791,7 @@ void ycmd_get_hmac_request(char *req_hmac_base64, char *method, char *path, char
 	wrap_strncpy(req_hmac_base64, _req_hmac_base64, HMAC_SIZE * 2 - 1);
 
 	/* Sanitize sensitive data */
-	wrap_secure_zero(_req_hmac_base64, strlen(_req_hmac_base64));
+	wrap_secure_zero(_req_hmac_base64, wrap_strlen(_req_hmac_base64));
 
 	wrap_free((void **)&_req_hmac_base64);
 #else
@@ -3816,13 +3816,13 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body) {
 	struct hmac_sha256_ctx hmac_ctx;
 
 	hmac_sha256_set_key(&hmac_ctx, SECRET_KEY_LENGTH, (unsigned char *)ycmd_globals.secret_key_raw);
-	hmac_sha256_update(&hmac_ctx, strlen(response_body), (const uint8_t *)response_body);
+	hmac_sha256_update(&hmac_ctx, wrap_strlen(response_body), (const uint8_t *)response_body);
 	hmac_sha256_digest(&hmac_ctx, HMAC_SIZE, (unsigned char *)hmac_response);
 
 	base64_encode_raw(rsp_hmac_base64, HMAC_SIZE, (const uint8_t *)hmac_response);
 #elif defined(USE_OPENSSL)
 	unsigned char *response_digest = HMAC(EVP_sha256(), ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH,
-		(unsigned char *)response_body,	strlen(response_body), NULL, NULL);
+		(unsigned char *)response_body,	wrap_strlen(response_body), NULL, NULL);
 
 	BIO *b, *append;
 	BUF_MEM *pp;
@@ -3844,7 +3844,7 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body) {
 	gcry_mac_setkey(hd, ycmd_globals.secret_key_raw, SECRET_KEY_LENGTH);
 
 	char response_digest[HMAC_SIZE];
-	gcry_mac_write(hd, response_body, strlen(response_body));
+	gcry_mac_write(hd, response_body, wrap_strlen(response_body));
 	size_t length = HMAC_SIZE;
 	gcry_mac_read(hd, response_digest, &length);
 
@@ -3854,7 +3854,7 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body) {
 	wrap_strncpy(rsp_hmac_base64, _rsp_hmac_base64, HMAC_SIZE * 2 - 1);
 
 	/* Sanitize sensitive data */
-	wrap_secure_zero(_rsp_hmac_base64, strlen(_rsp_hmac_base64));
+	wrap_secure_zero(_rsp_hmac_base64, wrap_strlen(_rsp_hmac_base64));
 
 	g_free(_rsp_hmac_base64);
 #else
@@ -3873,7 +3873,7 @@ void ycmd_get_hmac_response(char *rsp_hmac_base64, char *response_body) {
 /* In the past, gprof reports this function takes 33% of the time. */
 /* We use the naive version because it is more secure. */
 size_t ycmd_escape_json(char *unescaped, char *escaped) {
-	int before_len = strlen(unescaped);
+	int before_len = wrap_strlen(unescaped);
 	size_t after_len = 0;
 
 	int j = 0;
@@ -3969,7 +3969,7 @@ size_t _req_file(char *req_buffer, size_t req_buffer_size, linestruct *filetop) 
 	size_t total_len = 0;
 	size_t expanded_len = 0;
 
-	size_t base_offset = strlen(req_buffer);
+	size_t base_offset = wrap_strlen(req_buffer);
 
 	linestruct *node;
 	node = filetop;
@@ -4176,9 +4176,9 @@ void do_code_completion(char letter) {
 				openfile->current_x = ycmd_globals.apply_column - 1;
 
 				/* Sanitize func->tag? */
-				inject(func->tag, strlen(func->tag));
+				inject(func->tag, wrap_strlen(func->tag));
 
-				wrap_secure_zero(func->tag, strlen(func->tag));
+				wrap_secure_zero(func->tag, wrap_strlen(func->tag));
 				wrap_free((void **)&func->tag);
 				func->tag = strdup("");
 				blank_statusbar();

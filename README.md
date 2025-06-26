@@ -509,8 +509,8 @@ be processed by string functions to a mitigate an availability attack.  It
 is set by an environment variable before calling nano.  It is to prevent
 a buffer overflow or calling unbounded strlen.
 
-NANO_YCMD_SMAX - Set between `1024 - 10485760` (or 1KB - 10 MB) to control
-buffer size.  The default is 1048576 (1 MB).
+* NANO_YCMD_SMAX - Set between `1024 - 10485760` (or 1KB - 10 MB) to control
+  buffer size.  The default is 1048576 (1 MB).
 
 #### Special thanks goes to...
 
