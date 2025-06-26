@@ -472,16 +472,16 @@ static size_t header_callback(char *buffer, size_t size, size_t nitems, void *us
 	struct header_data_struct *hd = (struct header_data_struct *)userdata;
 	size_t len = size * nitems;
 	if (len > 0 && strncasecmp(buffer, hd->name, wrap_strlen(hd->name)) == 0) {
-		char *value = strchr(buffer, ':');
+		char *value = wrap_strchr(buffer, ':');
 		if (value) {
 			value++;
 			while (*value == ' ')
 				value++;
 			strncpy(hd->value, value, sizeof(hd->value) - 1);
 			hd->value[sizeof(hd->value) - 1] = '\0';
-			char *nl = strchr(hd->value, '\r');
+			char *nl = wrap_strchr(hd->value, '\r');
 			if (!nl)
-				nl = strchr(hd->value, '\n');
+				nl = wrap_strchr(hd->value, '\n');
 			if (nl)
 				*nl = '\0';
 		}
@@ -493,7 +493,7 @@ static size_t header_callbackB(char *buffer, size_t size, size_t nitems, void *u
 	header_data_struct *hd = (header_data_struct *)userdata;
 	size_t len = size * nitems;
 	if (len > 0 && strncasecmp(buffer, hd->name, wrap_strlen(hd->name)) == 0) {
-		char *value = strchr(buffer, ':');
+		char *value = wrap_strchr(buffer, ':');
 		if (value) {
 			value++;
 			while (*value == ' ')
@@ -1558,35 +1558,20 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
    cleared properly and mitigate against information disclosure. */
 void *safe_resize_buffer(void *ptr, size_t old_size, size_t new_size) {
 	void *new_ptr = wrap_malloc(new_size);
-	if (new_ptr == NULL)
-		return NULL;
-	wrap_memcpy(new_ptr, ptr, old_size < new_size ? old_size : new_size);
-	volatile char *volatile_ptr = (volatile char *)ptr;
-	for (size_t i = 0; i < old_size; i++)
-		volatile_ptr[i] = 0;
-	free(ptr);
-	return new_ptr;
-}
-
-void *safe_resize_bufferB(void *ptr, size_t old_size, size_t new_size) {
-	void *new_ptr = wrap_malloc(new_size);
 	if (new_ptr == NULL) {
 		/* Handle out of memory error */
 		return NULL;
 	}
-
 	/* Copy data from old buffer to new buffer */
 	wrap_memcpy(new_ptr, ptr, old_size < new_size ? old_size : new_size);
 
 	/* Securely erase the old buffer */
-	volatile char *volatile_ptr = (volatile char *volatile)ptr;
-	for (size_t i = 0; i < old_size; i++) {
+	volatile char *volatile_ptr = (volatile char *)ptr;
+	for (size_t i = 0; i < old_size; i++)
 		volatile_ptr[i] = 0;
-	}
 
 	/* Free the old buffer */
-	free(ptr);
-
+	wrap_free((void **)&ptr);
 	return new_ptr;
 }
 

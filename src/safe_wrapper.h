@@ -66,6 +66,7 @@ typedef int errno_t;
 #endif
 
 /* Wrapper function declarations */
+char* wrap_strchr(const char *str, int c);
 char *wrap_strcpy(char *dest, const char *src);
 char *wrap_strdup(const char* str);
 char *wrap_strncat(char *dest, const char *src, size_t n);

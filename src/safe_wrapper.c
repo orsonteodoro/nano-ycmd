@@ -542,3 +542,18 @@ char* wrap_strdup(const char* str) {
 #endif
 
 }
+
+
+char* wrap_strchr(const char *str, int c) {
+#ifdef USE_SAFECLIB
+	char* result = NULL;
+	errno_t err = strchr_s(str, wrap_strlen(str), c, &result);
+	if (err != EOK) {
+		/* Handle error as needed */
+		return NULL;
+	}
+	return result;
+#else
+	return strchr(str, c);
+#endif
+}
