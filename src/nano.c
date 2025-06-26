@@ -2239,6 +2239,57 @@ void colorinit(void) {
 }
 #endif
 
+#ifdef ENABLE_YCMD
+void print_current_menu() {
+	if (currmenu == MMAIN)
+		debug_log("currmenu = MMAIN");
+	else if (currmenu == MWHEREIS)
+		debug_log("currmenu = MWHEREIS");
+	else if (currmenu == MREPLACE)
+		debug_log("currmenu = MREPLACE");
+	else if (currmenu == MREPLACEWITH)
+		debug_log("currmenu = MREPLACEWITH");
+	else if (currmenu == MGOTOLINE)
+		debug_log("currmenu = MGOTOLINE");
+	else if (currmenu == MWRITEFILE)
+		debug_log("currmenu = MWRITEFILE");
+	else if (currmenu == MINSERTFILE)
+		debug_log("currmenu = MINSERTFILE");
+	else if (currmenu == MEXECUTE)
+		debug_log("currmenu = MEXECUTE");
+	else if (currmenu == MHELP)
+		debug_log("currmenu = MHELP");
+	else if (currmenu == MSPELL)
+		debug_log("currmenu = MSPELL");
+	else if (currmenu == MBROWSER)
+		debug_log("currmenu = MBROWSER");
+	else if (currmenu == MWHEREISFILE)
+		debug_log("currmenu = MWHEREISFILE");
+	else if (currmenu == MGOTODIR)
+		debug_log("currmenu = MGOTODIR");
+	else if (currmenu == MYESNO)
+		debug_log("currmenu = MYESNO");
+	else if (currmenu == MLINTER)
+		debug_log("currmenu = MLINTER");
+	else if (currmenu == MFINDINHELP)
+		debug_log("currmenu = MFINDINHELP");
+	else if (currmenu == MCODECOMPLETION)
+		debug_log("currmenu = MCODECOMPLETION");
+	else if (currmenu == MCOMPLETERCOMMANDS)
+		debug_log("currmenu = MCOMPLETERCOMMANDS");
+	else if (currmenu == MREFACTORRENAME)
+		debug_log("currmenu = MREFACTORRENAME");
+	else if (currmenu == MYCMEXTRACONF)
+		debug_log("currmenu = MYCMEXTRACONF");
+	else if (currmenu == MNUMSUGGEST)
+		debug_log("currmenu = MNUMSUGGEST");
+	else if (currmenu == MMOST)
+		debug_log("currmenu = MMOST");
+	else
+		debug_log("currmenu = UNKNOWN");
+}
+#endif
+
 int main(int argc, char **argv)
 {
 	int stdin_flags, optchr;
@@ -3190,8 +3241,11 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ENABLE_YCMD
-		if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS && currmenu != MYCMEXTRACONF)
+		print_current_menu();
+		if (currmenu != MMAIN && currmenu != MCODECOMPLETION && currmenu != MCOMPLETERCOMMANDS && currmenu != MYCMEXTRACONF) {
 			bottombars(MMAIN);
+		}
+		print_current_menu();
 #else
 		if (currmenu != MMAIN)
 			bottombars(MMAIN);
@@ -3235,6 +3289,11 @@ int main(int argc, char **argv)
 			if (is_popup_active()) {
 				wnoutrefresh(get_popup());
 				debug_log("Refreshed popup");
+			}
+			print_current_menu();
+			if (currmenu == MMAIN) {
+				bottombars(MMAIN);
+				wnoutrefresh(footwin);
 			}
 			doupdate();
 			continue;

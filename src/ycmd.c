@@ -4216,10 +4216,12 @@ void do_code_completion_f(void) {
 }
 
 void do_end_code_completion(void) {
+	debug_log("Called function");
 	bottombars(MMAIN);
 }
 
 void do_end_completer_commands(void) {
+	debug_log("Called function");
 	bottombars(MMAIN);
 }
 
@@ -4336,14 +4338,17 @@ void do_completer_command_show(void) {
 }
 
 void do_completer_refactorrename_apply(void) {
+	debug_log("Called function");
 	bottombars(MMAIN);
 }
 
 void do_completer_refactorrename_cancel(void) {
+	debug_log("Called function");
 	bottombars(MMAIN);
 }
 
 void do_end_ycm_extra_conf(void) {
+	debug_log("Called function");
 	bottombars(MMAIN);
 }
 
