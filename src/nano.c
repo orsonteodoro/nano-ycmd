@@ -72,11 +72,12 @@ static const int max_popup_width = 40;  /* Maximum popup width */
 WINDOW *popup_win = NULL; /* Define popup window */
 extern bool need_bottombar_update;
 extern const char *ycmd_filename;
+extern int popup_start_x, popup_start_y;
 extern int ycmd_line_num, ycmd_column_num;
 extern linestruct *ycmd_filetop;
 extern WINDOW *popup;
 extern void redraw_popup(json_t *completions, int screen_y, int screen_x);
-extern int popup_start_x, popup_start_y;
+extern void init_completion_ui(void);
 #endif
 
 #ifdef ENABLE_MOUSE
@@ -2225,6 +2226,21 @@ void process_a_keystroke(void)
 #endif
 }
 
+#ifdef ENABLE_YCMD
+void colorinit(void) {
+	if (!has_colors()) {
+		debug_log("Terminal does not support colors, TERM=%s", getenv("TERM"));
+		return;
+	}
+	start_color();
+	if (can_change_color()) {
+		debug_log("Using default terminal colors, TERM=%s", getenv("TERM"));
+		use_default_colors();
+	} else {
+		debug_log("Cannot change colors, using defaults");
+	}
+}
+#endif
 
 int main(int argc, char **argv)
 {
@@ -3151,6 +3167,7 @@ int main(int argc, char **argv)
 #endif
 
 #ifdef ENABLE_YCMD
+	colorinit();
 	init_completion_ui();
 	ycmd_constructor();
 #endif

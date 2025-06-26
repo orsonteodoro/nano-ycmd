@@ -290,7 +290,6 @@ int check_ycm_extra_conf_py_imports(const char* filename) {
 	regcomp(&from_import_regex, "^[[:space:]]*from[[:space:]]+([a-zA-Z_][a-zA-Z0-9_]*)[[:space:]]+import", REG_EXTENDED);
 
 	while (fgets(line, sizeof(line), file)) {
-		regex_t match_regex;
 		regmatch_t match[3];
 
 		/* Check for import statements */
@@ -769,10 +768,9 @@ int ycm_generate(void) {
 			statusline(HUSH, "Sucessfully generated a .ycm_extra_conf.py file.");
 
 #if defined(ENABLE_BEAR) || defined(ENABLE_NINJA)
-			char* sed_cmd = "s|compilation_database_folder = ''|compilation_database_folder = '%s'|g";
 			snprintf(command, PATH_MAX * 2 + LINE_LENGTH,
-				"sed -i -e \"%s\" \"%s\"",
-				sed_cmd, path_project, path_extra_conf);
+				"sed -i -e \"s|compilation_database_folder = ''|compilation_database_folder = '%s'|g\" \"%s\"",
+				path_project, path_extra_conf);
 			ret2 = system(command);
 			if (ret2 == 0)
 				statusline(HUSH, "Patching .ycm_extra_conf.py file with compile_commands.json was a success.");
@@ -1568,7 +1566,10 @@ int ycmd_req_completions_suggestions(int linenum, int columnnum, char *filepath,
 	char req_hmac_base64[HMAC_SIZE * 2];
 	char rsp_hmac_base64[HMAC_SIZE * 2];
 	int compromised = 0;
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 	int ret = -1;
+#pragma GCC diagnostic pop
 	long response_code = -1;
 
 	if (!ycmd_globals.curl) {
@@ -3221,6 +3222,45 @@ void delete_ycmd() {
 	wrap_secure_zero(&ycmd_globals, sizeof(ycmd_globals_struct));
 }
 
+void show_ycm_extra_conf_py_security_prompt(void) {
+	/* Set currmenu for keybindings */
+	currmenu = MYCMEXTRACONF;
+	debug_log("currmenu set to %d", currmenu);
+
+	/* Refresh editor first */
+	edit_refresh();
+	statusline(HUSH, "%s", "SECURITY: Load and execute the project's .ycm_extra_conf.py for ycmd support? [^Y/^N]");
+	bottombars(MYCMEXTRACONF);
+	full_refresh();
+
+	/* Handle input */
+	int input;
+	WINDOW *frame = footwin ? footwin : midwin;
+	keypad(frame, TRUE);
+	wtimeout(frame, -1);
+	while (true) {
+		input = get_kbinput(frame, TRUE);
+		debug_log("input=0x%x", input);
+
+		const keystruct *shortcut = get_shortcut(input);
+		if (shortcut && currmenu == MYCMEXTRACONF) {
+			if (shortcut->func == do_ycm_extra_conf_accept) {
+				do_ycm_extra_conf_accept();
+				break;
+			} else if (shortcut->func == do_ycm_extra_conf_reject) {
+				do_ycm_extra_conf_reject();
+				break;
+			}
+		}
+		statusline(ALERT, "Please press ^Y (Accept) or ^N (Reject)");
+		full_refresh();
+		bottombars(MYCMEXTRACONF);
+		full_refresh();
+	}
+	currmenu = MMOST; /* Restore default menu */
+	debug_log("currmenu restored to %d", currmenu);
+}
+
 void ycmd_start_server() {
 	debug_log("Called function");
 	if (YCMD_PORT == 0) {
@@ -3231,6 +3271,8 @@ void ycmd_start_server() {
 
 	if (ycmd_globals.port < 0) {
 		debug_log("Cannot find unused port");
+		statusline(ALERT, "Failed to find unused port for ycmd");
+		full_refresh();
 		return;
 	}
 
@@ -3252,6 +3294,8 @@ void ycmd_start_server() {
 	int fd2 = mkstemp(combined_output_file);
 	if (fd2 == -1) {
 		debug_log("mkstemp creation failed for combined_output_file");
+		statusline(ALERT, "Failed to create temp file for ycmd output");
+		full_refresh();
 		exit(EXIT_FAILURE);
 	}
 	close(fd2);
@@ -3269,6 +3313,8 @@ void ycmd_start_server() {
 	int fd3 = mkstemp(default_settings_json_path);
 	if (fd3 == -1) {
 		debug_log("mkstemp creation failed for default_settings_json_path");
+		statusline(ALERT, "Failed to create temp file for ycmd settings");
+		full_refresh();
 		exit(EXIT_FAILURE);
 	}
 	debug_log("default_settings_json_path = %s", default_settings_json_path);
@@ -3329,36 +3375,40 @@ void ycmd_start_server() {
 	ycmd_globals.child_pid = pid;
 
 	if (waitpid(pid, 0, WNOHANG) == 0) {
-		statusline(HUSH, "Server just ran...");
+		statusline(HUSH, "%s", "Starting ycmd server...");
+		full_refresh();
 		ycmd_globals.running = 1;
 	} else {
-		statusline(HUSH, "Server didn't ran...");
+		statusline(ALERT, "%s", "Failed to start ycmd server");
+		full_refresh();
 		ycmd_globals.running = 0;
 
 		ycmd_stop_server();
 		return;
 	}
 
-	statusline(HUSH, "Letting the server initialize.  Wait...");
+	statusline(HUSH, "%s", "Letting the server initialize...");
+	full_refresh();
 
 	/* Give it some time for the server to initialize. */
 	usleep(1500000);
 
-	statusline(HUSH, "Checking server health...");
+	statusline(HUSH, "%s", "Checking server health...");
 
 	int i;
 	int tries = 5;
 	for (i = 0; i < tries && ycmd_globals.connected == 0; i++) {
 		if (ycmd_rsp_is_healthy_simple()) {
 			debug_log("Connected to ycmd server.  Tries attempted:  %d out of 5.", i);
-			statusline(HUSH, "Connected to ycmd");
+			statusline(HUSH, "%s", "Connected to ycmd server");
 			ycmd_globals.connected = 1;
 		} else {
 			debug_log("Failed to connect to ycmd server.  Tries attempted:  %d out of 5", i);
-			statusline(HUSH, "Failed connecting to ycmd");
+			statusline(HUSH, "%s", "Failed to connect to ycmd server");
 			ycmd_globals.connected = 0;
 			usleep(1000000);
 		}
+		full_refresh();
 	}
 
 	char path_project[PATH_MAX];
@@ -3366,28 +3416,17 @@ void ycmd_start_server() {
 	ycmd_get_project_path(path_project);
 	if (wrap_strncmp(path_project, "(null)", PATH_MAX) != 0 &&
 		access(path_project, F_OK) == 0) {
-		if (access(path_project, F_OK) == 0) {
-			ycmd_get_extra_conf_path(path_project, path_extra_conf);
-			if (access(path_extra_conf, F_OK) == 0) {
-				open_buffer(path_extra_conf, TRUE);
-				edit_refresh();
-				bottombars(MYCMEXTRACONF);
-
-				/* This should be number of columns. */
-				char display_text[DOUBLE_LINE_LENGTH];
-
-				/* This is neccessary to avoid a possible code execution attack
-				 * if opening files in web browser's download folder or
-				 * unattended computer's home folder. */
-				snprintf(display_text, DOUBLE_LINE_LENGTH,
-					"SECURITY:  Load and execute the project's .ycm_extra_conf.py for ycmd "
-					"support?  Does it look clean and uncompromised?");
-				statusline(HUSH, display_text);
-				full_refresh();
-				bottombars(MYCMEXTRACONF);
-				full_refresh();
-			}
+		ycmd_get_extra_conf_path(path_project, path_extra_conf);
+		if (access(path_extra_conf, F_OK) == 0) {
+			open_buffer(path_extra_conf, TRUE);
+			show_ycm_extra_conf_py_security_prompt();
+		} else {
+			statusline(INFO, "%s", "No .ycm_extra_conf.py found");
+			full_refresh();
 		}
+	} else {
+		statusline(INFO, "%s", "No project path found");
+		full_refresh();
 	}
 }
 
@@ -3995,7 +4034,6 @@ size_t _req_file(char *req_buffer, size_t req_buffer_size, linestruct *filetop) 
 char *_ycmd_get_filetype(char *filepath) {
 	static char type[QUARTER_LINE_LENGTH];
 	type[0] = '\0';
-	char msg[PATH_MAX + LINE_LENGTH];
 
 	static char main_filetype[QUARTER_LINE_LENGTH] = "";
 	if (openfile && openfile->filename && main_filetype[0] == '\0') {
@@ -4365,27 +4403,32 @@ void do_ycm_extra_conf_accept(void) {
 		if (check_ace(path_extra_conf) != 0) {
 			debug_log("Error: Potential ACE (Arbitrary Code Execution) detected in '%s'\n", path_extra_conf);
 			file_safe = 0;
+			statusline(ALERT, "Error: Potential ACE detected in .ycm_extra_conf.py");
 		}
 
 		/* Check for obfuscated text in the Python file */
 		if (check_obfuscated_text(path_extra_conf) != 0) {
 			debug_log("Error: Potential obfuscated text detected in '%s'\n", path_extra_conf);
 			file_safe = 0;
+			statusline(ALERT, "Error: Obfuscated text detected in .ycm_extra_conf.py");
 		}
 
 		/* Check for ACE check bypass. */
 		if (check_ycm_extra_conf_py_imports(path_extra_conf) != 0) {
 			debug_log("Error: Potential circumvention of ACE (Arbitrary Code Execution) check with untrusted imported module in '%s'\n", path_extra_conf);
 			file_safe = 0;
+			statusline(ALERT, "Error: Untrusted imports in .ycm_extra_conf.py");
 		}
 
 		if (access(path_extra_conf, F_OK) == 0 && file_safe == 1) {
 			/* It should be number of columns. */
-			char display_text[DOUBLE_LINE_LENGTH];
-			snprintf(display_text, DOUBLE_LINE_LENGTH, "Accepted %s", path_extra_conf);
-			statusline(HUSH, display_text);
+			debug_log("Accepted %s", path_extra_conf);
+			statusline(HUSH, "%s", "Loading .ycm_extra_conf.py...");
 			ycmd_req_load_extra_conf_file(path_extra_conf);
+			statusline(INFO, "%s", "Loaded .ycm_extra_conf.py");
 		}
+	} else {
+		statusline(ALERT, "%s", "No valid project path found");
 	}
 	close_buffer();
 	edit_refresh();
@@ -4403,11 +4446,14 @@ void do_ycm_extra_conf_reject(void) {
 
 		if (access(path_extra_conf, F_OK) == 0) {
 			/* It should be number of columns. */
-			char display_text[DOUBLE_LINE_LENGTH];
-			snprintf(display_text, DOUBLE_LINE_LENGTH, "Rejected %s", path_extra_conf);
-			statusline(HUSH, display_text);
+			debug_log("Rejected %s", path_extra_conf);
+			statusline(HUSH, "%s", "Rejected .ycm_extra_conf.py");
 			ycmd_req_ignore_extra_conf_file(path_extra_conf);
+		} else {
+			statusline(ALERT, "%s", "No .ycm_extra_conf.py found");
 		}
+	} else {
+		statusline(ALERT, "%s", "No valid project path found");
 	}
 	close_buffer();
 	edit_refresh();
@@ -4478,8 +4524,12 @@ json_t *request_completions(const char *filename, int line, int column,	linestru
 	int event_result = ycmd_json_event_notification(column, line, (char *)filename, "FileReadyToParse", filetop);
 	debug_log("ycmd_json_event_notification(FileReadyToParse) returned %d", event_result);
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
 	int result = ycmd_req_completions_suggestions(line, column, (char *)filename, filetop, completer_target, event,
 		&completions);
+	(void)result; /* Silence warning */
+#pragma GCC diagnostic pop
 
 	if (!completions || !json_is_array(completions)) {
 		debug_log("Invalid completions, returning empty array");

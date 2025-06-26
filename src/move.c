@@ -575,7 +575,6 @@ void do_end(void)
 #ifdef ENABLE_YCMD
 void do_up(void) {
 	linestruct *old_current = openfile->current;
-	size_t old_x = openfile->current_x;
 
 	if (openfile->current != openfile->filetop) {
 		openfile->current = openfile->current->prev;
@@ -591,7 +590,6 @@ void do_up(void) {
 
 void do_down(void) {
 	linestruct *old_current = openfile->current;
-	size_t old_x = openfile->current_x;
 
 	if (openfile->current != openfile->filebot) {
 		openfile->current = openfile->current->next;
