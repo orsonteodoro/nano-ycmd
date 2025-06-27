@@ -630,3 +630,33 @@ int wrap_strncasecmp(const char *s1, const char *s2, size_t n) {
 	return strncasecmp(s1, s2, n);
 #endif
 }
+
+int wrap_strcmp(const char *s1, const char *s2) {
+#ifdef USE_SAFECLIB
+	if (s1 == NULL || s2 == NULL) {
+		debug_log("Invalid input (s1=%p, s2=%p)", (void *)s1, (void *)s2);
+		return s1 == s2 ? 0 : (s1 == NULL ? -1 : 1);
+	}
+	size_t smax = get_smax();
+	size_t s1_len = strnlen_s(s1, smax);
+	size_t s2_len = strnlen_s(s2, smax);
+	if (s1_len >= smax || s2_len >= smax) {
+		debug_log("Input too long (s1_len=%zu, s2_len=%zu, smax=%zu)", s1_len, s2_len, smax);
+		return strcmp(s1, s2);
+	}
+	int result = 0;
+	errno_t err = strcmp_s(s1, s1_len, s2, &result);
+	if (err != 0) {
+		debug_log("strcmp_s failed (err=%d, s1=%.32s, s2=%.32s)",
+			err, s1 ? s1 : "(null)", s2 ? s2 : "(null)");
+		return strcmp(s1, s2);
+	}
+	return result;
+#else
+	if (s1 == NULL || s2 == NULL) {
+		debug_log("Invalid input (s1=%p, s2=%p)", (void *)s1, (void *)s2);
+		return s1 == s2 ? 0 : (s1 == NULL ? -1 : 1);
+	}
+	return strcmp(s1, s2);
+#endif
+}

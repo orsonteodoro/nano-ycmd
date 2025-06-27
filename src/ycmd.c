@@ -333,7 +333,7 @@ int num_allowed_imported_modules_for_ycm_extra_conf_py = 4;
 /* Function to check if a module is in the whitelist */
 int is_module_allowed_for_ycm_extra_conf_py(const char* module_name) {
 	for (int i = 0; i < num_allowed_imported_modules_for_ycm_extra_conf_py; i++) {
-		if (strcmp(module_name, allowed_imported_modules_for_ycm_extra_conf_py[i]) == 0) {
+		if (wrap_strcmp(module_name, allowed_imported_modules_for_ycm_extra_conf_py[i]) == 0) {
 			return 1; /* Module is allowed */
 		}
 	}
@@ -508,31 +508,6 @@ static size_t header_callback(char *buffer, size_t size, size_t nitems, void *us
 	return len;
 }
 
-static size_t header_callbackB(char *buffer, size_t size, size_t nitems, void *userdata) {
-	header_data_struct *hd = (header_data_struct *)userdata;
-	size_t len = size * nitems;
-	if (len > 0 && wrap_strncasecmp(buffer, hd->name, wrap_strlen(hd->name)) == 0) {
-		char *value = wrap_strchr(buffer, ':');
-		if (value) {
-			value++;
-			while (*value == ' ')
-				value++;
-			char *end = wrap_strpbrk(value, "\r\n");
-			if (end) {
-				size_t value_len = end - value;
-				wrap_strncpy(hd->value, value, value_len < sizeof(hd->value) - 1
-					? value_len : sizeof(hd->value) - 1);
-				hd->value[value_len < sizeof(hd->value) - 1 ? value_len : sizeof(hd->value) - 1] = '\0';
-			} else {
-				wrap_strncpy(hd->value, value, sizeof(hd->value) - 1);
-				hd->value[sizeof(hd->value) - 1] = '\0';
-			}
-			debug_log("Captured %s: %s", hd->name, hd->value);
-		}
-	}
-	return len;
-}
-
 static void ycmd_signal_handler(int signum) {
 	debug_log("Setting need_bottombar_update, filename=%s, line=%d, col=%d",
 		 ycmd_filename ? ycmd_filename : "null", ycmd_line_num,
@@ -622,6 +597,38 @@ int bear_generate(char *project_path) {
 	return ret == 0;
 }
 
+/* Converted code:
+ *
+ * wrap_snprintf(command, sizeof(command),
+ *	"find '%s' -maxdepth 1 -name '*.ninja' > /dev/null",
+ *	ninja_build_path);
+ * int ret = system(command);
+ */
+int check_ninja_files(const char *ninja_build_path) {
+	DIR *dir;
+	struct dirent *ent;
+
+	dir = opendir(ninja_build_path);
+	if (dir == NULL) {
+		/* Error opening directory */
+		return -1;
+	}
+
+	while ((ent = readdir(dir)) != NULL) {
+		/* Check if the entry is a regular file */
+		if (ent->d_type == DT_REG) {
+			/* Check if the file has the .ninja extension */
+			if (wrap_strlen(ent->d_name) > 6 && wrap_strcmp(ent->d_name + strlen(ent->d_name) - 6, ".ninja") == 0) {
+				closedir(dir);
+				return 0; /* Found a .ninja file */
+			}
+		}
+	}
+
+	closedir(dir);
+	return 1; /* No .ninja files found */
+}
+
 /* Generate a compile_commands.json for projects using the ninja build system */
 /* Returns:
  * 1 on success.
@@ -638,10 +645,7 @@ int ninja_compdb_generate(char *project_path) {
 	else
 		ninja_build_path[0] = 0;
 
-	wrap_snprintf(command, sizeof(command),
-		"find '%s' -maxdepth 1 -name '*.ninja' > /dev/null",
-		ninja_build_path);
-	int ret = system(command);
+	int ret = check_ninja_files(ninja_build_path);
 
 	if (ret != 0) {
 		;
@@ -798,6 +802,199 @@ int _ycm_inject_clang_includes(char * language, char *path_extra_conf) {
 	return ret;
 }
 
+/*
+ * Converted from:
+ * wrap_snprintf(command, sizeof(command),
+ *	"sed -i -e \"s|compilation_database_folder = ''|compilation_database_folder = '%s'|g\" \"%s\"",
+ *	path_project, path_extra_conf);
+ * ret2 = system(command);
+ */
+int replace_compilation_database_folder_path(const char *file_path, const char *old_string, const char *new_string) {
+	FILE *file = fopen(file_path, "r+");
+	if (file == NULL) {
+		/* Error opening file */
+		return -1;
+	}
+
+	/* Read the file into a buffer */
+	fseek(file, 0, SEEK_END);
+	long file_size = ftell(file);
+	rewind(file);
+
+	char *buffer = wrap_malloc(file_size + 1);
+	if (buffer == NULL) {
+		fclose(file);
+		/* Error allocating memory */
+		return -1;
+	}
+
+
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+	fread(buffer, 1, file_size, file);
+#pragma GCC diagnostic pop
+
+	buffer[file_size] = '\0';
+
+	/* Replace the string */
+	char *temp_buffer = wrap_malloc(file_size * 2); /* Assume the new string is not longer than the old string * 2 */
+	if (temp_buffer == NULL) {
+		free(buffer);
+		fclose(file);
+		/* Error allocating memory */
+		return -1;
+	}
+
+	char *ptr = wrap_strstr(buffer, old_string);
+	if (ptr != NULL) {
+		/* Calculate the length of the part before the old string */
+		size_t prefix_len = ptr - buffer;
+
+		/* Copy the part before the old string */
+		wrap_memcpy(temp_buffer, buffer, prefix_len);
+
+		/* Copy the new string */
+		wrap_strcpy(temp_buffer + prefix_len, new_string);
+
+		/* Copy the part after the old string */
+		wrap_strcpy(temp_buffer + prefix_len + strlen(new_string), ptr + strlen(old_string));
+
+		/* Update the buffer */
+		wrap_free((void **)&buffer);
+		buffer = temp_buffer;
+		temp_buffer = NULL;
+
+		/* Write the updated buffer back to the file */
+		fseek(file, 0, SEEK_SET);
+		fwrite(buffer, 1, strlen(buffer), file);
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+		ftruncate(fileno(file), ftell(file)); /* Remove any remaining old content */
+#pragma GCC diagnostic pop
+	} else {
+		wrap_free((void **)&temp_buffer);
+	}
+
+	wrap_free((void **)&buffer);
+	fclose(file);
+	return 0;
+}
+
+/*
+ * Converted from:
+	debug_log("path_project = %s", path_project);
+	wrap_snprintf(command, sizeof(command), "find '%s' -name '*.mm'", path_project);
+	has_objcxx = system(command);
+	wrap_snprintf(command, sizeof(command), "find '%s' -name '*.m'", path_project);
+	has_objc = system(command);
+	wrap_snprintf(command, sizeof(command),
+		"find '%s' -name '*.cpp' -o -name '*.C' -o -name '*.cxx' -o -name '*.cc'",
+		path_project);
+	has_cxx = system(command);
+	wrap_snprintf(command, sizeof(command), "find '%s' -name '*.c'", path_project);
+	has_c = system(command);
+	wrap_snprintf(command, sizeof(command), "find '%s' -name '*.c'", path_project);
+	has_h = system(command);
+	wrap_snprintf(command, sizeof(command),
+		"grep -r -e 'using namespace' "
+			"-e 'iostream' "
+			"-e '\tclass ' "
+			"-e ' class ' "
+			"-e 'private:' "
+			"-e 'public:' "
+			"-e 'protected:' '%s'",
+		path_project);
+	has_cxx_code = system(command);
+
+ * To check_files(), check_cxx_code()
+ */
+
+int check_files(const char *path, const char *extension) {
+	DIR *dir;
+	struct dirent *ent;
+	int found = 0;
+
+	dir = opendir(path);
+	if (dir == NULL) {
+		/* Error opening directory */
+		return -1;
+	}
+
+	while ((ent = readdir(dir)) != NULL) {
+		if (ent->d_type == DT_REG) {
+			/* Check if the file has the specified extension */
+			if (wrap_strlen(ent->d_name) > wrap_strlen(extension) && wrap_strcmp(ent->d_name + wrap_strlen(ent->d_name) - wrap_strlen(extension), extension) == 0) {
+				found = 1;
+				break;
+			}
+		} else if (ent->d_type == DT_DIR && wrap_strcmp(ent->d_name, ".") != 0 && wrap_strcmp(ent->d_name, "..") != 0) {
+			char subfolder_path[1024];
+			wrap_snprintf(subfolder_path, sizeof(subfolder_path), "%s/%s", path, ent->d_name);
+			if (check_files(subfolder_path, extension) == 1) {
+				found = 1;
+				break;
+			}
+		}
+	}
+
+	closedir(dir);
+	return found;
+}
+
+int check_cxx_code(const char *path) {
+	DIR *dir;
+	struct dirent *ent;
+	int found = 0;
+
+	dir = opendir(path);
+	if (dir == NULL) {
+		/* Error opening directory */
+		return 0;
+	}
+
+	while ((ent = readdir(dir)) != NULL) {
+		if (ent->d_type == DT_REG) {
+			char file_path[1024];
+			wrap_snprintf(file_path, sizeof(file_path), "%s/%s", path, ent->d_name);
+
+			FILE *file = fopen(file_path, "r");
+			if (file != NULL) {
+				char buffer[1024];
+				while (fgets(buffer, sizeof(buffer), file) != NULL) {
+					if (wrap_strstr(buffer, "using namespace") != NULL ||
+						wrap_strstr(buffer, "iostream") != NULL ||
+						wrap_strstr(buffer, "\tclass ") != NULL ||
+						wrap_strstr(buffer, " class ") != NULL ||
+						wrap_strstr(buffer, "private:") != NULL ||
+						wrap_strstr(buffer, "public:") != NULL ||
+						wrap_strstr(buffer, "protected:") != NULL) {
+						printf("C++ code found in %s\n", file_path);
+						/* You can set a flag here to indicate that C++ code was found */
+						fclose(file);
+						closedir(dir);
+						return 1;
+					}
+				}
+				fclose(file);
+			}
+		} else if (ent->d_type == DT_DIR && wrap_strcmp(ent->d_name, ".") != 0 && wrap_strcmp(ent->d_name, "..") != 0) {
+			char subfolder_path[1024];
+			wrap_snprintf(subfolder_path, sizeof(subfolder_path), "%s/%s", path, ent->d_name);
+			if (check_cxx_code(subfolder_path) == 1) {
+				found = 1;
+				closedir(dir);
+				return 1;
+			}
+		}
+	}
+
+	closedir(dir);
+	return found;
+}
+
+
 /* Generates a .ycm_extra_conf.py for the C family completer. */
 /* Language must be:  c, c++, objective-c, objective-c++ */
 int ycm_generate(void) {
@@ -852,10 +1049,10 @@ int ycm_generate(void) {
 			statusline(HUSH, "Sucessfully generated a .ycm_extra_conf.py file.");
 
 #if defined(ENABLE_BEAR) || defined(ENABLE_NINJA)
-			wrap_snprintf(command, sizeof(command),
-				"sed -i -e \"s|compilation_database_folder = ''|compilation_database_folder = '%s'|g\" \"%s\"",
-				path_project, path_extra_conf);
-			ret2 = system(command);
+			char old_string[] = "compilation_database_folder = ''";
+			char new_string[1024];
+			wrap_snprintf(new_string, sizeof(new_string), "compilation_database_folder = '%s'", path_project);
+			ret2 = replace_compilation_database_folder_path(path_extra_conf, old_string, new_string);
 			if (ret2 == 0)
 				statusline(HUSH, "Patching .ycm_extra_conf.py file with compile_commands.json was a success.");
 			else
@@ -870,29 +1067,22 @@ int ycm_generate(void) {
 			int has_cxx_code = -1;
 
 #ifdef ENABLE_YCM_GENERATOR
-			debug_log("path_project = %s", path_project);
-			wrap_snprintf(command, sizeof(command), "find '%s' -name '*.mm'", path_project);
-			has_objcxx = system(command);
-			wrap_snprintf(command, sizeof(command), "find '%s' -name '*.m'", path_project);
-			has_objc = system(command);
-			wrap_snprintf(command, sizeof(command),
-				"find '%s' -name '*.cpp' -o -name '*.C' -o -name '*.cxx' -o -name '*.cc'",
-				path_project);
-			has_cxx = system(command);
-			wrap_snprintf(command, sizeof(command), "find '%s' -name '*.c'", path_project);
-			has_c = system(command);
-			wrap_snprintf(command, sizeof(command), "find '%s' -name '*.c'", path_project);
-			has_h = system(command);
-			wrap_snprintf(command, sizeof(command),
-				"grep -r -e 'using namespace' "
-					"-e 'iostream' "
-					"-e '\tclass ' "
-					"-e ' class ' "
-					"-e 'private:' "
-					"-e 'public:' "
-					"-e 'protected:' '%s'",
-				path_project);
-			has_cxx_code = system(command);
+			has_objcxx = check_files(path_project, ".mm");
+			has_objc = check_files(path_project, ".m");
+			has_cxx = check_files(path_project, ".cpp")
+				|| check_files(path_project, ".C")
+				|| check_files(path_project, ".cxx")
+				|| check_files(path_project, ".cc");
+			has_c = check_files(path_project, ".c");
+			has_h = check_files(path_project, ".h");
+			has_cxx_code = check_cxx_code(path_project);
+
+			debug_log("has_objcxx = %d", has_objcxx);
+			debug_log("has_objc = %d", has_objc);
+			debug_log("has_cxx = %d", has_cxx);
+			debug_log("has_c = %d", has_c);
+			debug_log("has_h = %d", has_h);
+			debug_log("has_cxx_code = %d", has_cxx_code);
 #endif
 
 			char language[QUARTER_LINE_LENGTH];
@@ -1479,7 +1669,7 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
 
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 
-	if (strcmp(method, "POST") == 0) {
+	if (wrap_strcmp(method, "POST") == 0) {
 		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POST, 1L);
 		if (req_buffer && req_buffer_size > 0) {
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
@@ -3081,7 +3271,7 @@ int _ycmd_req_simple_request(char *method, char *path, int linenum, int columnnu
 	headers = _curl_sprintf_header(headers, "%s: %s", HTTP_HEADER_YCM_HMAC, req_hmac_base64);
 	curl_easy_setopt(ycmd_globals.curl, CURLOPT_HTTPHEADER, headers);
 
-	if (strcmp(method, "POST") == 0) {
+	if (wrap_strcmp(method, "POST") == 0) {
 		curl_easy_setopt(ycmd_globals.curl, CURLOPT_POST, 1L);
 		if (req_buffer && req_buffer_size > 0) {
 			curl_easy_setopt(ycmd_globals.curl, CURLOPT_POSTFIELDS, req_buffer);
@@ -4197,11 +4387,11 @@ char *_ycmd_get_filetype(char *filepath) {
 	if (openfile && openfile->filename && main_filetype[0] == '\0') {
 		char *ext = strrchr(openfile->filename, '.');
 		if (ext) {
-			if (strcmp(ext, ".c") == 0) {
+			if (wrap_strcmp(ext, ".c") == 0) {
 				wrap_strncpy(main_filetype, "c", QUARTER_LINE_LENGTH);
-			} else if (strcmp(ext, ".cpp") == 0
-				|| strcmp(ext, ".cxx") == 0
-				|| strcmp(ext, ".cc") == 0) {
+			} else if (wrap_strcmp(ext, ".cpp") == 0
+				|| wrap_strcmp(ext, ".cxx") == 0
+				|| wrap_strcmp(ext, ".cc") == 0) {
 				wrap_strncpy(main_filetype, "cpp", QUARTER_LINE_LENGTH);
 			} else {
 				wrap_strncpy(main_filetype, "identifier", QUARTER_LINE_LENGTH);

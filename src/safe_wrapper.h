@@ -75,6 +75,7 @@ char *wrap_strpbrk(const char *str1, const char *str2);
 char *wrap_strstr(const char *haystack, const char *needle);
 errno_t wrap_secure_zero(void *dest, size_t n);
 int wrap_snprintf(char *str, size_t size, const char *format, ...);
+int wrap_strcmp(const char *s1, const char *s2);
 int wrap_strncasecmp(const char *s1, const char *s2, size_t n);
 int wrap_strncmp(const char *s1, const char *s2, size_t n);
 int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap);

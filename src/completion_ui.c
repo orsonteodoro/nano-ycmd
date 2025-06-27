@@ -66,9 +66,9 @@ void init_completion_ui(void) {
 	const char *ui_mode = getenv("NANO_YCMD_UI_MODE");
 	if (ui_mode) {
 		debug_log("NANO_YCMD_UI_MODE=%s", ui_mode);
-		if (strcmp(ui_mode, "popup") == 0) {
+		if (wrap_strcmp(ui_mode, "popup") == 0) {
 			is_popup_mode = true;
-		} else if (strcmp(ui_mode, "bottom") == 0) {
+		} else if (wrap_strcmp(ui_mode, "bottom") == 0) {
 			is_popup_mode = false;
 		} else {
 #ifdef ENABLE_YCMD_POPUP

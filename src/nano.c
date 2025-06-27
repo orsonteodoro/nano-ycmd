@@ -926,6 +926,7 @@ void version(void)
 	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web:  https://github.com/Valloric/ycmd"));
 	printf(_("\n"));
+#endif
 
 	printf(_("\n Compiled options:"));
 #ifdef NANO_TINY
