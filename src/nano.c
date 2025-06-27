@@ -727,14 +727,14 @@ void version(void)
 	printf(_("\n nano-ycmd:"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 2017-2025 Orson Teodoro <orsonteodoro@hotmail.com>"));
-	printf(_("\n   License:  GPL3+"));
+	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web:  https://github.com/orsonteodoro/nano-ycmd"));
 	printf(_("\n"));
 	printf(_("\n nano-ycmd dependencies:"));
 	printf(_("\n Bear:"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 2012-2024 by László Nagy"));
-	printf(_("\n   License:  GPL3+"));
+	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web:  https://github.com/rizsotto/Bear"));
 	printf(_("\n"));
 	printf(_("\n cURL:"));
@@ -749,44 +749,54 @@ void version(void)
 	printf(_("\n   Copyright (C) 2005, 2006 Alexander Larsson <alexl@redhat.com>"));
 	printf(_("\n   Copyright (C) 2000-2003 Ximian Inc."));
 	printf(_("\n"));
-	printf(_("\n   AUTHORS:  https://github.com/GNOME/glib/blob/master/AUTHORS"));
-	printf(_("\n   License:  LGPL2+"));
+	printf(_("\n   Authors:  https://github.com/GNOME/glib/blob/master/AUTHORS"));
+	printf(_("\n   License:  LGPL-2+"));
 	printf(_("\n   Web:  https://gitlab.gnome.org/GNOME/glib/"));
 	printf(_("\n"));
+#endif
+#if defined(__GLIBC__)
+	/* For str* or mem* functions */
+	printf(_("\n glibc:"));
+	printf(_("\n"));
+	printf(_("\n Copyright (C) 1991-2025 Free Software Foundation, Inc."));
+	printf(_("\n License:  LGPL-2.1+"));
+	printf(_("\n Web:  https://www.gnu.org/software/libc/"));
+	printf(_("\n"));
+
 #endif
 	printf(_("\n GNU Bash:"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 1989-2022 Free Software Foundation, Inc."));
-	printf(_("\n   AUTHORS:  http://git.savannah.gnu.org/cgit/bash.git/tree/AUTHORS"));
-	printf(_("\n   License:  GPL3+"));
+	printf(_("\n   Authors:  http://git.savannah.gnu.org/cgit/bash.git/tree/AUTHORS"));
+	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web:  https://www.gnu.org/software/bash/"));
 	printf(_("\n"));
 	printf(_("\n GNU Coreutils"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 1988-2025 Free Software Foundation, Inc."));
-	printf(_("\n   AUTHORS:  https://github.com/coreutils/coreutils/blob/master/AUTHORS"));
-	printf(_("\n   License:  GPL3+"));
+	printf(_("\n   Authors:  https://github.com/coreutils/coreutils/blob/master/AUTHORS"));
+	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web:  https://www.gnu.org/software/coreutils/"));
 	printf(_("\n"));
 	printf(_("\n GNU Find Utils"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 1990-2025 Free Software Foundation, Inc."));
-	printf(_("\n   AUTHORS:  https://cgit.git.savannah.gnu.org/cgit/findutils.git/tree/AUTHORS"));
-	printf(_("\n   License:  GPL3+"));
+	printf(_("\n   Authors:  https://cgit.git.savannah.gnu.org/cgit/findutils.git/tree/AUTHORS"));
+	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web:  https://www.gnu.org/software/findutils/"));
 	printf(_("\n"));
 	printf(_("\n GNU Make:"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 1988-2024 Free Software Foundation, Inc."));
-	printf(_("\n   AUTHORS:  http://git.savannah.gnu.org/cgit/make.git/tree/AUTHORS"));
-	printf(_("\n   License:  GPL3+"));
+	printf(_("\n   Authors:  http://git.savannah.gnu.org/cgit/make.git/tree/AUTHORS"));
+	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web:  https://www.gnu.org/software/make/"));
 	printf(_("\n"));
 	printf(_("\n GNU Sed:"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 1989-2025 Free Software Foundation, Inc."));
-	printf(_("\n   AUTHORS:  http://git.savannah.gnu.org/cgit/sed.git/tree/AUTHORS"));
-	printf(_("\n   License:  GPL3+"));
+	printf(_("\n   Authors:  http://git.savannah.gnu.org/cgit/sed.git/tree/AUTHORS"));
+	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web: https://www.gnu.org/software/sed/"));
 	printf(_("\n"));
 #ifdef USE_HARDENED_MALLOC
@@ -800,7 +810,7 @@ void version(void)
 	printf(_("\n Jansson:"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 2009-2024 Petri Lehtinen <petri@digip.org>"));
-	printf(_("\n   License:  LGPL3+"));
+	printf(_("\n   License:  LGPL-3+"));
 	printf(_("\n   Web:  https://github.com/akheron/jansson"));
 	printf(_("\n"));
 #ifdef USE_LIBGCRYPT
@@ -828,8 +838,8 @@ void version(void)
         printf(_("\n   Copyright (C) 2020 Alibaba Group."));
         printf(_("\n   Copyright (C) 2020 Tianjia Zhang"));
         printf(_("\n   Copyright (C) 2023 Simon Josefsson"));
-	printf(_("\n   AUTHORS:  https://git.gnupg.org/cgi-bin/gitweb.cgi?p=libgcrypt.git;a=blob_plain;f=AUTHORS;hb=HEAD"));
-	printf(_("\n   License:  LGPLv2.1+"));
+	printf(_("\n   Authors:  https://git.gnupg.org/cgi-bin/gitweb.cgi?p=libgcrypt.git;a=blob_plain;f=AUTHORS;hb=HEAD"));
+	printf(_("\n   License:  LGPL-2.1+"));
 	printf(_("\n   Web:  https://www.gnu.org/software/libgcrypt"));
 	printf(_("\n"));
 #endif
@@ -841,6 +851,18 @@ void version(void)
 	printf(_("\n   Web:  https://microsoft.github.io/mimalloc/"));
 	printf(_("\n"));
 #endif
+
+#if defined(__linux__) && !defined(__GLIBC__)
+	/* For str* or mem* functions */
+	printf(_("\n musl:"));
+	printf(_("\n"));
+	printf(_("\n Copyright (C) 2005-2020 Rich Felker, et al."));
+	printf(_("\n Authors:  https://git.musl-libc.org/cgit/musl/tree/COPYRIGHT"));
+	printf(_("\n License:  MIT"));
+	printf(_("\n Web:  https://musl.libc.org/"));
+	printf(_("\n"));
+#endif
+
 #ifdef USE_NETTLE
 	printf(_("\n Nettle:"));
 	printf(_("\n"));
@@ -849,7 +871,7 @@ void version(void)
 	printf(_("\n   Copyright (C) 2012 Simon Josefsson"));
 	printf(_("\n   Copyright (C) 2013 Joachim Strömbergson"));
 	printf(_("\n   Copyright (C) 2015 Amos Jeffries, Niels Möller"));
-	printf(_("\n   AUTHORS:  https://git.lysator.liu.se/nettle/nettle/-/blob/master/AUTHORS"));
+	printf(_("\n   Authors:  https://git.lysator.liu.se/nettle/nettle/-/blob/master/AUTHORS"));
 	printf(_("\n   License: GPL-2+ LGPL-3+"));
 	printf(_("\n   Web: http://www.lysator.liu.se/~nisse/nettle"));
 	printf(_("\n"));
@@ -860,7 +882,7 @@ void version(void)
 	printf(_("\n   Copyright (C) 1998-2025 The OpenSSL Project Authors"));
 	printf(_("\n   Copyright (C) 1995-1998 Eric A. Young, Tim J. Hudson"));
 	printf(_("\n   All Rights Reserved."));
-	printf(_("\n   AUTHORS:  https://github.com/openssl/openssl/blob/master/AUTHORS.md"));
+	printf(_("\n   Authors:  https://github.com/openssl/openssl/blob/master/AUTHORS.md"));
 	printf(_("\n   License:  Apache License 2.0"));
 	printf(_("\n   Web:  https://www.openssl.org/"));
 	printf(_("\n"));
@@ -877,18 +899,15 @@ void version(void)
 #endif
 	printf(_("\n YCM-Generator:"));
 	printf(_("\n"));
-	printf(_("\n   License:  GPL3"));
+	printf(_("\n   License:  GPL-3"));
 	printf(_("\n   Web:  https://github.com/rdnetto/YCM-Generator"));
 	printf(_("\n"));
 	printf(_("\n ycmd:"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 2011-2024 ycmd contributors"));
-	printf(_("\n   License:  GPL3+"));
+	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web:  https://github.com/Valloric/ycmd"));
 	printf(_("\n"));
-
-
-#endif
 
 	printf(_("\n Compiled options:"));
 #ifdef NANO_TINY
