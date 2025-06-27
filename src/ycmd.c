@@ -576,12 +576,19 @@ void ycmd_constructor() {
  * clean = 1 runs `make clean` */
 int execute_make_command(const char *project_path, int clean) {
 	pid_t pid;
-	char *argv[] = {
-		"/bin/sh",
-		"-c",
-		clean ? "make clean" : "bear make",
+	char *make_argv[] = {
+		(char *)"make",
+		(char *)"clean",
 		NULL
 	};
+
+	char *bear_argv[] = {
+		(char *)"bear",
+		(char *)"make",
+		NULL
+	};
+
+	char **argv = clean ? make_argv : bear_argv;
 
 	pid = fork();
 	if (pid == -1) {
@@ -594,15 +601,23 @@ int execute_make_command(const char *project_path, int clean) {
 			exit(EXIT_FAILURE);
 		}
 
-#pragma GCC diagnostic push
-#pragma GCC diagnostic ignored "-Wunused-result"
-		/* Redirect stdout to /dev/null */
-		freopen("/dev/null", "w", stdout);
-#pragma GCC diagnostic pop
+		int null_fd = open("/dev/null", O_WRONLY);
+		if (null_fd == -1) {
+			perror("open");
+			exit(EXIT_FAILURE);
+		}
 
-		execv(argv[0], argv);
-		/* If execv returns, it means an error occurred */
-		perror("execv");
+		if (dup2(null_fd, STDOUT_FILENO) == -1) {
+			perror("dup2");
+			close(null_fd);
+			exit(EXIT_FAILURE);
+		}
+
+		close(null_fd);
+
+		execvp(argv[0], argv);
+		/* If execvp returns, it means an error occurred */
+		perror("execvp");
 		exit(EXIT_FAILURE);
 	} else {
 		/* Parent process */
@@ -613,7 +628,7 @@ int execute_make_command(const char *project_path, int clean) {
 		} else {
 			return -1;
 		}
-	 }
+	}
 }
 
 /* Generates a compile_commands.json for the Clang completer. */
