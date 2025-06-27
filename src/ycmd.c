@@ -839,14 +839,20 @@ char* extract_include_paths(const char* language) {
 	char line[1024];
 
 	while (fgets(line, sizeof(line), pipe)) {
-		output = realloc(output, output_len + wrap_strlen(line) + 1);
+		size_t new_len = output_len + wrap_strlen(line) + 1;
+		char* new_output = safe_resize_buffer(output, output_len, new_len);
+		if (!new_output) {
+			/* Handle out of memory error */
+			return NULL;
+		}
+		output = new_output;
 		wrap_strcpy(output + output_len, line);
-		output_len += wrap_strlen(line);
+		output_len = new_len - 1; /* Subtract 1 because we added 1 for null terminator */
 	}
 
 	pclose(pipe);
 
-	// Extract the include paths from the output
+	/* Extract the include paths from the output */
 	const char* start_marker = "#include <...> search starts here:";
 	const char* end_marker = "End of search list.";
 	char* start = strstr(output, start_marker);
@@ -865,7 +871,7 @@ char* extract_include_paths(const char* language) {
 /* Function to format the include paths */
 char* format_include_paths(const char* include_paths) {
 	size_t formatted_len = wrap_strlen(include_paths) * 2;
-	char* formatted_paths = malloc(formatted_len + 1);
+	char* formatted_paths = wrap_malloc(formatted_len + 1);
 
 	char* p = formatted_paths;
 	for (const char* q = include_paths; *q; q++) {
@@ -929,8 +935,8 @@ int _ycm_inject_clang_includes(char * language, char *path_extra_conf) {
 
 	int ret = update_config_file(path_extra_conf, formatted_paths);
 
-	free(include_paths);
-	free(formatted_paths);
+	wrap_free((void **)&include_paths);
+	wrap_free((void **)&formatted_paths);
 
 	return ret;
 }
@@ -1953,21 +1959,38 @@ int ycmd_json_event_notification(int columnnum, int linenum, char *filepath, cha
    before sanitization, so we do an explicit rewrite to reassure buffers are
    cleared properly and mitigate against information disclosure. */
 void *safe_resize_buffer(void *ptr, size_t old_size, size_t new_size) {
+	if (new_size == 0) {
+		if (ptr) {
+			/* Securely erase the old buffer */
+			volatile char *volatile_ptr = (volatile char *)ptr;
+			for (size_t i = 0; i < old_size; i++)
+			volatile_ptr[i] = 0;
+
+			/* Free the old buffer */
+			wrap_free((void **)&ptr);
+		}
+		return NULL;
+	}
+
 	void *new_ptr = wrap_malloc(new_size);
 	if (new_ptr == NULL) {
 		/* Handle out of memory error */
 		return NULL;
 	}
-	/* Copy data from old buffer to new buffer */
-	wrap_memcpy(new_ptr, ptr, old_size < new_size ? old_size : new_size);
 
-	/* Securely erase the old buffer */
-	volatile char *volatile_ptr = (volatile char *)ptr;
-	for (size_t i = 0; i < old_size; i++)
+	if (ptr) {
+		/* Copy data from old buffer to new buffer */
+		wrap_memcpy(new_ptr, ptr, old_size < new_size ? old_size : new_size);
+
+		/* Securely erase the old buffer */
+		volatile char *volatile_ptr = (volatile char *)ptr;
+		for (size_t i = 0; i < old_size; i++)
 		volatile_ptr[i] = 0;
 
-	/* Free the old buffer */
-	wrap_free((void **)&ptr);
+		/* Free the old buffer */
+		wrap_free((void **)&ptr);
+	}
+
 	return new_ptr;
 }
 
@@ -4908,7 +4931,7 @@ int transform_json_file(const char *doc_filename) {
 
 	/* Create temporary filename */
 	size_t len = strlen(doc_filename) + 3; /* ".t" + null terminator */
-	temp_filename = malloc(len);
+	temp_filename = wrap_malloc(len);
 	if (!temp_filename) {
 		statusline(ALERT, _("Memory allocation failed"));
 		goto cleanup;
@@ -4999,7 +5022,7 @@ int transform_json_file(const char *doc_filename) {
 
 cleanup:
 	if (fp) fclose(fp);
-	if (temp_filename) free(temp_filename);
+	if (temp_filename) wrap_free((void **)&temp_filename);
 	if (array) json_decref(array);
 	if (root) json_decref(root);
 	return result;
