@@ -1015,8 +1015,7 @@ int check_cxx_code(const char *path) {
 /* Converted from
  * wrap_snprintf(command, sizeof(command), "'%s' '%s' -f %s '%s' >/dev/null", YCMG_PYTHON_PATH,
  *	YCMG_PATH, flags, path_project);
- * int ret = w
-system(command);
+ * int ret = system(command);
  */
 int execute_ycmg(const char *flags, const char *project_path) {
 	char *argv[25]; /* 25 is the arbitrary reasonable limit */
