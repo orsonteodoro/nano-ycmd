@@ -1963,11 +1963,12 @@ void process_a_keystroke_popup(void)
 				puddle = nrealloc(puddle, capacity);
 			} else if (!puddle)
 				puddle = nmalloc(capacity);
-				puddle[depth++] = (char)input;
-			}
-		}
 
-		if (depth > 0 && (function || waiting_keycodes() == 0)) {
+			puddle[depth++] = (char)input;
+		}
+	}
+
+	if (depth > 0 && (function || waiting_keycodes() == 0)) {
 		puddle[depth] = '\0';
 		inject(puddle, depth);
 		depth = 0;

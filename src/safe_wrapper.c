@@ -104,29 +104,33 @@ void init_wrapper(void) {
 
 char *wrap_strncpy(char *dest, const char *src, size_t n) {
 	if (dest == NULL || src == NULL) {
+		debug_log("Invalid input (dest=%p, src=%p, n=%zu)", (void *)dest, (void *)src, n);
 		return NULL;
 	}
 #ifdef USE_SAFECLIB
-	/* There was an inconsistency so it was rewritten to mimic glibc. */
 	if (n == 0) {
-		/* glibc's strncpy does nothing when n == 0 */
 		return dest;
 	}
-
-	/* Calculate length of src (excluding null terminator) */
+	size_t smax = get_smax();
+	if (n > smax) {
+		debug_log("n capped (input=%zu, max=%zu)", n, smax);
+		n = smax;
+	}
 	size_t src_len = strnlen_s(src, n);
-
-	/* Use memcpy_s to copy up to n characters without forcing null termination */
-	if (memcpy_s(dest, n, src, src_len < n ? src_len : n) != 0) {
-		/* Handle error: mimic glibc by returning dest without modification */
-		return dest;
+	if (src_len >= smax) {
+		debug_log("src too long (src_len=%zu, smax=%zu)", src_len, smax);
+		return strncpy(dest, src, n);
 	}
-
-	/* Null-pad remaining space if src_len < n, matching glibc behavior */
+	/* Use memcpy_s to match original behavior, avoid strncpy_s truncation */
+	errno_t err = memcpy_s(dest, n, src, src_len < n ? src_len : n);
+	if (err != 0) {
+		debug_log("memcpy_s failed (err=%d, dest=%.32s, src=%.32s, n=%zu)",
+			err, dest ? dest : "(null)", src ? src : "(null)", n);
+		return strncpy(dest, src, n);
+	}
 	if (src_len < n) {
 		memset(dest + src_len, 0, n - src_len);
 	}
-
 	return dest;
 #else
 	return strncpy(dest, src, n);
@@ -308,18 +312,28 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 
 int wrap_strncmp(const char *s1, const char *s2, size_t n) {
 #ifdef USE_SAFECLIB
-	int result;
-	errno_t err = strcmp_s(s1, n, s2, &result);
-	if (err != EOK) {
-		return err;
+	if (s1 == NULL || s2 == NULL || n == 0) {
+		debug_log("Invalid input (s1=%p, s2=%p, n=%zu)", (void *)s1, (void *)s2, n);
+		return strncmp(s1, s2, n);
+	}
+	size_t smax = get_smax();
+	size_t effective_n = n > smax ? smax : (n > 0 ? n - 1 : 0); /* Exclude null terminator */
+	int result = 0;
+	errno_t err = strcmp_s(s1, effective_n, s2, &result);
+	if (err != 0) {
+		debug_log("strcmp_s failed (err=%d, s1=%.32s, s2=%.32s, n=%zu)",
+			err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
+		return strncmp(s1, s2, n);
 	}
 	return result;
 #else
 	if (s1 == NULL || s2 == NULL) {
+		debug_log("Invalid input (s1=%p, s2=%p, n=%zu)", (void *)s1, (void *)s2, n);
 		return -EINVAL;
 	}
-	if (n == 0)
+	if (n == 0) {
 		return 0;
+	}
 	return strncmp(s1, s2, n);
 #endif
 }
@@ -425,11 +439,27 @@ errno_t wrap_secure_zero(void *dest, size_t n) {
 }
 
 char *wrap_strstr(const char *haystack, const char *needle) {
-#ifdef USE_SAFECLIB
-	char *result = NULL;
-	errno_t err = strstr_s((char *)haystack, strlen(haystack) + 1, needle, strlen(needle) + 1, &result);
-	if (err != EOK) {
+	if (!haystack || !needle) {
+		debug_log("Invalid input (haystack=%p, needle=%p)", (void *)haystack, (void *)needle);
 		return NULL;
+	}
+#ifdef USE_SAFECLIB
+	size_t smax = get_smax();
+	size_t haystack_len = strnlen_s(haystack, smax);
+	size_t needle_len = strnlen_s(needle, smax);
+	if (haystack_len >= smax || needle_len >= smax) {
+		debug_log("Input too long (haystack_len=%zu, needle_len=%zu, smax=%zu)",
+			haystack_len, needle_len, smax);
+		return strstr(haystack, needle);
+	}
+	size_t effective_haystack_len = haystack_len > 0 ? haystack_len - 1 : 0; /* Exclude null */
+	size_t effective_needle_len = needle_len > 0 ? needle_len - 1 : 0; /* Exclude null */
+	char *result = NULL;
+	errno_t err = strstr_s((char *)haystack, effective_haystack_len, needle, effective_needle_len, &result);
+	if (err != 0) {
+		debug_log("strstr_s failed (err=%d, haystack=%.32s, needle=%.32s)",
+			err, haystack ? haystack : "(null)", needle ? needle : "(null)");
+		return strstr(haystack, needle);
 	}
 	return result;
 #else
@@ -543,7 +573,6 @@ char* wrap_strdup(const char* str) {
 
 }
 
-
 char* wrap_strchr(const char *str, int c) {
 #ifdef USE_SAFECLIB
 	char* result = NULL;
@@ -555,5 +584,49 @@ char* wrap_strchr(const char *str, int c) {
 	return result;
 #else
 	return strchr(str, c);
+#endif
+}
+
+char* wrap_strpbrk(const char *str1, const char *str2) {
+#ifdef USE_SAFECLIB
+	char *result = NULL;
+	errno_t err = strpbrk_s((char*)str1, wrap_strlen(str1), (char*)str2, wrap_strlen(str2), &result);
+	if (err != EOK) {
+		/* Handle error as needed */
+		return NULL;
+        }
+	return result;
+#else
+	return strpbrk(str1, str2);
+#endif
+}
+
+int wrap_strncasecmp(const char *s1, const char *s2, size_t n) {
+#ifdef USE_SAFECLIB
+	if (s1 == NULL || s2 == NULL || n == 0) {
+		debug_log("Invalid input (s1=%p, s2=%p, n=%zu)", (void *)s1, (void *)s2, n);
+		return strncasecmp(s1, s2, n); /* Fallback to glibc strncasecmp */
+	}
+
+	/* Adjust dmax to exclude null terminator */
+	size_t effective_n = n > 0 ? n - 1 : 0; /* Safe C expects content length */
+
+	int result = 0;
+	errno_t err = strcasecmp_s(s1, effective_n, s2, &result);
+	if (err != 0) {
+		debug_log("strcasecmp_s failed (err=%d, s1=%.32s, s2=%.32s, n=%zu)",
+		err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
+		return strncasecmp(s1, s2, n); /* Fallback to glibc with original n */
+	}
+	return result; /* strcasecmp_s returns -1, 0, or 1, matching strncasecmp */
+#else
+	if (s1 == NULL || s2 == NULL) {
+		debug_log("Invalid input (s1=%p, s2=%p, n=%zu)", (void *)s1, (void *)s2, n);
+		return -EINVAL; /* Consistent with wrap_strncmp */
+	}
+	if (n == 0) {
+		return 0; /* strncasecmp returns 0 for n == 0 */
+	}
+	return strncasecmp(s1, s2, n);
 #endif
 }

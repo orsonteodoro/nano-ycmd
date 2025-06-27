@@ -368,7 +368,7 @@ int check_ycm_extra_conf_py_imports(const char* filename) {
 				fclose(file);
 				return -1;
 			}
-			strncpy(module_name, line + match[2].rm_so, length);
+			wrap_strncpy(module_name, line + match[2].rm_so, length);
 			module_name[length] = '\0';
 
 			/* Check if the module is allowed */
@@ -392,7 +392,7 @@ int check_ycm_extra_conf_py_imports(const char* filename) {
 				fclose(file);
 				return -1;
 			}
-			strncpy(module_name, line + match[1].rm_so, length);
+			wrap_strncpy(module_name, line + match[1].rm_so, length);
 			module_name[length] = '\0';
 
 			/* Check if the module is allowed */
@@ -469,43 +469,62 @@ typedef struct header_data_struct {
 } header_data_struct;
 
 static size_t header_callback(char *buffer, size_t size, size_t nitems, void *userdata) {
-	struct header_data_struct *hd = (struct header_data_struct *)userdata;
+	header_data_struct *hd = (header_data_struct *)userdata;
 	size_t len = size * nitems;
-	if (len > 0 && strncasecmp(buffer, hd->name, wrap_strlen(hd->name)) == 0) {
-		char *value = wrap_strchr(buffer, ':');
-		if (value) {
-			value++;
-			while (*value == ' ')
-				value++;
-			strncpy(hd->value, value, sizeof(hd->value) - 1);
-			hd->value[sizeof(hd->value) - 1] = '\0';
-			char *nl = wrap_strchr(hd->value, '\r');
-			if (!nl)
-				nl = wrap_strchr(hd->value, '\n');
-			if (nl)
-				*nl = '\0';
+	if (len == 0) {
+		debug_log("Invalid buffer (len=%zu)", len);
+		return len;
+	}
+	char *temp_buffer = wrap_malloc(len + 1);
+	if (!temp_buffer) {
+		debug_log("Memory allocation failed for buffer (len=%zu)", len);
+		return len;
+	}
+	wrap_memcpy(temp_buffer, buffer, len);
+	temp_buffer[len] = '\0';
+
+	debug_log("header_callback: buffer=%.32s, hd->name=%.32s, n=%zu",
+		temp_buffer, hd->name, wrap_strlen(hd->name));
+
+	char *colon = wrap_strchr(temp_buffer, ':');
+	if (colon) {
+		size_t header_name_len = colon - temp_buffer;
+		size_t name_len = wrap_strlen(hd->name);
+		if (header_name_len == name_len) { // Exact match for header name length
+			if (wrap_strncasecmp(temp_buffer, hd->name, name_len) == 0) {
+				char *value = colon + 1;
+				while (*value == ' ')
+					value++;
+				char *end = wrap_strpbrk(value, "\r\n");
+				size_t value_len = end ? end - value : wrap_strlen(value);
+				wrap_strncpy(hd->value, value, value_len < sizeof(hd->value) - 1
+					? value_len : sizeof(hd->value) - 1);
+				hd->value[value_len < sizeof(hd->value) - 1 ? value_len : sizeof(hd->value) - 1] = '\0';
+				debug_log("Captured %s: %s", hd->name, hd->value);
+			}
 		}
 	}
+	wrap_free((void **)&temp_buffer);
 	return len;
 }
 
 static size_t header_callbackB(char *buffer, size_t size, size_t nitems, void *userdata) {
 	header_data_struct *hd = (header_data_struct *)userdata;
 	size_t len = size * nitems;
-	if (len > 0 && strncasecmp(buffer, hd->name, wrap_strlen(hd->name)) == 0) {
+	if (len > 0 && wrap_strncasecmp(buffer, hd->name, wrap_strlen(hd->name)) == 0) {
 		char *value = wrap_strchr(buffer, ':');
 		if (value) {
 			value++;
 			while (*value == ' ')
 				value++;
-			char *end = strpbrk(value, "\r\n");
+			char *end = wrap_strpbrk(value, "\r\n");
 			if (end) {
 				size_t value_len = end - value;
-				strncpy(hd->value, value, value_len < sizeof(hd->value) - 1
+				wrap_strncpy(hd->value, value, value_len < sizeof(hd->value) - 1
 					? value_len : sizeof(hd->value) - 1);
 				hd->value[value_len < sizeof(hd->value) - 1 ? value_len : sizeof(hd->value) - 1] = '\0';
 			} else {
-				strncpy(hd->value, value, sizeof(hd->value) - 1);
+				wrap_strncpy(hd->value, value, sizeof(hd->value) - 1);
 				hd->value[sizeof(hd->value) - 1] = '\0';
 			}
 			debug_log("Captured %s: %s", hd->name, hd->value);
@@ -1578,22 +1597,9 @@ void *safe_resize_buffer(void *ptr, size_t old_size, size_t new_size) {
 static size_t write_callback(void *ptr, size_t size, size_t nmemb, void *data) {
 	struct memory_struct *mem = (struct memory_struct *)data;
 	size_t realsize = size * nmemb;
+
 	size_t new_size = mem->size + realsize + 1;
 	mem->memory = safe_resize_buffer(mem->memory, mem->size, new_size);
-	if (mem->memory == NULL)
-		return 0;
-	wrap_memcpy(&(mem->memory[mem->size]), ptr, realsize);
-	mem->size += realsize;
-	mem->memory[mem->size] = 0;
-	return realsize;
-}
-
-static size_t write_callbackB(void *ptr, size_t size, size_t nmemb, void *data) {
-	struct memory_struct *mem = (struct memory_struct *)data;
-	size_t realsize = size * nmemb;
-
-	size_t new_size = mem->size + realsize + 1;
-	mem->memory = safe_resize_buffer(mem->memory, mem->size + 1, new_size);
 
 	if (mem->memory == NULL) {
 		/* Handle out of memory error */
@@ -1606,7 +1612,6 @@ static size_t write_callbackB(void *ptr, size_t size, size_t nmemb, void *data) 
 	mem->memory[mem->size] = 0;
 
 	/* Sanitize the original buffer */
-
 	volatile char *volatile_ptr = (volatile char *volatile)ptr;
 	for (size_t i = 0; i < realsize; i++) {
 		volatile_ptr[i] = 0;
@@ -4597,6 +4602,7 @@ int transform_json_file(const char *doc_filename) {
 	if (json_dumpf(array, fp, JSON_INDENT(2)) != 0) {
 		statusline(ALERT, _("Failed to write JSON to temporary file"));
 		fclose(fp);
+		fp = NULL;
 		goto cleanup;
 	}
 	fclose(fp);
