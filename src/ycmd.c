@@ -210,6 +210,7 @@ int ycmd_req_run_completer_command(int linenum, int columnnum, char *filepath, l
 size_t _req_file(char *req_buffer, size_t req_buffer_size, linestruct *filetop);
 size_t _req_sprintf(char *req_buffer, size_t req_buffer_size, const char *format, ...);
 size_t ycmd_escape_json(char *unescaped, char *escaped);
+void *safe_resize_buffer(void *ptr, size_t old_size, size_t new_size);
 void curl_setup_request(CURL *curl, struct memory_struct *chunk);
 void default_settings_constructor(default_settings_struct *settings);
 void file_ready_to_parse_results_constructor(file_ready_to_parse_results_struct *frtpr);
@@ -1067,7 +1068,10 @@ int check_files(const char *path, const char *extensions) {
 		return -1; /* Out of memory */
 	}
 
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 	char *ext = strtok(ext_copy, ";");
+#pragma GCC diagnostic pop
 	while ((ent = readdir(dir)) != NULL) {
 		if (ent->d_type == DT_REG) {
 			char *ext_ptr = ext_copy;
@@ -1083,7 +1087,10 @@ int check_files(const char *path, const char *extensions) {
 			while (*ext_ptr) ext_ptr++; /* Move to end of string */
 			ext_ptr++; /* Move past null terminator */
 			ext_ptr = ext_copy; /* Reset strtok for next file */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
 			ext = strtok(ext_copy, ";"); /* Reset strtok for next file */
+#pragma GCC diagnostic pop
 		} else if (ent->d_type == DT_DIR && wrap_strcmp(ent->d_name, ".") != 0 && wrap_strcmp(ent->d_name, "..") != 0) {
 			char subfolder_path[1024];
 			wrap_snprintf(subfolder_path, sizeof(subfolder_path), "%s/%s", path, ent->d_name);
