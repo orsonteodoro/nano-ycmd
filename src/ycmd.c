@@ -199,6 +199,7 @@ char *ycmd_create_default_json();
 char *_curl_read_response_body_full(CURL *curl, struct memory_struct *chunk);
 char *_ycmd_get_filetype(char *filepath);
 int check_ace(const char* file_path);
+int check_files(const char *path, const char *extensions);
 int check_obfuscated_text(const char* file_path);
 int ycmd_is_hmac_valid(const char *hmac_rsp_header, char *rsp_hmac_base64);
 int ycmd_rsp_is_server_ready(char *filetype);
@@ -911,7 +912,7 @@ int replace_compilation_database_folder_path(const char *file_path, const char *
  * To check_files(), check_cxx_code()
  */
 
-int check_files(const char *path, const char *extension) {
+int check_files(const char *path, const char *extensions) {
 	DIR *dir;
 	struct dirent *ent;
 	int found = 0;
@@ -922,23 +923,40 @@ int check_files(const char *path, const char *extension) {
 		return -1;
 	}
 
+	char *ext_copy = wrap_strdup(extensions);
+	if (!ext_copy) {
+		closedir(dir);
+		return -1; /* Out of memory */
+	}
+
+	char *ext = strtok(ext_copy, ";");
 	while ((ent = readdir(dir)) != NULL) {
 		if (ent->d_type == DT_REG) {
-			/* Check if the file has the specified extension */
-			if (wrap_strlen(ent->d_name) > wrap_strlen(extension) && wrap_strcmp(ent->d_name + wrap_strlen(ent->d_name) - wrap_strlen(extension), extension) == 0) {
-				found = 1;
-				break;
+			char *ext_ptr = ext_copy;
+			while (ext_ptr) {
+				if (wrap_strlen(ent->d_name) > wrap_strlen(ext_ptr) && wrap_strcmp(ent->d_name + wrap_strlen(ent->d_name) - wrap_strlen(ext_ptr), ext_ptr) == 0) {
+					found = 1;
+					break;
+				}
+				ext_ptr = strtok(NULL, ";");
 			}
+			if (found) break;
+			ext_ptr = ext_copy; /* Reset strtok for next file */
+			while (*ext_ptr) ext_ptr++; /* Move to end of string */
+			ext_ptr++; /* Move past null terminator */
+			ext_ptr = ext_copy; /* Reset strtok for next file */
+			ext = strtok(ext_copy, ";"); /* Reset strtok for next file */
 		} else if (ent->d_type == DT_DIR && wrap_strcmp(ent->d_name, ".") != 0 && wrap_strcmp(ent->d_name, "..") != 0) {
 			char subfolder_path[1024];
 			wrap_snprintf(subfolder_path, sizeof(subfolder_path), "%s/%s", path, ent->d_name);
-			if (check_files(subfolder_path, extension) == 1) {
+			if (check_files(subfolder_path, extensions) == 1) {
 				found = 1;
 				break;
 			}
 		}
 	}
 
+	wrap_free((void **)&ext_copy);
 	closedir(dir);
 	return found;
 }
@@ -997,7 +1015,8 @@ int check_cxx_code(const char *path) {
 /* Converted from
  * wrap_snprintf(command, sizeof(command), "'%s' '%s' -f %s '%s' >/dev/null", YCMG_PYTHON_PATH,
  *	YCMG_PATH, flags, path_project);
- * int ret = system(command);
+ * int ret = w
+system(command);
  */
 int execute_ycmg(const char *flags, const char *project_path) {
 	char *argv[25]; /* 25 is the arbitrary reasonable limit */
@@ -1124,10 +1143,7 @@ int ycm_generate(void) {
 #ifdef ENABLE_YCM_GENERATOR
 			has_objcxx = check_files(path_project, ".mm");
 			has_objc = check_files(path_project, ".m");
-			has_cxx = check_files(path_project, ".cpp")
-				|| check_files(path_project, ".C")
-				|| check_files(path_project, ".cxx")
-				|| check_files(path_project, ".cc");
+			has_cxx = check_files(path_project, ".cpp;.C;.cxx;.cc");
 			has_c = check_files(path_project, ".c");
 			has_h = check_files(path_project, ".h");
 			has_cxx_code = check_cxx_code(path_project);
@@ -1600,21 +1616,7 @@ void ycmd_gen_extra_conf() {
 	else
 		return;
 
-	wrap_snprintf(command, sizeof(command),
-		"find '%s' "
-			   "-name '*.C' "
-			"-o -name '*.c' "
-			"-o -name '*.cc' "
-			"-o -name '*.cpp' "
-			"-o -name '*.cxx' "
-			"-o -name '*.h' "
-			"-o -name '*.hh' "
-			"-o -name '*.hpp' "
-			"-o -name '*.m' "
-			"-o -name '*.mm' "
-			">/dev/null",
-		path_project);
-	int ret = system(command);
+	int ret = check_files(path_project, ".C;.c;.cc;.cpp;.cxx;.h;.hh;.hpp;.m;.mm");
 
 	if (ret == 0) {
 		int ret = ycm_generate();
