@@ -119,14 +119,32 @@ char *wrap_strncpy(char *dest, const char *src, size_t n) {
 	size_t src_len = strnlen_s(src, n);
 	if (src_len >= smax) {
 		debug_log("src too long (src_len=%zu, smax=%zu)", src_len, smax);
-		return strncpy(dest, src, n);
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return NULL;
+		#else
+			/* Fallback function */
+			return strncpy(dest, src, n);
+		#endif
 	}
 	/* Use memcpy_s to match original behavior, avoid strncpy_s truncation */
 	errno_t err = memcpy_s(dest, n, src, src_len < n ? src_len : n);
 	if (err != 0) {
 		debug_log("memcpy_s failed (err=%d, dest=%.32s, src=%.32s, n=%zu)",
 			err, dest ? dest : "(null)", src ? src : "(null)", n);
-		return strncpy(dest, src, n);
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return NULL;
+		#else
+			/* Fallback function */
+			return strncpy(dest, src, n);
+		#endif
 	}
 	if (src_len < n) {
 		memset(dest + src_len, 0, n - src_len);
@@ -260,9 +278,7 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	 * functions to break.  It is assumed that safeclib is built with
 	 * >= 128K strmax. */
 	if (n > DEFAULT_JSON_SIZE) {
-		/*
 		debug_log("n capped (input=%zu, max=%d)", n, DEFAULT_JSON_SIZE);
-		*/
 		n = DEFAULT_JSON_SIZE;
 	}
 
@@ -282,14 +298,32 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	size_t src_len = strnlen_s(src, max_src_len);
 	if (src_len >= max_src_len && (src_len < n && src[src_len] != '\0')) {
 		debug_log("src too long (src_len=%zu, max_src_len=%zu)", src_len, max_src_len);
-		return NULL;
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return NULL;
+		#else
+			 /* Fallback function */
+			return strncat(dest, src, max_src_len);
+		#endif
 	}
 
 	/* Concatenate */
 	errno_t res = strncat_s(dest, n, src, RSIZE_MAX_STR);
 	if (res != 0) {
 		debug_log("strncat_s failed (res=%d, n=%zu, src_len=%zu)", res, n, src_len);
-		return NULL;
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return NULL;
+		#else
+			/* Fallback function */
+			return strncat(dest, src, max_src_len);
+		#endif
 	}
 
 	return dest;
@@ -314,7 +348,16 @@ int wrap_strncmp(const char *s1, const char *s2, size_t n) {
 #ifdef USE_SAFECLIB
 	if (s1 == NULL || s2 == NULL || n == 0) {
 		debug_log("Invalid input (s1=%p, s2=%p, n=%zu)", (void *)s1, (void *)s2, n);
-		return strncmp(s1, s2, n);
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return -1;
+		#else
+			/* Fallback function */
+			return strncmp(s1, s2, n);
+		#endif
 	}
 	size_t smax = get_smax();
 	size_t effective_n = n > smax ? smax : (n > 0 ? n - 1 : 0); /* Exclude null terminator */
@@ -323,7 +366,16 @@ int wrap_strncmp(const char *s1, const char *s2, size_t n) {
 	if (err != 0) {
 		debug_log("strcmp_s failed (err=%d, s1=%.32s, s2=%.32s, n=%zu)",
 			err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
-		return strncmp(s1, s2, n);
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return -1;
+		#else
+			/* Fallback function */
+			return strncmp(s1, s2, n);
+		#endif
 	}
 	return result;
 #else
@@ -450,7 +502,16 @@ char *wrap_strstr(const char *haystack, const char *needle) {
 	if (haystack_len >= smax || needle_len >= smax) {
 		debug_log("Input too long (haystack_len=%zu, needle_len=%zu, smax=%zu)",
 			haystack_len, needle_len, smax);
-		return strstr(haystack, needle);
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return NULL;
+		#else
+			/* Fallback function */
+			return strstr(haystack, needle);
+		#endif
 	}
 	size_t effective_haystack_len = haystack_len > 0 ? haystack_len - 1 : 0; /* Exclude null */
 	size_t effective_needle_len = needle_len > 0 ? needle_len - 1 : 0; /* Exclude null */
@@ -459,7 +520,16 @@ char *wrap_strstr(const char *haystack, const char *needle) {
 	if (err != 0) {
 		debug_log("strstr_s failed (err=%d, haystack=%.32s, needle=%.32s)",
 			err, haystack ? haystack : "(null)", needle ? needle : "(null)");
-		return strstr(haystack, needle);
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return NULL;
+		#else
+			/* Fallback function */
+			return strstr(haystack, needle);
+		#endif
 	}
 	return result;
 #else
@@ -605,7 +675,16 @@ int wrap_strncasecmp(const char *s1, const char *s2, size_t n) {
 #ifdef USE_SAFECLIB
 	if (s1 == NULL || s2 == NULL || n == 0) {
 		debug_log("Invalid input (s1=%p, s2=%p, n=%zu)", (void *)s1, (void *)s2, n);
-		return strncasecmp(s1, s2, n); /* Fallback to glibc strncasecmp */
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return -1;
+		#else
+			/* Fallback function */
+			return strncasecmp(s1, s2, n); /* Fallback to glibc strncasecmp */
+		#endif
 	}
 
 	/* Adjust dmax to exclude null terminator */
@@ -616,7 +695,16 @@ int wrap_strncasecmp(const char *s1, const char *s2, size_t n) {
 	if (err != 0) {
 		debug_log("strcasecmp_s failed (err=%d, s1=%.32s, s2=%.32s, n=%zu)",
 		err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
-		return strncasecmp(s1, s2, n); /* Fallback to glibc with original n */
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return -1;
+		#else
+			/* Fallback function */
+			return strncasecmp(s1, s2, n); /* Fallback to glibc with original n */
+		#endif
 	}
 	return result; /* strcasecmp_s returns -1, 0, or 1, matching strncasecmp */
 #else
@@ -640,16 +728,47 @@ int wrap_strcmp(const char *s1, const char *s2) {
 	size_t smax = get_smax();
 	size_t s1_len = strnlen_s(s1, smax);
 	size_t s2_len = strnlen_s(s2, smax);
+	if (s1_len == 0 || s2_len == 0) {
+		debug_log("Empty string (s1_len=%zu, s2_len=%zu)", s1_len, s2_len);
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return -1;
+		#else
+			/* Fallback function */
+			return strcmp(s1, s2);
+		#endif
+	}
 	if (s1_len >= smax || s2_len >= smax) {
 		debug_log("Input too long (s1_len=%zu, s2_len=%zu, smax=%zu)", s1_len, s2_len, smax);
-		return strcmp(s1, s2);
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return -1;
+		#else
+			/* Fallback function */
+			return strcmp(s1, s2);
+		#endif
 	}
 	int result = 0;
 	errno_t err = strcmp_s(s1, s1_len, s2, &result);
 	if (err != 0) {
 		debug_log("strcmp_s failed (err=%d, s1=%.32s, s2=%.32s)",
 			err, s1 ? s1 : "(null)", s2 ? s2 : "(null)");
-		return strcmp(s1, s2);
+		#if SAFECLIB_ERROR_HANDLING == 1
+			/* Fatal error */
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			/* Return error */
+			return -1;
+		#else
+			/* Fallback function */
+			return strcmp(s1, s2);
+		#endif
 	}
 	return result;
 #else

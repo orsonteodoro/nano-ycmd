@@ -474,6 +474,27 @@ else
 	AC_MSG_RESULT([no])
 fi
 
+AC_ARG_WITH([safeclib-error],
+	[AS_HELP_STRING([--with-safeclib-error=TYPE],
+		[Set Safe C error handling: fallback, fatal, return_error (default: fallback)])],
+	[safeclib_error=$withval],
+	[safeclib_error=fallback])
+
+case "$safeclib_error" in
+	fallback)
+		AC_DEFINE([SAFECLIB_ERROR_HANDLING], [0], [Safe C error handling: 0=fallback])
+		;;
+	fatal)
+		AC_DEFINE([SAFECLIB_ERROR_HANDLING], [1], [Safe C error handling: 1=fatal])
+		;;
+	return_error)
+		AC_DEFINE([SAFECLIB_ERROR_HANDLING], [2], [Safe C error handling: 2=return_error])
+		;;
+	*)
+		AC_MSG_ERROR([Invalid --with-safeclib-error value: $safeclib_error. Must be fallback, fatal, or return_error])
+		;;
+esac
+
 AC_ARG_WITH(ycm-generator,AS_HELP_STRING([--with-ycm-generator], [Enable YCM-Generator support for ycmd.  Required for C / C++ / Objective-C / Objective C++ projects that use GNU Make, qmake, cmake.  (optional)]))
 AC_ARG_ENABLE(ycmd,
   AS_HELP_STRING([--enable-ycmd], [Enable code completion support via ycmd])
