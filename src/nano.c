@@ -706,6 +706,16 @@ void usage(void)
 #endif
 }
 
+#ifdef ENABLE_YCMD
+int is_scudo_running() {
+    char *ld_preload = getenv("LD_PRELOAD");
+    if (ld_preload != NULL && strstr(ld_preload, "libclang_rt.scudo") != NULL) {
+        return 1;
+    }
+    return 0;
+}
+#endif
+
 /* Display the version number of this nano, a copyright notice, some contact
  * information, and the configuration options this nano was compiled with. */
 void version(void)
@@ -719,7 +729,6 @@ void version(void)
 	/* TRANSLATORS: The %s is the year of the latest release. */
 	printf(_(" (C) %s the Free Software Foundation and various contributors\n"), "2025");
 #endif
-	printf(_(" Compiled options:"));
 
 #ifdef ENABLE_YCMD
 	printf(_("\n"));
@@ -730,7 +739,9 @@ void version(void)
 	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web:  https://github.com/orsonteodoro/nano-ycmd"));
 	printf(_("\n"));
+	printf(_("\n"));
 	printf(_("\n nano-ycmd dependencies:"));
+	printf(_("\n"));
 	printf(_("\n Bear:"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 2012-2024 by László Nagy"));
@@ -856,10 +867,10 @@ void version(void)
 	/* For str* or mem* functions */
 	printf(_("\n musl:"));
 	printf(_("\n"));
-	printf(_("\n Copyright (C) 2005-2020 Rich Felker, et al."));
-	printf(_("\n Authors:  https://git.musl-libc.org/cgit/musl/tree/COPYRIGHT"));
-	printf(_("\n License:  MIT"));
-	printf(_("\n Web:  https://musl.libc.org/"));
+	printf(_("\n   Copyright (C) 2005-2020 Rich Felker, et al."));
+	printf(_("\n   Authors:  https://git.musl-libc.org/cgit/musl/tree/COPYRIGHT"));
+	printf(_("\n   License:  MIT"));
+	printf(_("\n   Web:  https://musl.libc.org/"));
 	printf(_("\n"));
 #endif
 
@@ -897,6 +908,13 @@ void version(void)
 	printf(_("\n   Web:  https://rurban.github.io/safeclib/doc/safec-3.9/index.html"));
 	printf(_("\n"));
 #endif
+	if (is_scudo_running()) {
+		printf(_("\n Scudo:"));
+		printf(_("\n"));
+		printf(_("\n   License:  Apache-2.0 WITH LLVM-exception"));
+		printf(_("\n   Web:  https://llvm.org/docs/ScudoHardenedAllocator.html"));
+		printf(_("\n"));
+	}
 	printf(_("\n YCM-Generator:"));
 	printf(_("\n"));
 	printf(_("\n   License:  GPL-3"));
