@@ -121,7 +121,7 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  * Mitigations (OpenSSL): CE, DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, RC, SF, SO, UAF
  * Mitigations (safeclib):  DF, DP, DoS, DT, ID, IO, HO, NPD, OOBA, OOBR, OOBW, RC, SO, UAF
  * Mitigations (scudo):  DF, DoS, DP, DT, HO, ID, IO, NPD, OOBA, OOBR, OOBW, PF, RC, SO, UAF
- * Mitigations (yyjson): DF, DP, DoS, ID, IO, DT HO, NPD, OOBA, OOBR, OOBW, SO, UAF
+ * Mitigations (yyjson): DF, DP, DoS, ID, IO, DT, HO, NPD, OOBA, OOBR, OOBW, SO, UAF
 
  * curl:			# Security: 9, Performance: 8, Overall: 9
  * glibc malloc/free:		# Security: 3, Performance: 8, Overall: 5
@@ -138,7 +138,7 @@ char _command_line[COMMAND_LINE_COMMAND_NUM][COMMAND_LINE_WIDTH] = {
  * OpenSSL:			# Security: 6, Performance: 8, Overall: 7; Frequent CVEs and larger code base lower security score
  * safeclib:			# Security: 9, Performance: 7, Overall: 8
  * scudo:			# Security: 8, Performance: 7, Overall: 8; Available via LD_PRELOAD
- * yyjson:			# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation,
+ * yyjson:			# Security: 8, Performance: 9, Overall: 8; Considered but no RC mitigation, \
  *				# not widely adopted in distros, faster alternative
  */
 
