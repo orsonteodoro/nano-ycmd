@@ -841,15 +841,23 @@ void version(void)
 #ifdef USE_NETTLE
 	printf(_("\n Nettle:"));
 	printf(_("\n"));
-	printf(_("\n   Copyright (C) 2002, 2013 Niels Möller"));
-	printf(_("\n   License: LGPL-3+"));
+	/* Listed Base64 and Chacha20 implementation copyrights */
+	printf(_("\n   Copyright (C) 2002, 2014 Niels Möller, Dan Egnor"));
+	printf(_("\n   Copyright (C) 2012 Simon Josefsson"));
+	printf(_("\n   Copyright (C) 2013 Joachim Strömbergson"));
+	printf(_("\n   Copyright (C) 2015 Amos Jeffries, Niels Möller"));
+	printf(_("\n   AUTHORS:  https://git.lysator.liu.se/nettle/nettle/-/blob/master/AUTHORS"));
+	printf(_("\n   License: GPL-2+ LGPL-3+"));
 	printf(_("\n   Web: http://www.lysator.liu.se/~nisse/nettle"));
 	printf(_("\n"));
 #endif
 #ifdef USE_OPENSSL
 	printf(_("\n OpenSSL:"));
 	printf(_("\n"));
-	printf(_("\n   Copyright (C) 1995-2021 The OpenSSL Project Authors. All Rights Reserved."));
+	printf(_("\n   Copyright (C) 1998-2025 The OpenSSL Project Authors"));
+	printf(_("\n   Copyright (C) 1995-1998 Eric A. Young, Tim J. Hudson"));
+	printf(_("\n   All Rights Reserved."));
+	printf(_("\n   AUTHORS:  https://github.com/openssl/openssl/blob/master/AUTHORS.md"));
 	printf(_("\n   License:  Apache License 2.0"));
 	printf(_("\n   Web:  https://www.openssl.org/"));
 	printf(_("\n"));
