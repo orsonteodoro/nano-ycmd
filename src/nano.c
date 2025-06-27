@@ -775,40 +775,12 @@ void version(void)
 	printf(_("\n"));
 
 #endif
-	printf(_("\n GNU Bash:"));
-	printf(_("\n"));
-	printf(_("\n   Copyright (C) 1989-2022 Free Software Foundation, Inc."));
-	printf(_("\n   Authors:  http://git.savannah.gnu.org/cgit/bash.git/tree/AUTHORS"));
-	printf(_("\n   License:  GPL-3+"));
-	printf(_("\n   Web:  https://www.gnu.org/software/bash/"));
-	printf(_("\n"));
-	printf(_("\n GNU Coreutils"));
-	printf(_("\n"));
-	printf(_("\n   Copyright (C) 1988-2025 Free Software Foundation, Inc."));
-	printf(_("\n   Authors:  https://github.com/coreutils/coreutils/blob/master/AUTHORS"));
-	printf(_("\n   License:  GPL-3+"));
-	printf(_("\n   Web:  https://www.gnu.org/software/coreutils/"));
-	printf(_("\n"));
-	printf(_("\n GNU Find Utils"));
-	printf(_("\n"));
-	printf(_("\n   Copyright (C) 1990-2025 Free Software Foundation, Inc."));
-	printf(_("\n   Authors:  https://cgit.git.savannah.gnu.org/cgit/findutils.git/tree/AUTHORS"));
-	printf(_("\n   License:  GPL-3+"));
-	printf(_("\n   Web:  https://www.gnu.org/software/findutils/"));
-	printf(_("\n"));
 	printf(_("\n GNU Make:"));
 	printf(_("\n"));
 	printf(_("\n   Copyright (C) 1988-2024 Free Software Foundation, Inc."));
 	printf(_("\n   Authors:  http://git.savannah.gnu.org/cgit/make.git/tree/AUTHORS"));
 	printf(_("\n   License:  GPL-3+"));
 	printf(_("\n   Web:  https://www.gnu.org/software/make/"));
-	printf(_("\n"));
-	printf(_("\n GNU Sed:"));
-	printf(_("\n"));
-	printf(_("\n   Copyright (C) 1989-2025 Free Software Foundation, Inc."));
-	printf(_("\n   Authors:  http://git.savannah.gnu.org/cgit/sed.git/tree/AUTHORS"));
-	printf(_("\n   License:  GPL-3+"));
-	printf(_("\n   Web: https://www.gnu.org/software/sed/"));
 	printf(_("\n"));
 #ifdef USE_HARDENED_MALLOC
 	printf(_("\n hardened_malloc:"));
