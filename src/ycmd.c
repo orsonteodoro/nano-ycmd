@@ -566,36 +566,83 @@ void ycmd_constructor() {
 		ycmd_restart_server();
 }
 
+/* Converted from:
+	wrap_snprintf(command, sizeof(command), "cd '%s'; make clean > /dev/null", project_path);
+	ret = system(command);
+	wrap_snprintf(command, sizeof(command), "cd '%s'; bear make > /dev/null", project_path);
+	ret = system(command);
+*/
+/* clean = 0 runs `bear make`
+ * clean = 1 runs `make clean` */
+int execute_make_command(const char *project_path, int clean) {
+	pid_t pid;
+	char *argv[] = {
+		"/bin/sh",
+		"-c",
+		clean ? "make clean" : "bear make",
+		NULL
+	};
+
+	pid = fork();
+	if (pid == -1) {
+		/* Error creating process */
+		return -1;
+	} else if (pid == 0) {
+		/* Child process */
+		if (chdir(project_path) != 0) {
+			perror("chdir");
+			exit(EXIT_FAILURE);
+		}
+
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-result"
+		/* Redirect stdout to /dev/null */
+		freopen("/dev/null", "w", stdout);
+#pragma GCC diagnostic pop
+
+		execv(argv[0], argv);
+		/* If execv returns, it means an error occurred */
+		perror("execv");
+		exit(EXIT_FAILURE);
+	} else {
+		/* Parent process */
+		int status;
+		waitpid(pid, &status, 0);
+		if (WIFEXITED(status)) {
+			return WEXITSTATUS(status);
+		} else {
+			return -1;
+		}
+	 }
+}
+
 /* Generates a compile_commands.json for the Clang completer. */
 /* Returns 1 on success. */
 int bear_generate(char *project_path) {
 	char file_path[PATH_MAX];
-	char command[PATH_MAX + LINE_LENGTH];
-	int ret = -1;
+	int ret1 = -1, ret2 = -1;
 
 	wrap_snprintf(file_path, sizeof(file_path), "%s/compile_commands.json", project_path);
 
 	if (access(file_path, F_OK) == 0) {
 		; /* statusline(HUSH, "Using previously generated compile_commands.json file."); */
-		ret = 0;
+		ret1 = 0;
+		ret2 = 0;
 	} else {
 		statusline(HUSH, "Please wait.  Generating a compile_commands.json file.");
-		wrap_snprintf(command, sizeof(command), "cd '%s'; make clean > /dev/null", project_path);
-		ret = system(command);
-
-		wrap_snprintf(command, sizeof(command), "cd '%s'; bear make > /dev/null", project_path);
-		ret = system(command);
+		ret1 = execute_make_command(project_path, 1);
+		ret2 = execute_make_command(project_path, 0);
 		full_refresh();
 		draw_all_subwindows();
 
-		if (ret == 0)
+		if (ret1 == 0 && ret2 == 0)
 			statusline(HUSH, "Sucessfully generated a compile_commands.json file.");
 		else
 			statusline(HUSH, "Failed generating a compile_commands.json file.");
 	}
 	blank_statusbar();
 
-	return ret == 0;
+	return ret1 == 0 && ret2 == 0;
 }
 
 /* Converted code:
@@ -630,14 +677,82 @@ int check_ninja_files(const char *ninja_build_path) {
 	return 1; /* No .ninja files found */
 }
 
+/* Converted from:
+	wrap_snprintf(command, sizeof(command),
+	"cd '%s'; '%s' -t compdb %s > '%s/compile_commands.json'",
+	ninja_build_path, NINJA_PATH, ninja_build_targets, project_path);
+	ret = system(command);
+*/
+int execute_ninja_command(const char *ninja_build_path, const char *ninja_build_targets, const char *project_path) {
+	char output_file[1024];
+	char sanitized_ninja_path[PATH_MAX];
+	const char *safe_paths = SAFE_PATHS;
+	pid_t pid;
+	wrap_snprintf(output_file, sizeof(output_file), "%s/compile_commands.json", project_path);
+
+	/* Mitigate against a path traversal attack */
+	if (!sanitize_path(NINJA_PATH, safe_paths, sanitized_ninja_path, sizeof(sanitized_ninja_path))) {
+		/* Handle error: NINJA_PATH is not a safe path */
+		return -1;
+	}
+
+	char *argv[] = {
+		(char *)sanitized_ninja_path,
+		"-t",
+		"compdb",
+		(char *)ninja_build_targets,
+		NULL
+	};
+
+	pid = fork();
+	if (pid == -1) {
+		/* Error creating process */
+		return -1;
+	} else if (pid == 0) {
+		/* Child process */
+		if (chdir(ninja_build_path) != 0) {
+			perror("chdir");
+			exit(EXIT_FAILURE);
+		}
+
+		/* Open output file */
+		FILE *fp = fopen(output_file, "w");
+		if (!fp) {
+			perror("fopen");
+			exit(EXIT_FAILURE);
+		}
+
+		/* Redirect stdout to output file */
+		if (dup2(fileno(fp), STDOUT_FILENO) == -1) {
+			perror("dup2");
+			fclose(fp);
+			exit(EXIT_FAILURE);
+		}
+
+		fclose(fp);
+
+		execv(argv[0], argv);
+		/* If execv returns, it means an error occurred */
+		perror("execv");
+		exit(EXIT_FAILURE);
+	} else {
+		/* Parent process */
+		int status;
+		waitpid(pid, &status, 0);
+		if (WIFEXITED(status)) {
+			return WEXITSTATUS(status);
+		} else {
+			return -1;
+		}
+	}
+}
+
 /* Generate a compile_commands.json for projects using the ninja build system */
 /* Returns:
  * 1 on success.
  * 0 on failure. */
 int ninja_compdb_generate(char *project_path) {
 	/* Try ninja. */
-	char command[PATH_MAX * 4 + LINE_LENGTH];
-
 	char ninja_build_path[PATH_MAX];
 	char *_ninja_build_path = getenv("NINJA_BUILD_PATH");
 	if (_ninja_build_path &&
@@ -660,10 +775,12 @@ int ninja_compdb_generate(char *project_path) {
 			ninja_build_targets[0] = 0;
 		}
 
-		wrap_snprintf(command, sizeof(command),
-			"cd '%s'; '%s' -t compdb %s > '%s/compile_commands.json'",
-			ninja_build_path, NINJA_PATH, ninja_build_targets, project_path);
-		ret = system(command);
+		ret = execute_ninja_command(ninja_build_path, ninja_build_targets, project_path);
+		if (ret == 0) {
+			statusline(HUSH, "Sucessfully generated compile_commands.json.");
+		} else {
+			statusline(ALERT, "Failed to generate a compile_commands.json.");
+		}
 		full_refresh();
 		draw_all_subwindows();
 	}
@@ -1605,7 +1722,6 @@ void default_settings_json_constructor(char *json) {
 }
 
 void ycmd_gen_extra_conf() {
-	char command[PATH_MAX + DOUBLE_LINE_LENGTH];
 	char path_project[PATH_MAX];
 	ycmd_get_project_path(path_project);
 
