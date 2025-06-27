@@ -744,11 +744,14 @@ void version(void)
 	printf(_("\n   License:  MIT"));
 	printf(_("\n"));
 #ifdef USE_LIBGCRYPT
+	/* Base64 encode */
 	printf(_("\n GLib:"));
+	printf(_("\n   Copyright (C) 2005, 2006 Alexander Larsson <alexl@redhat.com>"));
+	printf(_("\n   Copyright (C) 2000-2003 Ximian Inc."));
 	printf(_("\n"));
 	printf(_("\n   AUTHORS:  https://github.com/GNOME/glib/blob/master/AUTHORS"));
 	printf(_("\n   License:  LGPL2+"));
-	printf(_("\n   Web:  https://wiki.gnome.org/Projects/GLib"));
+	printf(_("\n   Web:  https://gitlab.gnome.org/GNOME/glib/"));
 	printf(_("\n"));
 #endif
 	printf(_("\n GNU Bash:"));
