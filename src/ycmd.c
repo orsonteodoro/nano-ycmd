@@ -994,13 +994,69 @@ int check_cxx_code(const char *path) {
 	return found;
 }
 
+/* Converted from
+ * wrap_snprintf(command, sizeof(command), "'%s' '%s' -f %s '%s' >/dev/null", YCMG_PYTHON_PATH,
+ *	YCMG_PATH, flags, path_project);
+ * int ret = system(command);
+ */
+int execute_ycmg(const char *flags, const char *project_path) {
+	char *argv[25]; /* 25 is the arbitrary reasonable limit */
+	char sanitized_ycmg_python_path[PATH_MAX];
+	char sanitized_ycmg_path[PATH_MAX];
+	const char *safe_paths = SAFE_PATHS;
+	int argc = 0;
+	pid_t pid;
+
+	/* Mitigate against a path traversal attack */
+	if (!sanitize_path(YCMG_PYTHON_PATH, safe_paths, sanitized_ycmg_python_path, sizeof(sanitized_ycmg_python_path))) {
+		/* Handle error: YCMG_PYTHON_PATH is not a safe path */
+		return -1;
+	}
+
+	if (!sanitize_path(YCMG_PATH, safe_paths, sanitized_ycmg_path, sizeof(sanitized_ycmg_path))) {
+		/* Handle error: YCMG_PATH is not a safe path */
+		return -1;
+	}
+
+	argv[argc++] = (char *)sanitized_ycmg_python_path;
+	argv[argc++] = (char *)sanitized_ycmg_path;
+	argv[argc++] = (char *)"-f";
+
+	if (flags && flags[0] != '\0') {
+		argv[argc++] = (char *)flags;
+	}
+
+	argv[argc++] = (char *)project_path;
+	argv[argc] = NULL;
+
+	pid = fork();
+	if (pid == -1) {
+		/* Error creating process */
+		return -1;
+	} else if (pid == 0) {
+		/* Child process */
+		execv(sanitized_ycmg_python_path, argv);
+		/* If execv returns, it means an error occurred */
+		perror("execv");
+		exit(EXIT_FAILURE);
+	} else {
+		/* Parent process */
+		int status;
+		waitpid(pid, &status, 0);
+		if (WIFEXITED(status)) {
+			return WEXITSTATUS(status);
+		} else {
+			return -1;
+		}
+	}
+}
+
 
 /* Generates a .ycm_extra_conf.py for the C family completer. */
 /* Language must be:  c, c++, objective-c, objective-c++ */
 int ycm_generate(void) {
 	char path_project[PATH_MAX];
 	char path_extra_conf[PATH_MAX];
-	char command[PATH_MAX * 3 + LINE_LENGTH * 4];
 	char flags[PATH_MAX];
 	int ret = -1;
 	int ret2 = -1;
@@ -1042,9 +1098,8 @@ int ycm_generate(void) {
 	} else {
 #ifdef ENABLE_YCM_GENERATOR
 		statusline(HUSH, "Please wait.  Generating a .ycm_extra_conf.py file.");
-		wrap_snprintf(command, sizeof(command), "'%s' '%s' -f %s '%s' >/dev/null", YCMG_PYTHON_PATH,
-			YCMG_PATH, flags, path_project);
-		int ret = system(command);
+
+		int ret = execute_ycmg(flags, path_project);
 		if (ret == 0) {
 			statusline(HUSH, "Sucessfully generated a .ycm_extra_conf.py file.");
 
