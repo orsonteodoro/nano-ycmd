@@ -522,8 +522,9 @@ default_settings.json that leads to Code Execution (CE), Privilege Escalation
 (PE), Data Tampering (DT), Information Disclosure (ID), Denial of Service (DoS).
 In addition mitigate against LD_PRELOAD hijack.  For LD_PRELOAD, it is
 restricted to allow only Scudo and libsandbox with extra path prefix checks to
-prevent path traversal attack.  Provide only the absolute paths to the bin
-folders or library.  You can use realpath to resolve relative paths.
+prevent path traversal attack and CE, PE, DT, ID, DoS.  Provide only the
+absolute paths to the bin folders or library.  You can use realpath to resolve
+relative paths.
 
 The directories for `YCMD_PATH`, `YCMD_PYTHON_PATH`, `YCMG_PYTHON_PATH`, `GOCODE_PATH`,
 `GODEF_PATH`, `RUST_SRC_PATH`, `RACERD_PATH`, `YCMG_PATH`, `COMPDB_PATH`, `NINJA_PATH`
