@@ -474,9 +474,9 @@ else
 	AC_MSG_RESULT([no])
 fi
 
-# fallback - for compatibility
-# fatal - for security-critical
-# return_error - for security
+# fallback - for compatibility (maximize availability but decrease security)
+# fatal - for security-critical (decreased availability, immediately aborts on undefined behavior, full protection)
+# return_error - for security (increased availability, but some protection)
 AC_ARG_WITH([safeclib-error],
 	[AS_HELP_STRING([--with-safeclib-error=TYPE],
 		[Set Safe C error handling: fallback, fatal, return_error (default: fallback)])],

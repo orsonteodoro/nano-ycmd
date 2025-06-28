@@ -18,11 +18,30 @@
  * along with nano-ycmd.  If not, see <https://www.gnu.org/licenses/>.
  */
 
+#include "config.h"
+#include <stdio.h>
+
+
+
 #ifdef DEBUG
 #define debug_log(format, ...) \
 	do { \
 		fprintf(stderr, "%s:  " format "\n", __func__, ##__VA_ARGS__); \
+		fflush(stderr); \
+	} while (0)
+
+#define debug_log2(format, ...) \
+	do { \
+            FILE *log_file = fopen("/tmp/ycmd_debug.log", "a"); \
+            if (log_file) { \
+                fprintf(log_file, "%s: " format "\n", __func__, ##__VA_ARGS__); \
+                fflush(log_file); \
+                fclose(log_file); \
+            } \
+            fprintf(stderr, "%s: " format "\n", __func__, ##__VA_ARGS__); \
+            fflush(stderr); \
 	} while (0)
 #else
 #define debug_log(...)
 #endif
+

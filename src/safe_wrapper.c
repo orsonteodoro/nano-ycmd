@@ -103,6 +103,7 @@ void init_wrapper(void) {
 }
 
 char *wrap_strncpy(char *dest, const char *src, size_t n) {
+	debug_log("Called function");
 	if (dest == NULL || src == NULL) {
 		debug_log("Invalid input (dest=%p, src=%p, n=%zu)", (void *)dest, (void *)src, n);
 		return NULL;
@@ -120,7 +121,9 @@ char *wrap_strncpy(char *dest, const char *src, size_t n) {
 	if (src_len >= smax) {
 		debug_log("src too long (src_len=%zu, smax=%zu)", src_len, smax);
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("src too long (src_len=%zu, smax=%zu), fatal error", src_len, smax);
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -136,7 +139,10 @@ char *wrap_strncpy(char *dest, const char *src, size_t n) {
 		debug_log("memcpy_s failed (err=%d, dest=%.32s, src=%.32s, n=%zu)",
 			err, dest ? dest : "(null)", src ? src : "(null)", n);
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("memcpy_s failed (err=%d, dest=%.32s, src=%.32s, n=%zu), fatal error",
+				err, dest ? dest : "(null)", src ? src : "(null)", n);
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -156,10 +162,12 @@ char *wrap_strncpy(char *dest, const char *src, size_t n) {
 }
 
 size_t get_smax(void) {
+	debug_log("Called function");
 	static size_t smax = 0;
 	if (smax == 0) {
 		/* Adjustable buffer overflow limiter. */
 		const char *env = getenv("NANO_YCMD_SMAX");
+		debug_log("get_smax: NANO_YCMD_SMAX=%s", env ? env : "(null)");
 		size_t max_limit = 10485760; /* 10 MB */
 #ifdef NANO_YCMD_MAX_SMAX
 		if (NANO_YCMD_MAX_SMAX < max_limit) {
@@ -170,6 +178,7 @@ size_t get_smax(void) {
 		if (env) {
 			char *endptr;
 			unsigned long val = strtoul(env, &endptr, 10);
+			debug_log("get_smax: Parsed NANO_YCMD_SMAX=%lu, endptr='%s'", val, *endptr ? endptr : "(empty)");
 			if (*endptr == '\0' && val >= 1024 && val <= max_limit) {
 				smax = val;
 			} else {
@@ -177,7 +186,8 @@ size_t get_smax(void) {
 				smax = 1048576; /* 1 MB default */
 			}
 		} else {
-			smax = 1048576; /* 1MB default */
+			debug_log("NANO_YCMD_SMAX unset, using default 1 MB");
+			smax = 1048576; /* 1 MB default */
 		}
 		debug_log("smax is set to %zu bytes. Large values may slow down nano.", smax);
 	}
@@ -211,6 +221,7 @@ char *wrap_strcpy(char *dest, const char *src) {
 }
 
 void *wrap_memcpy(void *dest, const void *src, size_t n) {
+	debug_log("Called function");
 #ifdef USE_SAFECLIB
 	errno_t err = memcpy_s(dest, n, src, n);
 	if (err != EOK) {
@@ -228,6 +239,7 @@ void *wrap_memcpy(void *dest, const void *src, size_t n) {
 
 #define DUMMY_BUFFER_SIZE 1024
 int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
+	debug_log("Called function");
 #ifdef USE_SAFECLIB
 	/* There is an inconsistency in the safeclib implementation.  So rewrite. */
 	if (str == NULL && size != 0) return -1;
@@ -265,6 +277,7 @@ int wrap_vsnprintf(char *str, size_t size, const char *format, va_list ap) {
 }
 
 char *wrap_strncat(char *dest, const char *src, size_t n) {
+	debug_log("Called function");
 #ifdef USE_SAFECLIB
 	/* There is an inconsistency in the safeclib implementation.  So rewrite. */
 	/* Validate inputs */
@@ -299,7 +312,9 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	if (src_len >= max_src_len && (src_len < n && src[src_len] != '\0')) {
 		debug_log("src too long (src_len=%zu, max_src_len=%zu)", src_len, max_src_len);
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("src too long (src_len=%zu, max_src_len=%zu), fatal error", src_len, max_src_len);
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -315,7 +330,9 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 	if (res != 0) {
 		debug_log("strncat_s failed (res=%d, n=%zu, src_len=%zu)", res, n, src_len);
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("strncat_s failed (res=%d, n=%zu, src_len=%zu), fatal error", res, n, src_len);
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -345,11 +362,14 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 }
 
 int wrap_strncmp(const char *s1, const char *s2, size_t n) {
+	debug_log("Called function");
 #ifdef USE_SAFECLIB
 	if (s1 == NULL || s2 == NULL || n == 0) {
 		debug_log("Invalid input (s1=%p, s2=%p, n=%zu)", (void *)s1, (void *)s2, n);
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("Invalid input (s1=%p, s2=%p, n=%zu), fatal error", (void *)s1, (void *)s2, n);
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -367,7 +387,10 @@ int wrap_strncmp(const char *s1, const char *s2, size_t n) {
 		debug_log("strcmp_s failed (err=%d, s1=%.32s, s2=%.32s, n=%zu)",
 			err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("strcmp_s failed (err=%d, s1=%.32s, s2=%.32s, n=%zu), fatal error",
+				err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -391,6 +414,7 @@ int wrap_strncmp(const char *s1, const char *s2, size_t n) {
 }
 
 void *_safe_malloc(size_t size) {
+	debug_log("Called function");
 	/*
 	 * CE = Code Execution
 	 * PE = Privilege Escalation
@@ -434,6 +458,7 @@ void *_safe_malloc(size_t size) {
 }
 
 void *wrap_malloc(size_t size) {
+	debug_log("Called function");
 	if (getpid() != parent_pid)
 		return _safe_malloc(size);
 	pthread_mutex_lock(&malloc_lock);
@@ -443,6 +468,7 @@ void *wrap_malloc(size_t size) {
 }
 
 void _safe_free(void *ptr) {
+	debug_log("Called function");
 #if defined(USE_HARDENED_MALLOC)
 	extern void hardened_free(void *ptr);
 	hardened_free(ptr);
@@ -455,6 +481,7 @@ void _safe_free(void *ptr) {
 }
 
 void wrap_free(void **ptr) {
+	debug_log("Called function");
 	if (ptr && *ptr) {
 		if (getpid() != parent_pid) {
 			_safe_free(*ptr);
@@ -469,6 +496,7 @@ void wrap_free(void **ptr) {
 }
 
 errno_t wrap_secure_zero(void *dest, size_t n) {
+	debug_log("Called function");
 #ifdef USE_SAFECLIB
 	if (!dest)
 		return EINVAL;
@@ -492,42 +520,95 @@ errno_t wrap_secure_zero(void *dest, size_t n) {
 
 char *wrap_strstr(const char *haystack, const char *needle) {
 	if (!haystack || !needle) {
-		debug_log("Invalid input (haystack=%p, needle=%p)", (void *)haystack, (void *)needle);
+		debug_log("Invalid input in wrap_strstr (haystack=%p, needle=%p)", (void *)haystack, (void *)needle);
 		return NULL;
 	}
 #ifdef USE_SAFECLIB
 	size_t smax = get_smax();
+	debug_log("wrap_strstr: smax=%zu, haystack=%.32s, needle=%.32s", smax, haystack ? haystack : "(null)", needle ? needle : "(null)");
+
+	/* Validate string contents */
+	bool haystack_valid = true, needle_valid = true;
+	for (size_t i = 0; haystack[i] && i < smax; i++) {
+		if (!isprint((unsigned char)haystack[i]) && haystack[i] != '\0') {
+			haystack_valid = false;
+			break;
+		}
+	}
+	for (size_t i = 0; needle[i] && i < smax; i++) {
+		if (!isprint((unsigned char)needle[i]) && needle[i] != '\0') {
+			needle_valid = false;
+			break;
+		}
+	}
+	debug_log("wrap_strstr: haystack_valid=%d, needle_valid=%d", haystack_valid, needle_valid);
+
+	size_t haystack_len_glibc = strlen(haystack);
+	size_t needle_len_glibc = strlen(needle);
+	debug_log("wrap_strstr: glibc haystack_len=%zu, needle_len=%zu", haystack_len_glibc, needle_len_glibc);
+
 	size_t haystack_len = strnlen_s(haystack, smax);
 	size_t needle_len = strnlen_s(needle, smax);
-	if (haystack_len >= smax || needle_len >= smax) {
-		debug_log("Input too long (haystack_len=%zu, needle_len=%zu, smax=%zu)",
-			haystack_len, needle_len, smax);
+	debug_log("wrap_strstr: safeclib haystack_len=%zu, needle_len=%zu", haystack_len, needle_len);
+
+	if (haystack_len == 0 || needle_len == 0) {
+		debug_log("Empty input in wrap_strstr (haystack_len=%zu, needle_len=%zu)", haystack_len, needle_len);
 		#if SAFECLIB_ERROR_HANDLING == 1
-			/* Fatal error */
+			debug_log("Aborting in wrap_strstr due to fatal mode (empty input)");
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
-			/* Return error */
 			return NULL;
 		#else
-			/* Fallback function */
 			return strstr(haystack, needle);
 		#endif
 	}
-	size_t effective_haystack_len = haystack_len > 0 ? haystack_len - 1 : 0; /* Exclude null */
-	size_t effective_needle_len = needle_len > 0 ? needle_len - 1 : 0; /* Exclude null */
-	char *result = NULL;
-	errno_t err = strstr_s((char *)haystack, effective_haystack_len, needle, effective_needle_len, &result);
-	if (err != 0) {
-		debug_log("strstr_s failed (err=%d, haystack=%.32s, needle=%.32s)",
-			err, haystack ? haystack : "(null)", needle ? needle : "(null)");
+	if (haystack_len >= smax || needle_len >= smax) {
+		debug_log("Input too long in wrap_strstr (haystack_len=%zu, needle_len=%zu, smax=%zu)", haystack_len, needle_len, smax);
 		#if SAFECLIB_ERROR_HANDLING == 1
-			/* Fatal error */
+			debug_log("Aborting in wrap_strstr due to fatal mode (length exceeded)");
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
-			/* Return error */
 			return NULL;
 		#else
-			/* Fallback function */
+			return strstr(haystack, needle);
+		#endif
+	}
+	if (haystack_len != haystack_len_glibc || needle_len != needle_len_glibc || !haystack_valid || !needle_valid) {
+		debug_log("Validation failed: haystack_len=%zu, glibc=%zu, needle_len=%zu, glibc=%zu, haystack_valid=%d, needle_valid=%d",
+			haystack_len, haystack_len_glibc, needle_len, needle_len_glibc, haystack_valid, needle_valid);
+		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("Aborting in wrap_strstr due to fatal mode (validation failed)");
+			fflush(stderr);
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			return NULL;
+		#else
+			return strstr(haystack, needle);
+		#endif
+	}
+	/* Fallback to glibc for short strings */
+	if (haystack_len_glibc < 256 && needle_len_glibc < 256) {
+		debug_log("Using glibc strstr for short strings (haystack_len=%zu, needle_len=%zu)", haystack_len_glibc, needle_len_glibc);
+		return strstr(haystack, needle);
+	}
+	char *result = NULL;
+	errno_t err = strstr_s((char *)haystack, haystack_len, needle, needle_len, &result);
+	if (err != 0) {
+		debug_log("strstr_s failed in wrap_strstr (err=%d, haystack=%.32s, needle=%.32s, haystack_len=%zu, needle_len=%zu)",
+			err, haystack ? haystack : "(null)", needle ? needle : "(null)", haystack_len, needle_len);
+		if (err == ESNOTFND) {
+			debug_log("Substring not found, returning NULL");
+			return NULL;
+		}
+		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("Aborting in wrap_strstr due to fatal mode (strstr_s error)");
+			fflush(stderr);
+			abort();
+		#elif SAFECLIB_ERROR_HANDLING == 2
+			return NULL;
+		#else
 			return strstr(haystack, needle);
 		#endif
 	}
@@ -538,6 +619,7 @@ char *wrap_strstr(const char *haystack, const char *needle) {
 }
 
 size_t wrap_strlen(const char *s) {
+	debug_log("Called function");
 	if (!s) {
 		debug_log("null input");
 		return 0;
@@ -575,6 +657,7 @@ size_t wrap_strlen(const char *s) {
 }
 
 size_t wrap_strnlen(const char *s, size_t maxlen) {
+	debug_log("Called function");
 	if (!s) {
 		debug_log("Null input for s");
 		return 0;
@@ -595,6 +678,7 @@ size_t wrap_strnlen(const char *s, size_t maxlen) {
 
 int wrap_snprintf(char *str, size_t size, const char *format, ...)
 {
+	debug_log("Called function");
 	va_list ap;
 	int result;
 
@@ -621,6 +705,7 @@ int wrap_snprintf(char *str, size_t size, const char *format, ...)
 }
 
 char* wrap_strdup(const char* str) {
+	debug_log("Called function");
 	size_t len = wrap_strlen(str) + 1;
 	char* dup = NULL;
 
@@ -644,6 +729,7 @@ char* wrap_strdup(const char* str) {
 }
 
 char* wrap_strchr(const char *str, int c) {
+	debug_log("Called function");
 #ifdef USE_SAFECLIB
 	char* result = NULL;
 	errno_t err = strchr_s(str, wrap_strlen(str), c, &result);
@@ -658,6 +744,7 @@ char* wrap_strchr(const char *str, int c) {
 }
 
 char* wrap_strpbrk(const char *str1, const char *str2) {
+	debug_log("Called function");
 #ifdef USE_SAFECLIB
 	char *result = NULL;
 	errno_t err = strpbrk_s((char*)str1, wrap_strlen(str1), (char*)str2, wrap_strlen(str2), &result);
@@ -672,11 +759,14 @@ char* wrap_strpbrk(const char *str1, const char *str2) {
 }
 
 int wrap_strncasecmp(const char *s1, const char *s2, size_t n) {
+	debug_log("Called function");
 #ifdef USE_SAFECLIB
 	if (s1 == NULL || s2 == NULL || n == 0) {
 		debug_log("Invalid input (s1=%p, s2=%p, n=%zu)", (void *)s1, (void *)s2, n);
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("Invalid input (s1=%p, s2=%p, n=%zu), fatal error", (void *)s1, (void *)s2, n);
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -694,9 +784,12 @@ int wrap_strncasecmp(const char *s1, const char *s2, size_t n) {
 	errno_t err = strcasecmp_s(s1, effective_n, s2, &result);
 	if (err != 0) {
 		debug_log("strcasecmp_s failed (err=%d, s1=%.32s, s2=%.32s, n=%zu)",
-		err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
+			err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("strcasecmp_s failed (err=%d, s1=%.32s, s2=%.32s, n=%zu), fatal error",
+				err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -720,6 +813,7 @@ int wrap_strncasecmp(const char *s1, const char *s2, size_t n) {
 }
 
 int wrap_strcmp(const char *s1, const char *s2) {
+	debug_log("Called function");
 #ifdef USE_SAFECLIB
 	if (s1 == NULL || s2 == NULL) {
 		debug_log("Invalid input (s1=%p, s2=%p)", (void *)s1, (void *)s2);
@@ -731,7 +825,9 @@ int wrap_strcmp(const char *s1, const char *s2) {
 	if (s1_len == 0 || s2_len == 0) {
 		debug_log("Empty string (s1_len=%zu, s2_len=%zu)", s1_len, s2_len);
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("Empty string (s1_len=%zu, s2_len=%zu), fatal error", s1_len, s2_len);
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -744,7 +840,9 @@ int wrap_strcmp(const char *s1, const char *s2) {
 	if (s1_len >= smax || s2_len >= smax) {
 		debug_log("Input too long (s1_len=%zu, s2_len=%zu, smax=%zu)", s1_len, s2_len, smax);
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("Input too long (s1_len=%zu, s2_len=%zu, smax=%zu), fatal error", s1_len, s2_len, smax);
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -760,7 +858,10 @@ int wrap_strcmp(const char *s1, const char *s2) {
 		debug_log("strcmp_s failed (err=%d, s1=%.32s, s2=%.32s)",
 			err, s1 ? s1 : "(null)", s2 ? s2 : "(null)");
 		#if SAFECLIB_ERROR_HANDLING == 1
+			debug_log("strcmp_s failed (err=%d, s1=%.32s, s2=%.32s), fatal error",
+				err, s1 ? s1 : "(null)", s2 ? s2 : "(null)");
 			/* Fatal error */
+			fflush(stderr);
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */

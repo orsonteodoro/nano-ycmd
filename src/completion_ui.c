@@ -66,33 +66,45 @@ void init_completion_ui(void) {
 	const char *ui_mode = getenv("NANO_YCMD_UI_MODE");
 	if (ui_mode) {
 		debug_log("NANO_YCMD_UI_MODE=%s", ui_mode);
+		debug_log("Calling wrap_strcmp(ui_mode=%s, popup)", ui_mode);
 		if (wrap_strcmp(ui_mode, "popup") == 0) {
 			is_popup_mode = true;
-		} else if (wrap_strcmp(ui_mode, "bottom") == 0) {
-			is_popup_mode = false;
 		} else {
+			debug_log("Calling wrap_strcmp(ui_mode=%s, bottom)", ui_mode);
+			if (wrap_strcmp(ui_mode, "bottom") == 0) {
+				is_popup_mode = false;
+			} else {
 #ifdef ENABLE_YCMD_POPUP
-			debug_log("Unknown NANO_YCMD_UI_MODE=%s, defaulting to popup", ui_mode);
-			is_popup_mode = true;
+				debug_log("Unknown NANO_YCMD_UI_MODE=%s, defaulting to popup", ui_mode);
+				is_popup_mode = true;
 #else
-			debug_log("Unknown NANO_YCMD_UI_MODE=%s, defaulting to bottom", ui_mode);
-			is_popup_mode = false;
+				debug_log("Unknown NANO_YCMD_UI_MODE=%s, defaulting to bottom", ui_mode);
+				is_popup_mode = false;
 #endif
+			}
 		}
 	} else {
 #ifdef ENABLE_YCMD_POPUP
-		debug_log("NANO_YCMD_UI_MODE unset, defaulting to popup");
-		is_popup_mode = true;
+	        debug_log("NANO_YCMD_UI_MODE unset, defaulting to popup");
+	        is_popup_mode = true;
 #else
-		debug_log("NANO_YCMD_UI_MODE unset, defaulting to bottom");
-		is_popup_mode = false;
+	        debug_log("NANO_YCMD_UI_MODE unset, defaulting to bottom");
+	        is_popup_mode = false;
 #endif
 	}
 	debug_log("PID=%d, Checking environment", getpid());
 	extern char **environ;
 	for (char **env = environ; *env; env++) {
-		if (wrap_strstr(*env, "NANO_YCMD_UI_MODE")) {
-			debug_log("Env:  %s", *env);
+		if (!*env) {
+			debug_log("Null env var detected");
+			continue;
+		}
+		size_t env_len = strlen(*env);
+		debug_log("Checking env var: %s (length=%zu)", *env, env_len);
+		char *result = wrap_strstr(*env, "NANO_YCMD_UI_MODE");
+		debug_log("wrap_strstr result for env var %s: %p", *env, (void *)result);
+		if (result) {
+			debug_log("Found NANO_YCMD_UI_MODE in env: %s", *env);
 		}
 	}
 	const char *limit = getenv("NANO_YCMD_COMPLETION_LIMIT");
