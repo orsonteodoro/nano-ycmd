@@ -319,12 +319,22 @@ if test "x$enable_operatingdir" != xno; then
 	AC_DEFINE(ENABLE_OPERATINGDIR, 1, [Define this to allow setting an operating directory (a chroot of sorts).])
 fi
 
-AC_ARG_WITH([safe-paths],
-    [AS_HELP_STRING([--with-safe-paths=PATHS],
+AC_ARG_WITH([bin-safe-paths],
+    [AS_HELP_STRING([--with-bin-safe-paths=PATHS],
         [Specify safe paths (e.g., /usr/local;/usr/bin)])],
-    [safe_paths="$withval"],
-    [safe_paths=""])
-AC_DEFINE_UNQUOTED([SAFE_PATHS], ["$safe_paths"], [Safe paths])
+    [bin_safe_paths="$withval"],
+    [bin_safe_paths=""])
+AC_DEFINE_UNQUOTED([BIN_SAFE_PATHS], ["$bin_safe_paths"], [Safe paths])
+
+# Define allowed paths for is_safe_path (semicolon-delimited)
+AC_ARG_WITH([lib-safe-paths],
+    [AS_HELP_STRING([--with-lib-safe-paths=PATH1;PATH2;...], [Semicolon-delimited paths allowed for LD_PRELOAD (default: /usr/lib/;/usr/lib64/;/usr/lib/clang/)])],
+    [lib_safe_paths=$withval], [lib_safe_paths="/usr/lib/;/usr/lib64/;/usr/lib/clang/"])
+# Convert semicolon-delimited paths to comma-separated for C array
+lib_safe_paths_c=$(echo "$lib_safe_paths" | tr ';' ',' | sed 's/,*$//')
+AC_MSG_NOTICE([SAFE_PATHS set to: $lib_safe_paths_c])
+AC_DEFINE_UNQUOTED([LIB_SAFE_PATHS], ["$lib_safe_paths_c"], [Comma-separated list of allowed LD_PRELOAD paths])
+
 
 AC_ARG_ENABLE(speller,
 AS_HELP_STRING([--disable-speller], [Disable the spell-checking tool]))
@@ -411,6 +421,112 @@ fi
 AC_MSG_CHECKING([for allocator])
 AC_MSG_RESULT([$allocator])
 
+
+
+# Check for SHA256 utility
+AC_MSG_CHECKING([for SHA256 utility])
+AC_CHECK_PROGS([SHA256_PROG], [sha256sum sha256 cksum shasum], [])
+if test "x$SHA256_PROG" = "x"; then
+    AC_MSG_ERROR([No SHA256 utility found (sha256sum, sha256, cksum, or shasum required)])
+fi
+AC_MSG_RESULT([$SHA256_PROG])
+
+# Determine SHA256 command and parsing
+case "$SHA256_PROG" in
+    sha256sum)
+        SHA256_CMD="$SHA256_PROG %s | awk '{print \$1}'"
+        ;;
+    sha256)
+        SHA256_CMD="$SHA256_PROG %s | awk -F '= ' '{print \$2}'"
+        ;;
+    cksum)
+        SHA256_CMD="$SHA256_PROG -a sha256 %s | awk '{print \$1}'"
+        ;;
+    shasum)
+        SHA256_CMD="$SHA256_PROG -a 256 %s | awk '{print \$1}'"
+        ;;
+esac
+
+# Check for cryptographic libraries
+AC_ARG_WITH([nettle], [AS_HELP_STRING([--with-nettle], [Use nettle for SHA256 LD_PRELOAD hardening or ycmd])], [], [with_nettle=no])
+AC_ARG_WITH([libgcrypt], [AS_HELP_STRING([--with-libgcrypt], [Use libgcrypt for SHA256 LD_PRELOAD hardening or ycmd])], [], [with_libgcrypt=no])
+AC_ARG_WITH([openssl], [AS_HELP_STRING([--with-openssl], [Use OpenSSL for SHA256 LD_PRELOAD hardening or ycmd])], [], [with_openssl=no])
+
+crypto_backend=none
+crypto_libs=
+if test "x$with_nettle" = "xyes"; then
+	AC_CHECK_LIB([nettle], [nettle_sha256_init], [
+	AC_DEFINE([USE_NETTLE], [1], [Use nettle for SHA256])
+		crypto_backend=nettle
+		crypto_libs=-lnettle
+	], [AC_MSG_ERROR([nettle requested but not found])])
+elif test "x$with_libgcrypt" = "xyes"; then
+	AC_CHECK_LIB([gcrypt], [gcry_md_open], [
+		AC_DEFINE([USE_LIBGCRYPT], [1], [Use libgcrypt for SHA256])
+		crypto_backend=libgcrypt
+		crypto_libs=-lgcrypt
+	], [AC_MSG_ERROR([libgcrypt requested but not found])])
+elif test "x$with_openssl" = "xyes"; then
+	AC_CHECK_LIB([crypto], [SHA256_Init], [
+		AC_DEFINE([USE_OPENSSL], [1], [Use OpenSSL for SHA256])
+		crypto_backend=openssl
+		crypto_libs=-lcrypto
+	], [AC_MSG_ERROR([OpenSSL requested but not found])])
+elif test "x$SHA256_PROG" != "x"; then
+	AC_MSG_NOTICE([No crypto library selected, falling back to $SHA256_PROG])
+	AC_DEFINE([USE_SHA256SUM], [1], [Use SHA256 utility for SHA256])
+	crypto_backend=sha256sum
+else
+	AC_MSG_ERROR([No SHA256 implementation available (nettle, libgcrypt, OpenSSL, or SHA256 utility required)])
+fi
+AC_SUBST([crypto_libs])
+
+# Define library paths (configurable by packagers)
+AC_ARG_WITH([scudo-lib],
+	[AS_HELP_STRING([--with-scudo-lib=PATH], [Path to libscudo.so (default: /usr/lib/libscudo.so, none to disable)])],
+	[scudo_lib=$withval], [scudo_lib=/usr/lib/libscudo.so])
+AC_ARG_WITH([sandbox-lib],
+	[AS_HELP_STRING([--with-sandbox-lib=PATH], [Path to libsandbox.so (default: /usr/lib/libsandbox.so, none to disable)])],
+	[sandbox_lib=$withval], [sandbox_lib=/usr/lib/libsandbox.so])
+
+# Compute SHA256 fingerprints
+AC_MSG_CHECKING([for libscudo.so fingerprint])
+if test "x$scudo_lib" != "xnone" && test -f "$scudo_lib"; then
+	SCUDO_FINGERPRINT=$(printf "$SHA256_CMD" "$scudo_lib" | sh 2>/dev/null || echo "none")
+	if test "x$SCUDO_FINGERPRINT" = "x"; then
+		AC_MSG_WARN([Failed to compute fingerprint for $scudo_lib])
+		SCUDO_FINGERPRINT="none"
+		scudo_lib="none"
+	else
+		AC_MSG_RESULT([$SCUDO_FINGERPRINT])
+	fi
+else
+	AC_MSG_WARN([libscudo.so disabled or not found, disabling fingerprint check])
+	SCUDO_FINGERPRINT="none"
+	scudo_lib="none"
+fi
+AC_DEFINE_UNQUOTED([SCUDO_LIB_PATH], ["$scudo_lib"], [Path to libscudo.so])
+AC_DEFINE_UNQUOTED([SCUDO_FINGERPRINT], ["$SCUDO_FINGERPRINT"], [SHA256 fingerprint of libscudo.so])
+
+AC_MSG_CHECKING([for libsandbox.so fingerprint])
+if test "x$sandbox_lib" != "xnone" && test -f "$sandbox_lib"; then
+	SANDBOX_FINGERPRINT=$(printf "$SHA256_CMD" "$sandbox_lib" | sh 2>/dev/null || echo "none")
+	if test "x$SANDBOX_FINGERPRINT" = "x"; then
+		AC_MSG_WARN([Failed to compute fingerprint for $sandbox_lib])
+		SANDBOX_FINGERPRINT="none"
+		sandbox_lib="none"
+	else
+		AC_MSG_RESULT([$SANDBOX_FINGERPRINT])
+	fi
+else
+	AC_MSG_WARN([libsandbox.so disabled or not found, disabling fingerprint check])
+	SANDBOX_FINGERPRINT="none"
+	sandbox_lib="none"
+fi
+AC_DEFINE_UNQUOTED([SANDBOX_LIB_PATH], ["$sandbox_lib"], [Path to libsandbox.so])
+AC_DEFINE_UNQUOTED([SANDBOX_FINGERPRINT], ["$SANDBOX_FINGERPRINT"], [SHA256 fingerprint of libsandbox.so])
+
+
 AC_ARG_VAR([BEAR_PATH],[Define the full path to bear for the Ninja build system support in ycmd (optional)])
 AC_ARG_VAR([CLANGD_PATH],[Define the full path to clangd for C / C++ / Objective-C / Objective C++ language support in ycmd >=41 (optional, experimental)])
 AC_ARG_VAR([GOCODE_PATH],[Define the full path to your gocode executable for Go language support in ycmd <42 (optional)])
@@ -432,10 +548,7 @@ AC_ARG_VAR([YCMG_PATH],[Define the full path to YCM-Generator for C / C++ / Obje
 AC_ARG_VAR([YCMG_PYTHON_PATH],[Define the full path to your YCM-Generator python executable for ycmd (optional)])
 
 AC_ARG_WITH(bear,AS_HELP_STRING([--with-bear], [Enable Bear support for ycmd.  Required for C / C++ / Objective-C / Objective C++ projects.  (optional)]))
-AC_ARG_WITH(libgcrypt,AS_HELP_STRING([--with-libgcrypt], [Enable Libgcrypt support for ycmd]))
-AC_ARG_WITH(nettle,AS_HELP_STRING([--with-nettle], [Enable Nettle support for ycmd]))
 AC_ARG_WITH(ninja,AS_HELP_STRING([--with-ninja], [Enable Ninja support for ycmd.  Required for projects that rely on .ninja files.  (optional)]))
-AC_ARG_WITH(openssl,AS_HELP_STRING([--with-openssl], [Enable OpenSSL support for ycmd]))
 AC_ARG_WITH(safeclib,AS_HELP_STRING([--with-safeclib], [Enable safeclib support for ycmd]))
 
 AC_CHECK_HEADERS(pthread.h)

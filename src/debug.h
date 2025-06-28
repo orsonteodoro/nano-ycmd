@@ -24,13 +24,13 @@
 
 
 #ifdef DEBUG
-#define debug_log(format, ...) \
+#define debug_log2(format, ...) \
 	do { \
 		fprintf(stderr, "%s:  " format "\n", __func__, ##__VA_ARGS__); \
 		fflush(stderr); \
 	} while (0)
 
-#define debug_log2(format, ...) \
+#define debug_log(format, ...) \
 	do { \
             FILE *log_file = fopen("/tmp/ycmd_debug.log", "a"); \
             if (log_file) { \

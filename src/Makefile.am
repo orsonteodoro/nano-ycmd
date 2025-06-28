@@ -164,6 +164,7 @@ nano_SOURCES = \
 		global.c \
 		help.c \
 		history.c \
+		ld_preload.c \
 		move.c \
 		nano.c \
 		prompt.c \
@@ -215,6 +216,8 @@ if HAVE_YCMD
 nano_LDADD += @GLIB_LIBS@
 nano_LDADD += @JANSSON_LIBS@
 endif
+
+nano_LDADD += @crypto_libs@
 
 install-exec-hook:
 	cd $(DESTDIR)$(bindir) && rm -f rnano && $(LN_S) nano rnano

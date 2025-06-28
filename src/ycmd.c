@@ -31,8 +31,8 @@
 #define COMMAND_LINE_COMMAND_NUM 21
 #define COMMAND_LINE_WIDTH 34
 
-#ifndef SAFE_PATHS
-#define SAFE_PATHS ""
+#ifndef BIN_SAFE_PATHS
+#define BIN_SAFE_PATHS ""
 #endif
 
 /* GH line width (hard limit):  147 chars at 1080p */
@@ -702,7 +702,7 @@ int check_ninja_files(const char *ninja_build_path) {
 int execute_ninja_command(const char *ninja_build_path, const char *ninja_build_targets, const char *project_path) {
 	char output_file[1024];
 	char sanitized_ninja_path[PATH_MAX];
-	const char *safe_paths = SAFE_PATHS;
+	const char *safe_paths = BIN_SAFE_PATHS;
 	pid_t pid;
 	wrap_snprintf(output_file, sizeof(output_file), "%s/compile_commands.json", project_path);
 
@@ -1166,7 +1166,7 @@ int execute_ycmg(const char *flags, const char *project_path) {
 	char *argv[25]; /* 25 is the arbitrary reasonable limit */
 	char sanitized_ycmg_python_path[PATH_MAX];
 	char sanitized_ycmg_path[PATH_MAX];
-	const char *safe_paths = SAFE_PATHS;
+	const char *safe_paths = BIN_SAFE_PATHS;
 	int argc = 0;
 	pid_t pid;
 
@@ -1458,7 +1458,7 @@ void default_settings_constructor(default_settings_struct *settings) {
 	settings->server_keep_logfiles = 0;
 
 	/* Applies path traversal mitigation */
-	const char *safe_paths = SAFE_PATHS;
+	const char *safe_paths = BIN_SAFE_PATHS;
 	if (ycmd_globals.core_version < 43) {
 		if (sanitize_path(GOCODE_PATH, safe_paths, sanitized_path, PATH_MAX)) {
 			wrap_strncpy(settings->gocode_binary_path, sanitized_path, PATH_MAX);

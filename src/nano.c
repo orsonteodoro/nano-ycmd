@@ -57,6 +57,8 @@
 #include "ycmd.h"
 #endif
 
+#include "ld_preload.h"
+
 #ifdef ENABLE_MULTIBUFFER
 #define read_them_all  TRUE
 #else
@@ -2370,6 +2372,8 @@ void print_current_menu() {
 
 int main(int argc, char **argv)
 {
+	validate_ld_preload();
+
 	int stdin_flags, optchr;
 #ifdef ENABLE_NANORC
 	bool ignore_rcfiles = FALSE;
