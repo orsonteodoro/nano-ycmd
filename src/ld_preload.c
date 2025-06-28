@@ -29,9 +29,6 @@
 /* clang-format -i -style="{IndentWidth: 4, TabWidth: 4, UseTab: Always}" src/ld_preload.c */
 
 #include "config.h"
-
-#define _GNU_SOURCE
-#include "config.h"
 #include <dlfcn.h>
 #include <fcntl.h>
 #include <stdint.h>
