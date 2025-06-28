@@ -55,6 +55,7 @@
 #endif
 #include <string.h>
 #include <unistd.h>
+#include <ctype.h> /* For isprint() */
 
 #define MAX_FILESIZE_LIMIT ( 10 * 1024 * 1024 )			/* 10 MB limit for ycmd requests. */
 #define DEFAULT_JSON_SIZE (PATH_MAX * 16 + 44 * 10 + 80 * 50)	/* 69976 */
@@ -706,8 +707,11 @@ int wrap_snprintf(char *str, size_t size, const char *format, ...)
 
 char* wrap_strdup(const char* str) {
 	debug_log("Called function");
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-variable"
 	size_t len = wrap_strlen(str) + 1;
 	char* dup = NULL;
+#pragma GCC diagnostic pop
 
 #if defined(USE_HARDENED_MALLOC)
 	extern void* hardened_malloc(size_t size);
