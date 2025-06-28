@@ -125,8 +125,7 @@ static void safe_log_string(const char *prefix, const char *str) {
 }
 
 /* Log a pointer as hex with library info */
-static void safe_log_pointer(const char *prefix, const void *ptr,
-							 const char *func_name) {
+static void safe_log_pointer(const char *prefix, const void *ptr, const char *func_name) {
 	if (!prefix || !ptr || !func_name) {
 		safe_log("safe_log_pointer: null prefix, ptr, or func_name\n");
 		return;
@@ -544,9 +543,11 @@ static int is_safe_path(const char *path) {
 static const struct {
 	const char *path;
 	const char *fingerprint;
-} allowed_libs[] = {{SCUDO_LIB_PATH, SCUDO_FINGERPRINT},
-					{SANDBOX_LIB_PATH, SANDBOX_FINGERPRINT},
-					{NULL, NULL}};
+} allowed_libs[] = {
+	{SCUDO_LIB_PATH, SCUDO_FINGERPRINT},
+	{SANDBOX_LIB_PATH, SANDBOX_FINGERPRINT},
+	{NULL, NULL}
+};
 
 static const char *safe_getenv(const char *name) {
 	if (!name) {
@@ -584,10 +585,17 @@ static const char *safe_getenv(const char *name) {
 
 /* Check for function overrides */
 static void check_function_integrity(void) {
-	const char *functions[] = {"memcpy",  "memset", "strlen", "strchr",
-							   "strncmp", "open",	"close",  NULL};
-	const char *allowed_libs_for_io[] = {SCUDO_LIB_PATH, SANDBOX_LIB_PATH,
-										 NULL};
+	const char *functions[] = {
+		"memcpy",
+		"memset",
+		"strlen",
+		"strchr",
+		"strncmp",
+		"open",
+		"close",
+		NULL
+	};
+	const char *allowed_libs_for_io[] = {SCUDO_LIB_PATH, SANDBOX_LIB_PATH, NULL};
 	safe_log("Starting check_function_integrity\n");
 	for (int i = 0; functions[i]; i++) {
 		void *func_ptr = dlsym(RTLD_DEFAULT, functions[i]);
