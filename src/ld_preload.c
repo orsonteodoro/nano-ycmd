@@ -70,6 +70,7 @@ extern char **environ;
 static void safe_memset(void *dst, int c, size_t n);
 
 /* Safe logging using syscall */
+#ifdef DEBUG
 static void safe_log(const char *msg) {
 	if (!msg) {
 		safe_log("safe_log: null msg\n");
@@ -94,7 +95,11 @@ static void safe_log(const char *msg) {
 		_exit(1);
 	}
 }
+#else
+static void safe_log(const char *msg) {}
+#endif
 
+#ifdef DEBUG
 static void safe_log_string(const char *prefix, const char *str) {
 	if (!prefix || !str) {
 		safe_log("safe_log_string: null prefix or str\n");
@@ -123,8 +128,12 @@ static void safe_log_string(const char *prefix, const char *str) {
 		_exit(1);
 	}
 }
+#else
+static void safe_log_string(const char *prefix, const char *str) {}
+#endif
 
 /* Log a pointer as hex with library info */
+#ifdef DEBUG
 static void safe_log_pointer(const char *prefix, const void *ptr, const char *func_name) {
 	if (!prefix || !ptr || !func_name) {
 		safe_log("safe_log_pointer: null prefix, ptr, or func_name\n");
@@ -177,6 +186,9 @@ static void safe_log_pointer(const char *prefix, const void *ptr, const char *fu
 		_exit(1);
 	}
 }
+#else
+static void safe_log_pointer(const char *prefix, const void *ptr, const char *func_name) {}
+#endif
 
 static void safe_memset(void *dst, int c, size_t n) {
 	if (!dst) {
