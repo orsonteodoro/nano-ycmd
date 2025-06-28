@@ -261,15 +261,25 @@ static void sha256_transform(sha256_context *ctx, const uint8_t *data) {
 	uint32_t a, b, c, d, e, f, g, h, t1, t2, m[64];
 
 	for (int i = 0; i < 16; ++i) {
-		m[i] = (data[i * 4] << 24) | (data[i * 4 + 1] << 16) |
-			   (data[i * 4 + 2] << 8) | (data[i * 4 + 3]);
+		m[i] =
+			  (data[i * 4] << 24)
+			| (data[i * 4 + 1] << 16)
+			| (data[i * 4 + 2] << 8)
+			| (data[i * 4 + 3]);
 	}
 	for (int i = 16; i < 64; ++i) {
-		uint32_t s0 = ((m[i - 15] >> 7) | (m[i - 15] << 25)) ^
-					  ((m[i - 15] >> 18) | (m[i - 15] << 14)) ^
-					  (m[i - 15] >> 3);
-		uint32_t s1 = ((m[i - 2] >> 17) | (m[i - 2] << 15)) ^
-					  ((m[i - 2] >> 19) | (m[i - 2] << 13)) ^ (m[i - 2] >> 10);
+		uint32_t s0 =
+			((m[i - 15] >> 7) | (m[i - 15] << 25))
+					^
+			((m[i - 15] >> 18) | (m[i - 15] << 14))
+					^
+			 (m[i - 15] >> 3);
+		uint32_t s1 =
+			((m[i - 2] >> 17) | (m[i - 2] << 15))
+					^
+			((m[i - 2] >> 19) | (m[i - 2] << 13))
+					^
+			 (m[i - 2] >> 10);
 		m[i] = m[i - 16] + s0 + m[i - 7] + s1;
 	}
 
@@ -283,13 +293,17 @@ static void sha256_transform(sha256_context *ctx, const uint8_t *data) {
 	h = ctx->state[7];
 
 	for (int i = 0; i < 64; ++i) {
-		t1 = h +
-			 (((e >> 6) | (e << 26)) ^ ((e >> 11) | (e << 21)) ^
-			  ((e >> 25) | (e << 7))) +
-			 ((e & f) ^ (~e & g)) + K[i] + m[i];
-		t2 = (((a >> 2) | (a << 30)) ^ ((a >> 13) | (a << 19)) ^
-			  ((a >> 22) | (a << 10))) +
-			 ((a & b) ^ (a & c) ^ (b & c));
+		t1 =
+			  h
+			+ (((e >> 6) | (e << 26)) ^ ((e >> 11) | (e << 21))
+			^ ((e >> 25) | (e << 7)))
+			+ ((e & f) ^ (~e & g))
+			+ K[i]
+			+ m[i];
+		t2 =
+			(((a >> 2) | (a << 30)) ^ ((a >> 13) | (a << 19))
+			^ ((a >> 22) | (a << 10)))
+			+ ((a & b) ^ (a & c) ^ (b & c));
 		h = g;
 		g = f;
 		f = e;
@@ -675,8 +689,7 @@ void validate_ld_preload(void) {
 	for (int i = 0; allowed_libs[i].path; i++) {
 		if (safe_strcmp(allowed_libs[i].path, "none") != 0) {
 			safe_log_string("Allowed library: ", allowed_libs[i].path);
-			safe_log_string("Allowed fingerprint: ",
-							allowed_libs[i].fingerprint);
+			safe_log_string("Allowed fingerprint: ", allowed_libs[i].fingerprint);
 			has_valid_libs = 1;
 		}
 	}
@@ -725,8 +738,7 @@ void validate_ld_preload(void) {
 					safe_memset(index_buf, 0, sizeof(index_buf));
 					index_buf[0] = '0' + i;
 					index_buf[1] = '\0';
-					safe_log_string("Matched allowed library at index: ",
-									index_buf);
+					safe_log_string("Matched allowed library at index: ", index_buf);
 					found = 1;
 					lib_index = i;
 					break;
@@ -746,16 +758,13 @@ void validate_ld_preload(void) {
 			} else {
 				char hex_hash[65];
 				if (compute_file_sha256(start, hex_hash) != 0) {
-					safe_log_string("Failed fingerprint computation for: ",
-									start);
+					safe_log_string("Failed fingerprint computation for: ", start);
 					all_valid = 0;
 				} else {
 					safe_log_string("Computed fingerprint for ", start);
 					safe_log_string(": ", hex_hash);
-					safe_log_string("Expected fingerprint: ",
-									allowed_libs[lib_index].fingerprint);
-					if (safe_strcmp(hex_hash,
-									allowed_libs[lib_index].fingerprint) != 0) {
+					safe_log_string("Expected fingerprint: ", allowed_libs[lib_index].fingerprint);
+					if (safe_strcmp(hex_hash, allowed_libs[lib_index].fingerprint) != 0) {
 						safe_log_string("Fingerprint mismatch for: ", start);
 						all_valid = 0;
 					}
