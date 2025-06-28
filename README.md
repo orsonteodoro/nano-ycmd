@@ -79,7 +79,7 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
 | Ncurses                                                           |                | Required             | Run-time               | For nano's UI toolkit                                                                                                                 |
 | Nettle [1]                                                        |                | Required             | Run-time               | For message authentication from/to ycmd                                                                                               |
 | OpenSSL [1]                                                       | >= 3           | Required             | Run-time               | For message authentication from/to ycmd                                                                                               |
-| [Scudo](https://llvm.org/docs/ScudoHardenedAllocator.html) [4]    |                | Optional             | Run-time               | For security-critical memory allocation                                                                                               |
+| [Scudo](https://llvm.org/docs/ScudoHardenedAllocator.html) [4][7] |                | Optional             | Run-time               | For security-critical memory allocation                                                                                               |
 | Python                                                            | 3.6.x - 3.13.x | Required             | Run-time               | For Python support and running ycmd                                                                                                   |
 | [Safe C Library](https://github.com/rurban/safeclib) [2]          |                | Optional             | Run-time               | For security-critical string/memory operations                                                                                        |
 | [YCM-Generator](https://github.com/rdnetto/YCM-Generator)         |                | Optional             | Run-time               | For C, C++, Objective-C, or Objective-C++ support to generate a .ycm_extra_conf.py.  It requires YCM-Generator patched for Python 3.  |
@@ -90,6 +90,7 @@ at https://github.com/orsonteodoro/docker-gentoo-nano-ycmd
 * [4] It requires the `LD_PRELOAD=$(clang --print-file-name=libclang_rt.scudo_standalone-<arch>.so)` environment variable to use the standalone hardened allocator.  arch is either `i386`, `x86_64`, `arm`, `armhf`, `aarch64`, `mips`, `mipsel`, `mips64`, `mips64el`, `powerpc64`, `powerpc64le`, `hexagon`, `loongarch64`, `riscv64`.  It requires the kernel built with ASLR.  Only use 64-bit arches for security-critical to decrease chances of ASLR bypass.
 * [5] Any compatible linker
 * [6] Any compatible compiler
+* [7] Must add `--with-scudo-lib=<PATH>` and `--with-lib-safe-paths=<PATH(S)>` to configure.
 
 If you are using nano-ycmd for passwords or untrusted data (e.g. opening files
 from the web or without file extension), it is recommended to install hardened
@@ -524,11 +525,18 @@ restricted to allow only Scudo and libsandbox with extra path prefix checks to
 prevent path traversal attack.  Provide only the absolute paths to the bin
 folders or library.  You can use realpath to resolve relative paths.
 
+The directories for `YCMD_PATH`, `YCMD_PYTHON_PATH`, `YCMG_PYTHON_PATH`, `GOCODE_PATH`,
+`GODEF_PATH`, `RUST_SRC_PATH`, `RACERD_PATH`, `YCMG_PATH`, `COMPDB_PATH`, `NINJA_PATH`
+should be added to `--with-bin-safe-paths`.
+
 Example:
 
 --with-bin-safe-paths="/usr/lib/python3.11/site-packages/ycmd/48/third_party/clangd/output/bin;/usr/lib/python3.11/site-packages/ycmd/48/third_party/go/bin;/usr/lib/python3.11/site-packages/ycmd/48/third_party/gocode;/usr/lib/python3.11/site-packages/ycmd/48/third_party/godef;/usr/lib/python3.11/site-packages/ycmd/48/third_party/omnisharp-roslyn;/usr/lib/python3.11/site-packages/ycmd/48/third_party/omnisharp-roslyn/bin;/usr/lib/python3.11/site-packages/ycmd/48/third_party/racerd;/usr/lib/python3.11/site-packages/ycmd/48/third_party/rls/bin;/usr/lib/python3.11/site-packages/ycmd/48/third_party/rust-analyzer;/usr/lib/python3.11/site-packages/ycmd/48/third_party/tsserver/node_modules/typescript/bin"
 
 --with-lib-safe-paths="/usr/lib64;/usr/lib/clang/18/lib/linux"
+
+If `--with-scudo-lib=` is used, if Scudo is recompiled or updated, nano-ycmd
+must be recompiled to update the fingerprint associated with Scudo.
 
 #### Special thanks goes to...
 
