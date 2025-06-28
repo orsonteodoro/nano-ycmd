@@ -474,14 +474,14 @@ else
 	AC_MSG_RESULT([no])
 fi
 
-# fallback - for compatibility (maximize availability but decrease security)
-# fatal - for security-critical (decreased availability, immediately aborts on undefined behavior, full protection)
-# return_error - for balanced security (increased availability, but some protection)
+# fallback - for libc compatibility, nano development, or non-critical environments (maximize availability but decrease security)
+# fatal - for security-critical environments (decreased availability, immediately aborts on undefined behavior, full protection)
+# return_error - for balanced security and production (increased availability, but some protection)
 AC_ARG_WITH([safeclib-error],
 	[AS_HELP_STRING([--with-safeclib-error=TYPE],
-		[Set Safe C error handling: fallback, fatal, return_error (default: fallback)])],
+		[Set Safe C error handling: fallback, fatal, return_error (default: return_error)])],
 	[safeclib_error=$withval],
-	[safeclib_error=fallback])
+	[safeclib_error=return_error])
 
 case "$safeclib_error" in
 	fallback)
