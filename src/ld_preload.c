@@ -700,8 +700,7 @@ void validate_ld_preload(void) {
 
 	int all_valid = 1;
 	char parse_buf[LOG_BUFFER_SIZE];
-	safe_strcpy(parse_buf, ld_preload,
-				LOG_BUFFER_SIZE); /* Separate buffer for parsing */
+	safe_strcpy(parse_buf, ld_preload, LOG_BUFFER_SIZE); /* Separate buffer for parsing */
 	char *start = parse_buf;
 	const char *end;
 	while (*start) {
