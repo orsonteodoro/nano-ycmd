@@ -124,7 +124,9 @@ char *wrap_strncpy(char *dest, const char *src, size_t n) {
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("src too long (src_len=%zu, smax=%zu), fatal error", src_len, smax);
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -143,7 +145,9 @@ char *wrap_strncpy(char *dest, const char *src, size_t n) {
 			debug_log("memcpy_s failed (err=%d, dest=%.32s, src=%.32s, n=%zu), fatal error",
 				err, dest ? dest : "(null)", src ? src : "(null)", n);
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -315,7 +319,9 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("src too long (src_len=%zu, max_src_len=%zu), fatal error", src_len, max_src_len);
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -333,7 +339,9 @@ char *wrap_strncat(char *dest, const char *src, size_t n) {
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("strncat_s failed (res=%d, n=%zu, src_len=%zu), fatal error", res, n, src_len);
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -370,7 +378,9 @@ int wrap_strncmp(const char *s1, const char *s2, size_t n) {
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("Invalid input (s1=%p, s2=%p, n=%zu), fatal error", (void *)s1, (void *)s2, n);
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -391,7 +401,9 @@ int wrap_strncmp(const char *s1, const char *s2, size_t n) {
 			debug_log("strcmp_s failed (err=%d, s1=%.32s, s2=%.32s, n=%zu), fatal error",
 				err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -556,7 +568,9 @@ char *wrap_strstr(const char *haystack, const char *needle) {
 		debug_log("Empty input in wrap_strstr (haystack_len=%zu, needle_len=%zu)", haystack_len, needle_len);
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("Aborting in wrap_strstr due to fatal mode (empty input)");
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			return NULL;
@@ -568,7 +582,9 @@ char *wrap_strstr(const char *haystack, const char *needle) {
 		debug_log("Input too long in wrap_strstr (haystack_len=%zu, needle_len=%zu, smax=%zu)", haystack_len, needle_len, smax);
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("Aborting in wrap_strstr due to fatal mode (length exceeded)");
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			return NULL;
@@ -581,7 +597,9 @@ char *wrap_strstr(const char *haystack, const char *needle) {
 			haystack_len, haystack_len_glibc, needle_len, needle_len_glibc, haystack_valid, needle_valid);
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("Aborting in wrap_strstr due to fatal mode (validation failed)");
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			return NULL;
@@ -605,7 +623,9 @@ char *wrap_strstr(const char *haystack, const char *needle) {
 		}
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("Aborting in wrap_strstr due to fatal mode (strstr_s error)");
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			return NULL;
@@ -770,7 +790,9 @@ int wrap_strncasecmp(const char *s1, const char *s2, size_t n) {
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("Invalid input (s1=%p, s2=%p, n=%zu), fatal error", (void *)s1, (void *)s2, n);
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -793,7 +815,9 @@ int wrap_strncasecmp(const char *s1, const char *s2, size_t n) {
 			debug_log("strcasecmp_s failed (err=%d, s1=%.32s, s2=%.32s, n=%zu), fatal error",
 				err, s1 ? s1 : "(null)", s2 ? s2 : "(null)", effective_n);
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -831,7 +855,9 @@ int wrap_strcmp(const char *s1, const char *s2) {
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("Empty string (s1_len=%zu, s2_len=%zu), fatal error", s1_len, s2_len);
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -846,7 +872,9 @@ int wrap_strcmp(const char *s1, const char *s2) {
 		#if SAFECLIB_ERROR_HANDLING == 1
 			debug_log("Input too long (s1_len=%zu, s2_len=%zu, smax=%zu), fatal error", s1_len, s2_len, smax);
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
@@ -865,7 +893,9 @@ int wrap_strcmp(const char *s1, const char *s2) {
 			debug_log("strcmp_s failed (err=%d, s1=%.32s, s2=%.32s), fatal error",
 				err, s1 ? s1 : "(null)", s2 ? s2 : "(null)");
 			/* Fatal error */
+#ifdef DEBUG
 			fflush(stderr);
+#endif
 			abort();
 		#elif SAFECLIB_ERROR_HANDLING == 2
 			/* Return error */
